@@ -1,0 +1,444 @@
+"use client"
+
+import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
+import type { User } from "@supabase/supabase-js"
+import { supabase } from "@/lib/supabase"
+
+type Match = {
+  id: string | number
+  league_id: string | number
+  period_id?: string | number | null
+  course_name?: string | null
+  match_date?: string | null
+  match_time?: string | null
+  created_by?: string | null
+  status?: string | null
+  leagues?: {
+    id: string | number
+    name: string
+  } | null
+}
+
+type MatchPlayerWithProfile = {
+  id: string | number
+  match_id: string | number
+  user_id: string
+  profiles?: {
+    id: string
+    first_name?: string | null
+    last_name?: string | null
+    full_name?: string | null
+  } | null
+}
+
+type Score = {
+  id: string | number
+  match_id: string | number
+  user_id: string
+  score: number
+  holes: number
+  created_at?: string
+}
+
+interface MatchPageProps {
+  params: { id: string }
+}
+
+export default function MatchPage({ params }: MatchPageProps) {
+  const router = useRouter()
+  const matchId = params.id
+
+  const [user, setUser] = useState<User | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+
+  const [match, setMatch] = useState<Match | null>(null)
+  const [players, setPlayers] = useState<MatchPlayerWithProfile[]>([])
+  const [scores, setScores] = useState<Score[]>([])
+
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const [showScoreForm, setShowScoreForm] = useState(false)
+  const [scoreValue, setScoreValue] = useState<string>("")
+  const [holes, setHoles] = useState<9 | 18>(18)
+  const [submittingScore, setSubmittingScore] = useState(false)
+  const [scoreError, setScoreError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const init = async () => {
+      const { data } = await supabase.auth.getSession()
+      const session = data.session
+
+      if (!session) {
+        router.push("/login")
+        return
+      }
+
+      setUser(session.user)
+      setAuthLoading(false)
+
+      try {
+        setLoading(true)
+        setError(null)
+
+        const [matchRes, playersRes, scoresRes] = await Promise.all([
+          supabase
+            .from("matches")
+            .select("*, leagues(*)")
+            .eq("id", matchId)
+            .single(),
+          supabase
+            .from("match_players")
+            .select("*, profiles(*)")
+            .eq("match_id", matchId),
+          supabase.from("scores").select("*").eq("match_id", matchId),
+        ])
+
+        if (matchRes.error) throw matchRes.error
+        if (!matchRes.data) throw new Error("Match not found.")
+
+        setMatch(matchRes.data as Match)
+
+        if (playersRes.error) throw playersRes.error
+        setPlayers((playersRes.data || []) as MatchPlayerWithProfile[])
+
+        if (scoresRes.error) throw scoresRes.error
+        setScores((scoresRes.data || []) as Score[])
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to load match details.",
+        )
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    init()
+  }, [matchId, router])
+
+  const memberDisplayName = (player: MatchPlayerWithProfile) => {
+    const profile = player.profiles
+    const nameFromProfile =
+      profile?.full_name ||
+      [profile?.first_name, profile?.last_name].filter(Boolean).join(" ")
+    return nameFromProfile || "Player"
+  }
+
+  const scoresByUserId = useMemo(() => {
+    const map = new Map<string, Score>()
+    for (const s of scores) {
+      map.set(s.user_id, s)
+    }
+    return map
+  }, [scores])
+
+  const currentUserIsPlayer =
+    !!user && players.some((p) => p.user_id === user.id)
+
+  const currentUserScore = user ? scoresByUserId.get(user.id) : undefined
+
+  const formatMatchDate = (iso?: string | null) => {
+    if (!iso) return "Date TBA"
+    const d = new Date(iso)
+    return d.toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    })
+  }
+
+  const formatMatchTime = (value?: string | null) => {
+    if (!value) return null
+    try {
+      const [hStr, mStr] = value.split(":")
+      const d = new Date()
+      d.setHours(Number(hStr), Number(mStr), 0, 0)
+      return d.toLocaleTimeString(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    } catch {
+      return value
+    }
+  }
+
+  const handleSubmitScore = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user || !match) return
+
+    setScoreError(null)
+
+    const trimmed = scoreValue.trim()
+    const numericScore = Number(trimmed)
+    if (!trimmed || Number.isNaN(numericScore) || numericScore <= 0) {
+      setScoreError("Enter a valid score.")
+      return
+    }
+
+    setSubmittingScore(true)
+    try {
+      const scorePromise = supabase.from("scores").insert({
+        match_id: match.id,
+        user_id: user.id,
+        score: numericScore,
+        holes,
+      })
+
+      await Promise.race([
+        scorePromise.then(({ error }) => {
+          if (error) throw error
+        }),
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error("Score submission timed out.")), 10000),
+        ),
+      ])
+
+      const [scoresRes] = await Promise.all([
+        supabase.from("scores").select("*").eq("match_id", match.id),
+      ])
+
+      if (scoresRes.error) {
+        throw scoresRes.error
+      }
+
+      setScores((scoresRes.data || []) as Score[])
+      setShowScoreForm(false)
+      setScoreValue("")
+    } catch (err) {
+      setScoreError(
+        err instanceof Error ? err.message : "Failed to submit score. Please try again.",
+      )
+    } finally {
+      setSubmittingScore(false)
+    }
+  }
+
+  if (authLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-cream">
+        <p className="text-primary/70">Checking your session…</p>
+      </main>
+    )
+  }
+
+  if (!user) {
+    return null
+  }
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-cream">
+        <p className="text-primary/70">Loading match…</p>
+      </main>
+    )
+  }
+
+  if (error || !match) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-cream px-4">
+        <div className="w-full max-w-md rounded-xl border border-red-200 bg-white p-6 text-center shadow-sm">
+          <p className="text-sm text-red-700">
+            {error || "We couldn&apos;t find this match."}
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard")}
+            className="mt-4 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream"
+          >
+            Back to dashboard
+          </button>
+        </div>
+      </main>
+    )
+  }
+
+  const timeLabel = formatMatchTime(match.match_time || null)
+
+  return (
+    <main className="min-h-screen bg-cream px-4 py-6">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary/60">
+              {match.leagues?.name || "League match"}
+            </p>
+            <h1 className="mt-1 text-2xl font-bold text-primary">
+              {match.course_name || "Course TBA"}
+            </h1>
+            <p className="mt-1 text-sm text-primary/70">
+              {formatMatchDate(match.match_date || null)}
+              {timeLabel ? ` · ${timeLabel}` : ""}
+            </p>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+            <span
+              className={`h-2 w-2 rounded-full ${
+                match.status === "completed"
+                  ? "bg-emerald-500"
+                  : match.status === "cancelled"
+                  ? "bg-red-500"
+                  : "bg-amber-400"
+              }`}
+            />
+            <span className="uppercase tracking-[0.2em]">
+              {(match.status || "scheduled").toString()}
+            </span>
+          </div>
+        </header>
+
+        <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold text-primary">Players</h2>
+          {players.length === 0 ? (
+            <p className="text-sm text-primary/70">No players in this match.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-primary/10 text-xs uppercase tracking-wide text-primary/60">
+                    <th className="py-2 pr-4">Player</th>
+                    <th className="py-2 pr-4">Score</th>
+                    <th className="py-2 pr-4">Holes</th>
+                    <th className="py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {players.map((player) => {
+                    const playerScore = scoresByUserId.get(player.user_id)
+                    const statusLabel = playerScore ? "Submitted" : "Pending"
+                    return (
+                      <tr
+                        key={player.id}
+                        className="border-b border-primary/5 last:border-0"
+                      >
+                        <td className="py-2 pr-4 text-primary">
+                          {memberDisplayName(player)}
+                        </td>
+                        <td className="py-2 pr-4 text-primary">
+                          {playerScore ? playerScore.score : "–"}
+                        </td>
+                        <td className="py-2 pr-4 text-primary">
+                          {playerScore ? playerScore.holes : "–"}
+                        </td>
+                        <td className="py-2 text-primary">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              playerScore
+                                ? "bg-emerald-50 text-emerald-700"
+                                : "bg-amber-50 text-amber-700"
+                            }`}
+                          >
+                            {statusLabel}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        {currentUserIsPlayer && !currentUserScore && (
+          <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-primary">Submit your score</h2>
+              {!showScoreForm && (
+                <button
+                  type="button"
+                  onClick={() => setShowScoreForm(true)}
+                  className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-cream hover:bg-primary/90"
+                >
+                  Submit Score
+                </button>
+              )}
+            </div>
+
+            {showScoreForm && (
+              <form onSubmit={handleSubmitScore} className="space-y-4">
+                {scoreError && (
+                  <div
+                    role="alert"
+                    className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700"
+                  >
+                    {scoreError}
+                  </div>
+                )}
+
+                <div>
+                  <label
+                    htmlFor="score"
+                    className="mb-1 block text-sm font-medium text-primary"
+                  >
+                    Score
+                  </label>
+                  <input
+                    id="score"
+                    type="number"
+                    min={1}
+                    value={scoreValue}
+                    onChange={(e) => setScoreValue(e.target.value)}
+                    className="w-full rounded-lg border border-primary/30 bg-cream px-4 py-2.5 text-center text-2xl font-semibold text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    placeholder="72"
+                    disabled={submittingScore}
+                  />
+                </div>
+
+                <div>
+                  <p className="mb-1 text-sm font-medium text-primary">Holes</p>
+                  <div className="inline-flex rounded-full bg-cream p-1">
+                    {[9, 18].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setHoles(value as 9 | 18)}
+                        className={`min-w-[3rem] rounded-full px-3 py-1.5 text-xs font-medium ${
+                          holes === value
+                            ? "bg-primary text-cream"
+                            : "text-primary hover:bg-primary/10"
+                        }`}
+                        disabled={submittingScore}
+                      >
+                        {value}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={submittingScore}
+                    className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {submittingScore ? "Submitting…" : "Submit Score"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!submittingScore) {
+                        setShowScoreForm(false)
+                        setScoreError(null)
+                      }
+                    }}
+                    className="rounded-lg border border-primary/20 bg-white px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {!showScoreForm && (
+              <p className="mt-1 text-xs text-primary/60">
+                You&apos;re in this match and haven&apos;t submitted a score yet.
+              </p>
+            )}
+          </section>
+        )}
+      </div>
+    </main>
+  )
+}
+
