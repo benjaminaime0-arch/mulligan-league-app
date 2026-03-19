@@ -165,6 +165,12 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
   const handleStartLeague = async () => {
     if (!league) return
+
+    const confirmed = window.confirm(
+      "This will generate weekly match periods for your league. Make sure all players have joined before starting. Continue?"
+    )
+    if (!confirmed) return
+
     setStartingLeague(true)
     setError(null)
     try {
@@ -175,7 +181,9 @@ export default function LeaguePage({ params }: LeaguePageProps) {
         throw rpcError
       }
 
-      router.refresh()
+      // Re-run the full page data fetch instead of router.refresh()
+      // which doesn't re-run client-side useEffect
+      window.location.reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start league.")
     } finally {
@@ -252,6 +260,27 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             </Link>
           </div>
         </header>
+
+        {/* Draft guide for admins */}
+        {league.status !== "active" && league.status !== "completed" && isAdmin && (
+          <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+            <h2 className="text-sm font-semibold text-emerald-800">Getting started</h2>
+            <ol className="mt-3 space-y-2 text-sm text-emerald-700">
+              <li className="flex items-start gap-2">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-xs font-semibold text-emerald-800">1</span>
+                <span>Invite players — share the invite code below with your group.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-xs font-semibold text-emerald-800">2</span>
+                <span>Start the league — this generates weekly match periods.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-xs font-semibold text-emerald-800">3</span>
+                <span>Create matches and submit scores to build the leaderboard.</span>
+              </li>
+            </ol>
+          </section>
+        )}
 
         {league.invite_code && (
           <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">

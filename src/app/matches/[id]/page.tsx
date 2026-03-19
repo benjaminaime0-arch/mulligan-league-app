@@ -7,13 +7,15 @@ import { supabase } from "@/lib/supabase"
 
 type Match = {
   id: string | number
-  league_id: string | number
+  league_id?: string | number | null
   period_id?: string | number | null
   course_name?: string | null
   match_date?: string | null
   match_time?: string | null
   created_by?: string | null
   status?: string | null
+  match_type?: string | null
+  invite_code?: string | null
   leagues?: {
     id: string | number
     name: string
@@ -64,6 +66,7 @@ export default function MatchPage({ params }: MatchPageProps) {
   const [holes, setHoles] = useState<9 | 18>(18)
   const [submittingScore, setSubmittingScore] = useState(false)
   const [scoreError, setScoreError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -254,6 +257,19 @@ export default function MatchPage({ params }: MatchPageProps) {
   }
 
   const timeLabel = formatMatchTime(match.match_time || null)
+  const isCasual = match.match_type === "casual" || !match.league_id
+
+  const handleCopyCode = async () => {
+    if (!match.invite_code) return
+    if (typeof navigator === "undefined" || !navigator.clipboard) return
+    try {
+      await navigator.clipboard.writeText(match.invite_code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // ignore
+    }
+  }
 
   return (
     <main className="min-h-screen bg-cream px-4 py-6">
@@ -261,7 +277,7 @@ export default function MatchPage({ params }: MatchPageProps) {
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary/60">
-              {match.leagues?.name || "League match"}
+              {isCasual ? "Casual Match" : match.leagues?.name || "League match"}
             </p>
             <h1 className="mt-1 text-2xl font-bold text-primary">
               {match.course_name || "Course TBA"}
@@ -271,21 +287,50 @@ export default function MatchPage({ params }: MatchPageProps) {
               {timeLabel ? ` · ${timeLabel}` : ""}
             </p>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-            <span
-              className={`h-2 w-2 rounded-full ${
-                match.status === "completed"
-                  ? "bg-emerald-500"
-                  : match.status === "cancelled"
-                  ? "bg-red-500"
-                  : "bg-amber-400"
-              }`}
-            />
-            <span className="uppercase tracking-[0.2em]">
-              {(match.status || "scheduled").toString()}
-            </span>
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <div className="inline-flex items-center gap-2 rounded-full bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  match.status === "completed"
+                    ? "bg-emerald-500"
+                    : match.status === "cancelled"
+                    ? "bg-red-500"
+                    : "bg-amber-400"
+                }`}
+              />
+              <span className="uppercase tracking-[0.2em]">
+                {(match.status || "scheduled").toString()}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => isCasual ? router.push("/dashboard") : router.push(`/leagues/${match.league_id}`)}
+              className="text-xs font-medium text-primary/70 underline-offset-4 hover:text-primary hover:underline"
+            >
+              {isCasual ? "Back to Home" : "Back to League"}
+            </button>
           </div>
         </header>
+
+        {/* Invite code section for casual matches */}
+        {isCasual && match.invite_code && (
+          <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary/60">Invite Code</p>
+                <p className="mt-1 font-mono text-xl tracking-[0.2em] text-primary">{match.invite_code}</p>
+                <p className="mt-1 text-xs text-primary/60">Share this code so others can join the match.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-cream hover:bg-primary/90"
+              >
+                {copied ? "Copied!" : "Copy Code"}
+              </button>
+            </div>
+          </section>
+        )}
 
         <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
           <h2 className="mb-3 text-sm font-semibold text-primary">Players</h2>

@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { Suspense, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { LoadingSpinner } from "@/components/LoadingSpinner"
 
 type League = {
   id: string | number
@@ -30,11 +31,21 @@ type LeaguePeriod = {
   status?: string | null
 }
 
-export default function CreateMatchPage() {
+function generateInviteCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+  let code = ""
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return code
+}
+
+function CreateMatchContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
   const leagueId = searchParams.get("league")
+  const isCasualMode = !leagueId
 
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
@@ -54,6 +65,11 @@ export default function CreateMatchPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Casual match success state
+  const [createdMatchId, setCreatedMatchId] = useState<string | null>(null)
+  const [createdInviteCode, setCreatedInviteCode] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getSession()
@@ -67,8 +83,8 @@ export default function CreateMatchPage() {
       setUser(session.user)
       setAuthLoading(false)
 
-      if (!leagueId) {
-        setError("Missing league information for this match.")
+      // Casual mode: no league data to load
+      if (isCasualMode) {
         setLoading(false)
         return
       }
@@ -84,7 +100,8 @@ export default function CreateMatchPage() {
             .from("league_periods")
             .select("*")
             .eq("league_id", leagueId)
-            .eq("status", "active")
+            .order("start_date", { ascending: true })
+            .limit(1)
             .maybeSingle(),
         ])
 
@@ -118,7 +135,7 @@ export default function CreateMatchPage() {
     }
 
     init()
-  }, [leagueId, router])
+  }, [leagueId, isCasualMode, router])
 
   const isPlayerSelected = (userId: string) => selectedPlayerIds.includes(userId)
 
@@ -150,38 +167,50 @@ export default function CreateMatchPage() {
 
     setError(null)
 
-    if (!leagueId || !league) {
-      setError("Missing league information.")
-      return
-    }
-
-    if (!activePeriod) {
-      setError("No active period for this league. Start the league first.")
-      return
-    }
-
     if (!date) {
       setError("Please select a match date.")
       return
     }
 
-    if (selectedPlayerIds.length === 0) {
-      setError("Select at least one player for this match.")
+    if (!courseName.trim()) {
+      setError("Please enter a golf course name.")
       return
+    }
+
+    // League mode validations
+    if (!isCasualMode) {
+      if (!leagueId || !league) {
+        setError("Missing league information.")
+        return
+      }
+
+      if (!activePeriod) {
+        setError("No active period for this league. Start the league first.")
+        return
+      }
+
+      if (selectedPlayerIds.length === 0) {
+        setError("Select at least one player for this match.")
+        return
+      }
     }
 
     setSubmitting(true)
     try {
+      const inviteCode = isCasualMode ? generateInviteCode() : null
+
       const { data: match, error: matchError } = await supabase
         .from("matches")
         .insert({
-          league_id: leagueId,
-          period_id: activePeriod.id,
-          course_name: courseName || league.course_name,
+          league_id: isCasualMode ? null : leagueId,
+          period_id: isCasualMode ? null : activePeriod!.id,
+          course_name: courseName.trim() || (league?.course_name ?? null),
           match_date: date,
           match_time: time || null,
           created_by: user.id,
           status: "scheduled",
+          match_type: isCasualMode ? "casual" : "league",
+          invite_code: inviteCode,
         })
         .select("id")
         .single()
@@ -192,20 +221,32 @@ export default function CreateMatchPage() {
 
       const matchId = (match as { id: string | number }).id
 
-      const playerRows = selectedPlayerIds.map((playerId) => ({
-        match_id: matchId,
-        user_id: playerId,
-      }))
+      if (isCasualMode) {
+        // Auto-add creator as a player
+        const { error: playerError } = await supabase
+          .from("match_players")
+          .insert({ match_id: matchId, user_id: user.id })
 
-      const { error: playersError } = await supabase
-        .from("match_players")
-        .insert(playerRows)
+        if (playerError) throw playerError
 
-      if (playersError) {
-        throw playersError
+        // Show success screen with invite code
+        setCreatedMatchId(String(matchId))
+        setCreatedInviteCode(inviteCode)
+      } else {
+        // League mode: add selected players
+        const playerRows = selectedPlayerIds.map((playerId) => ({
+          match_id: matchId,
+          user_id: playerId,
+        }))
+
+        const { error: playersError } = await supabase
+          .from("match_players")
+          .insert(playerRows)
+
+        if (playersError) throw playersError
+
+        router.push(`/matches/${matchId}`)
       }
-
-      router.push(`/matches/${matchId}`)
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to create match. Please try again.",
@@ -215,27 +256,30 @@ export default function CreateMatchPage() {
     }
   }
 
-  if (authLoading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-cream">
-        <p className="text-primary/70">Checking your session…</p>
-      </main>
-    )
+  const handleCopyCode = async () => {
+    if (!createdInviteCode) return
+    if (typeof navigator === "undefined" || !navigator.clipboard) return
+    try {
+      await navigator.clipboard.writeText(createdInviteCode)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // ignore
+    }
   }
 
-  if (!user) {
-    return null
+  if (authLoading) {
+    return <LoadingSpinner message="Checking your session…" />
   }
+
+  if (!user) return null
 
   if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-cream">
-        <p className="text-primary/70">Loading league…</p>
-      </main>
-    )
+    return <LoadingSpinner message={isCasualMode ? "Loading…" : "Loading league…"} />
   }
 
-  if (error && !league) {
+  // Error state (only when league mode fails to load)
+  if (error && !league && !isCasualMode) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-cream px-4">
         <div className="w-full max-w-md rounded-xl border border-red-200 bg-white p-6 text-center shadow-sm">
@@ -252,20 +296,69 @@ export default function CreateMatchPage() {
     )
   }
 
+  // Success screen after creating a casual match
+  if (createdMatchId && createdInviteCode) {
+    return (
+      <main className="min-h-screen bg-cream px-4 py-6">
+        <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+          <div className="rounded-2xl border border-primary/15 bg-white p-6 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
+              <span className="text-xl text-emerald-600">✓</span>
+            </div>
+            <h1 className="text-2xl font-bold text-primary">Match Created</h1>
+            <p className="mt-2 text-sm text-primary/70">
+              Share this code with your playing partners so they can join.
+            </p>
+
+            <div className="mt-6 rounded-xl bg-cream p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary/60">Invite Code</p>
+              <p className="mt-2 font-mono text-3xl tracking-[0.25em] text-primary">{createdInviteCode}</p>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-cream hover:bg-primary/90"
+              >
+                {copied ? "Copied!" : "Copy Code"}
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(`/matches/${createdMatchId}`)}
+                className="rounded-lg border border-primary/20 bg-white px-6 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
+              >
+                Open Match
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="min-h-screen bg-cream px-4 py-6">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
         <header>
           <h1 className="text-2xl font-bold text-primary">Create Match</h1>
-          {league && (
+          {isCasualMode ? (
             <p className="mt-1 text-sm text-primary/70">
-              {league.name} · {league.course_name || "Course TBA"}
+              Set up a round with friends outside of league play.
             </p>
-          )}
-          {activePeriod && (
-            <p className="mt-1 text-xs uppercase tracking-[0.2em] text-primary/60">
-              Assigned to: {activePeriod.name || "Current period"}
-            </p>
+          ) : (
+            <>
+              {league && (
+                <p className="mt-1 text-sm text-primary/70">
+                  {league.name} · {league.course_name || "Course TBA"}
+                </p>
+              )}
+              {activePeriod && (
+                <p className="mt-1 text-xs uppercase tracking-[0.2em] text-primary/60">
+                  Assigned to: {activePeriod.name || "Current period"}
+                </p>
+              )}
+            </>
           )}
         </header>
 
@@ -298,6 +391,7 @@ export default function CreateMatchPage() {
                 placeholder="Course name"
                 className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 disabled={submitting}
+                required
               />
             </div>
 
@@ -337,36 +431,46 @@ export default function CreateMatchPage() {
             </div>
           </div>
 
-          <div>
-            <p className="mb-2 text-sm font-medium text-primary">Players</p>
-            <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-primary/15 bg-cream px-3 py-2">
-              {sortedMembers.length === 0 ? (
-                <p className="py-2 text-sm text-primary/70">
-                  No league members yet.
-                </p>
-              ) : (
-                sortedMembers.map((member) => {
-                  const checked = isPlayerSelected(member.user_id)
-                  const displayName = memberDisplayName(member)
-                  return (
-                    <label
-                      key={member.id}
-                      className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm text-primary hover:bg-white"
-                    >
-                      <span>{displayName}</span>
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-primary/40 text-primary focus:ring-primary"
-                        checked={checked}
-                        onChange={() => togglePlayer(member.user_id)}
-                        disabled={submitting}
-                      />
-                    </label>
-                  )
-                })
-              )}
+          {/* League mode: player selection */}
+          {!isCasualMode && (
+            <div>
+              <p className="mb-2 text-sm font-medium text-primary">Players</p>
+              <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-primary/15 bg-cream px-3 py-2">
+                {sortedMembers.length === 0 ? (
+                  <p className="py-2 text-sm text-primary/70">
+                    No league members yet.
+                  </p>
+                ) : (
+                  sortedMembers.map((member) => {
+                    const checked = isPlayerSelected(member.user_id)
+                    const displayName = memberDisplayName(member)
+                    return (
+                      <label
+                        key={member.id}
+                        className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm text-primary hover:bg-white"
+                      >
+                        <span>{displayName}</span>
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-primary/40 text-primary focus:ring-primary"
+                          checked={checked}
+                          onChange={() => togglePlayer(member.user_id)}
+                          disabled={submitting}
+                        />
+                      </label>
+                    )
+                  })
+                )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Casual mode: info about invite code */}
+          {isCasualMode && (
+            <div className="rounded-lg bg-cream px-4 py-3 text-sm text-primary/70">
+              After creating, you will receive an invite code to share with your playing partners.
+            </div>
+          )}
 
           <button
             type="submit"
@@ -381,3 +485,10 @@ export default function CreateMatchPage() {
   )
 }
 
+export default function CreateMatchPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <CreateMatchContent />
+    </Suspense>
+  )
+}

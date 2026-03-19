@@ -40,6 +40,12 @@ export function Navbar() {
             <DesktopLink href="/leagues/list" label="Leagues" pathname={pathname} />
             <DesktopLink href="/leaderboard" label="Leaderboard" pathname={pathname} />
             <Link
+              href="/matches/create"
+              className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-cream hover:bg-primary/90"
+            >
+              Create Match
+            </Link>
+            <Link
               href="/profile"
               className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold ${
                 pathname.startsWith("/profile")
