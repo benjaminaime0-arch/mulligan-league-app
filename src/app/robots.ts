@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/dashboard", "/profile", "/leagues", "/matches", "/leaderboard"],
       },
     ],
-    sitemap: "https://www.mulliganleague.com/sitemap.xml",
+    sitemap: "https://app.mulliganleague.com/sitemap.xml",
   }
 }

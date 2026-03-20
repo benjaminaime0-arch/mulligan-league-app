@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     description:
       "Turn your golf group into a real league. Create private leagues, track weekly scores, and compete with friends. Free to use.",
   },
-  metadataBase: new URL("https://www.mulliganleague.com"),
+  metadataBase: new URL("https://app.mulliganleague.com"),
 }
 
 export default function RootLayout({
