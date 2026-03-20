@@ -318,8 +318,27 @@ function CreateMatchContent() {
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <button
                 type="button"
-                onClick={handleCopyCode}
+                onClick={async () => {
+                  if (!createdInviteCode) return
+                  const message = `Join my match at ${courseName || "the course"} on Mulligan League! Code: ${createdInviteCode}`
+                  if (typeof navigator !== "undefined" && navigator.share) {
+                    try {
+                      await navigator.share({ text: message })
+                    } catch {
+                      // user cancelled
+                    }
+                  } else {
+                    handleCopyCode()
+                  }
+                }}
                 className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-cream hover:bg-primary/90"
+              >
+                Share Invite
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className="rounded-lg border border-primary/20 bg-white px-6 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
               >
                 {copied ? "Copied!" : "Copy Code"}
               </button>
@@ -344,7 +363,7 @@ function CreateMatchContent() {
           <h1 className="text-2xl font-bold text-primary">Create Match</h1>
           {isCasualMode ? (
             <p className="mt-1 text-sm text-primary/70">
-              Set up a round with friends outside of league play.
+              Log a round with friends outside of league play.
             </p>
           ) : (
             <>
@@ -475,7 +494,7 @@ function CreateMatchContent() {
           <button
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-medium text-cream transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? "Creating match…" : "Create Match"}
           </button>

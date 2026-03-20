@@ -110,8 +110,7 @@ export default function CreateLeaguePage() {
         <header>
           <h1 className="text-2xl font-bold text-primary">Create a League</h1>
           <p className="mt-2 text-sm text-primary/70">
-            Set up a new league for your golf group. Share the invite code with your friends to
-            get started.
+            Get your crew organized. You&apos;ll get an invite code to share once the league is set up.
           </p>
         </header>
 
@@ -187,7 +186,7 @@ export default function CreateLeaguePage() {
           <button
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? "Creating league…" : "Create League"}
           </button>
@@ -206,15 +205,34 @@ export default function CreateLeaguePage() {
               <div className="flex w-full flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
+                  onClick={async () => {
+                    if (!inviteCode) return
+                    const message = `Join my golf league "${name}" on Mulligan League! Code: ${inviteCode}`
+                    if (typeof navigator !== "undefined" && navigator.share) {
+                      try {
+                        await navigator.share({ text: message })
+                      } catch {
+                        // user cancelled
+                      }
+                    } else {
+                      handleCopy()
+                    }
+                  }}
+                  className="flex-1 rounded-lg bg-cream px-4 py-2.5 text-sm font-medium text-primary transition-all hover:bg-cream/90 active:scale-[0.98]"
+                >
+                  Share Invite
+                </button>
+                <button
+                  type="button"
                   onClick={handleCopy}
-                  className="flex-1 rounded-lg bg-cream px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-cream/90"
+                  className="flex-1 rounded-lg border border-cream/50 px-4 py-2.5 text-sm font-medium text-cream transition-all hover:bg-cream/10 active:scale-[0.98]"
                 >
                   {copied ? "Copied!" : "Copy Code"}
                 </button>
                 <button
                   type="button"
                   onClick={() => router.push(`/leagues/${leagueId}`)}
-                  className="flex-1 rounded-lg border border-cream/70 px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-cream/10"
+                  className="flex-1 rounded-lg border border-cream/70 px-4 py-2.5 text-sm font-medium text-cream transition-all hover:bg-cream/10 active:scale-[0.98]"
                 >
                   Go to League
                 </button>

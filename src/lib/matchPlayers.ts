@@ -1,0 +1,47 @@
+import type { SupabaseClient } from "@supabase/supabase-js"
+
+/**
+ * Fetches player display names for a batch of match IDs.
+ *
+ * @param client  – Supabase client instance
+ * @param matchIds – Array of match IDs to look up
+ * @param excludeUserId – Optional user ID to exclude (useful for "vs." display)
+ * @returns Map of match_id → array of player first names
+ */
+export async function fetchMatchPlayerNames(
+  client: SupabaseClient,
+  matchIds: (string | number)[],
+  excludeUserId?: string,
+): Promise<Map<string | number, string[]>> {
+  const result = new Map<string | number, string[]>()
+
+  if (matchIds.length === 0) return result
+
+  const { data, error } = await client
+    .from("match_players")
+    .select("match_id, user_id, profiles(first_name, last_name, full_name)")
+    .in("match_id", matchIds)
+
+  if (error || !data) return result
+
+  for (const row of data as Array<{
+    match_id: string | number
+    user_id: string
+    profiles: { first_name?: string | null; last_name?: string | null; full_name?: string | null } | null
+  }>) {
+    if (excludeUserId && row.user_id === excludeUserId) continue
+
+    const profile = row.profiles
+    const name =
+      profile?.first_name ||
+      profile?.full_name?.split(" ")[0] ||
+      profile?.last_name ||
+      "Player"
+
+    const existing = result.get(row.match_id) || []
+    existing.push(name)
+    result.set(row.match_id, existing)
+  }
+
+  return result
+}

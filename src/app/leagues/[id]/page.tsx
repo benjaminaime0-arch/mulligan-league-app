@@ -5,6 +5,8 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { fetchMatchPlayerNames } from "@/lib/matchPlayers"
+import { ConfirmModal } from "@/components/ConfirmModal"
 
 type League = {
   id: string | number
@@ -70,10 +72,12 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([])
 
   const [periodMatches, setPeriodMatches] = useState<Match[]>([])
+  const [matchPlayerNames, setMatchPlayerNames] = useState<Map<string | number, string[]>>(new Map())
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [startingLeague, setStartingLeague] = useState(false)
+  const [showStartConfirm, setShowStartConfirm] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -129,7 +133,15 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             throw matchesError
           }
 
-          setPeriodMatches((matchesData || []) as Match[])
+          const matches = (matchesData || []) as Match[]
+          setPeriodMatches(matches)
+
+          // Fetch player names for these matches
+          if (matches.length > 0) {
+            const matchIds = matches.map((m) => m.id)
+            const playerNames = await fetchMatchPlayerNames(supabase, matchIds)
+            setMatchPlayerNames(playerNames)
+          }
         } else {
           setPeriodMatches([])
         }
@@ -160,17 +172,13 @@ export default function LeaguePage({ params }: LeaguePageProps) {
       month: "short",
       day: "numeric",
     })
-    return `${startStr} – ${endStr}`
+    return `${startStr} \u2013 ${endStr}`
   }
 
   const handleStartLeague = async () => {
     if (!league) return
 
-    const confirmed = window.confirm(
-      "This will generate weekly match periods for your league. Make sure all players have joined before starting. Continue?"
-    )
-    if (!confirmed) return
-
+    setShowStartConfirm(false)
     setStartingLeague(true)
     setError(null)
     try {
@@ -194,7 +202,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   if (authLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-cream">
-        <p className="text-primary/70">Checking your session…</p>
+        <p className="text-primary/70">Checking your session\u2026</p>
       </main>
     )
   }
@@ -206,7 +214,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-cream">
-        <p className="text-primary/70">Loading league…</p>
+        <p className="text-primary/70">Loading league\u2026</p>
       </main>
     )
   }
@@ -216,7 +224,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
       <main className="flex min-h-screen items-center justify-center bg-cream px-4">
         <div className="w-full max-w-md rounded-xl border border-red-200 bg-white p-6 text-center shadow-sm">
           <p className="text-sm text-red-700">
-            {error || "We couldn&apos;t find this league."}
+            {error || "We couldn\u2019t find this league."}
           </p>
           <button
             type="button"
@@ -246,9 +254,9 @@ export default function LeaguePage({ params }: LeaguePageProps) {
           <div>
             <h1 className="text-2xl font-bold text-primary">{league.name}</h1>
             <p className="text-sm text-primary/70">
-              {league.course_name || "Course TBA"} ·{" "}
+              {league.course_name || "Course TBA"} &middot;{" "}
               {memberCount} player{memberCount === 1 ? "" : "s"}
-              {league.max_players ? ` · Max ${league.max_players}` : null}
+              {league.max_players ? ` \u00b7 Max ${league.max_players}` : null}
             </p>
           </div>
           <div className="flex gap-2">
@@ -268,11 +276,11 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             <ol className="mt-3 space-y-2 text-sm text-emerald-700">
               <li className="flex items-start gap-2">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-xs font-semibold text-emerald-800">1</span>
-                <span>Invite players — share the invite code below with your group.</span>
+                <span>Invite players \u2014 share the invite code below with your group.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-xs font-semibold text-emerald-800">2</span>
-                <span>Start the league — this generates weekly match periods.</span>
+                <span>Start the league \u2014 this generates weekly match periods.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-xs font-semibold text-emerald-800">3</span>
@@ -286,33 +294,59 @@ export default function LeaguePage({ params }: LeaguePageProps) {
           <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs font-semibold tracking-[0.25em] text-primary/60">
+                <p className="text-xs font-semibold tracking-[0.2em] text-primary/60">
                   INVITE CODE
                 </p>
                 <p className="mt-1 text-2xl font-mono tracking-[0.25em] text-primary">
                   {league.invite_code}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!league.invite_code) return
-                  if (typeof navigator === "undefined" || !navigator.clipboard) return
-                  try {
-                    await navigator.clipboard.writeText(league.invite_code)
-                  } catch {
-                    // ignore
-                  }
-                }}
-                className="mt-2 inline-flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-sm font-medium text-cream hover:bg-primary/90 sm:mt-0"
-              >
-                Copy Code
-              </button>
+              <div className="mt-2 flex gap-2 sm:mt-0">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!league.invite_code) return
+                    if (typeof navigator === "undefined" || !navigator.clipboard) return
+                    try {
+                      await navigator.clipboard.writeText(league.invite_code)
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                  className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-sm font-medium text-cream hover:bg-primary/90"
+                >
+                  Copy Code
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!league.invite_code) return
+                    const message = `Join my golf league "${league.name}" on Mulligan League! Code: ${league.invite_code}`
+                    if (typeof navigator !== "undefined" && navigator.share) {
+                      try {
+                        await navigator.share({ text: message })
+                      } catch {
+                        // user cancelled or share failed
+                      }
+                    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+                      try {
+                        await navigator.clipboard.writeText(message)
+                      } catch {
+                        // ignore
+                      }
+                    }
+                  }}
+                  className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-white px-3 py-2 text-sm font-medium text-primary hover:bg-primary/5"
+                >
+                  Share Invite
+                </button>
+              </div>
             </div>
           </section>
         )}
 
         <section className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          {/* Left column — Current Period + Start League + Matches */}
           <div className="space-y-4">
             <div className="space-y-4">
               <div className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
@@ -328,22 +362,33 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                   </div>
                 ) : (
                   <p className="text-sm text-primary/70">
-                    League not started yet. Once the league is started, weeks will appear here.
+                    Waiting to kick off. Start the league once everyone has joined.
                   </p>
                 )}
               </div>
 
               {league.status !== "active" && league.status !== "completed" && (
-                <div className="flex justify-start">
-                  <button
-                    type="button"
-                    onClick={handleStartLeague}
-                    disabled={startingLeague}
-                    className="mt-2 inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {startingLeague ? "Starting…" : "Start League"}
-                  </button>
-                </div>
+                <>
+                  <div className="flex justify-start">
+                    <button
+                      type="button"
+                      onClick={() => setShowStartConfirm(true)}
+                      disabled={startingLeague}
+                      className="mt-2 inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {startingLeague ? "Starting\u2026" : "Start League"}
+                    </button>
+                  </div>
+                  <ConfirmModal
+                    open={showStartConfirm}
+                    title="Start your league?"
+                    message="This will generate weekly match periods for your league. Make sure all players have joined before starting."
+                    confirmLabel="Start League"
+                    loading={startingLeague}
+                    onConfirm={handleStartLeague}
+                    onCancel={() => setShowStartConfirm(false)}
+                  />
+                </>
               )}
 
               {currentPeriod && (
@@ -355,7 +400,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                   </div>
                   {periodMatches.length === 0 ? (
                     <p className="text-sm text-primary/70">
-                      No matches yet for this period.
+                      No matches scheduled yet. Create one to get the week rolling.
                     </p>
                   ) : (
                     <div className="space-y-2">
@@ -366,6 +411,10 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                               day: "numeric",
                             })
                           : "Date TBA"
+                        const names = matchPlayerNames.get(match.id)
+                        const playerLabel = names && names.length > 0
+                          ? names.join(", ")
+                          : match.course_name || league.course_name || "Course TBA"
                         return (
                           <Link
                             key={match.id}
@@ -374,10 +423,10 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                           >
                             <div>
                               <p className="font-medium">
-                                {match.course_name || league.course_name || "Course TBA"}
+                                {playerLabel}
                               </p>
                               <p className="text-xs text-primary/70">
-                                {dateLabel} · {(match.status || "scheduled").toString()}
+                                {dateLabel} &middot; {(match.status || "scheduled").toString()}
                               </p>
                             </div>
                           </Link>
@@ -388,12 +437,15 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                 </div>
               )}
             </div>
+          </div>
 
+          {/* Right column — Leaderboard (sticky) */}
+          <div className="md:sticky md:top-6 md:self-start">
             <div className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
               <h2 className="mb-3 text-sm font-semibold text-primary">Leaderboard</h2>
               {leaderboard.length === 0 ? (
                 <p className="text-sm text-primary/70">
-                  No scores yet. Once players start posting rounds, standings will appear here.
+                  The board is empty \u2014 be the first to post a score and claim the top spot.
                 </p>
               ) : (
                 <div className="overflow-x-auto">
@@ -416,7 +468,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                             {row.player_name || "Player"}
                           </td>
                           <td className="py-2 pr-4 text-primary">
-                            {row.best_score ?? "–"}
+                            {row.best_score ?? "\u2013"}
                           </td>
                           <td className="py-2 text-primary">
                             {row.rounds ?? 0}
@@ -429,34 +481,8 @@ export default function LeaguePage({ params }: LeaguePageProps) {
               )}
             </div>
           </div>
-
-          <div className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-sm font-semibold text-primary">Members</h2>
-            {members.length === 0 ? (
-              <p className="text-sm text-primary/70">No members yet.</p>
-            ) : (
-              <ul className="space-y-2">
-                {members.map((member) => {
-                  const profile = member.profiles
-                  const nameFromProfile =
-                    profile?.full_name ||
-                    [profile?.first_name, profile?.last_name].filter(Boolean).join(" ")
-                  const displayName = nameFromProfile || "Player"
-                  return (
-                    <li
-                      key={member.id}
-                      className="flex items-center justify-between rounded-lg bg-cream px-3 py-2 text-sm text-primary"
-                    >
-                      <span>{displayName}</span>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </div>
         </section>
       </div>
     </main>
   )
 }
-

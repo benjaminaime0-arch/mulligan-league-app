@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -18,6 +19,7 @@ const authFreeRoutes = ["/", "/login", "/signup"]
 
 export function Navbar() {
   const pathname = usePathname()
+  const [showActions, setShowActions] = useState(false)
 
   // Hide navbar entirely on auth-free routes
   if (authFreeRoutes.includes(pathname)) {
@@ -71,17 +73,46 @@ export function Navbar() {
 
             if (item.isPrimaryAction) {
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="flex flex-1 items-center justify-center"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-cream shadow-md shadow-primary/30">
-                    <span className="text-xl" aria-hidden="true">
+                <div key={item.href} className="relative flex flex-1 items-center justify-center">
+                  {/* Action menu */}
+                  {showActions && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowActions(false)} />
+                      <div className="absolute bottom-16 z-50 flex flex-col gap-1.5 rounded-xl border border-primary/10 bg-white p-2 shadow-lg">
+                        <Link
+                          href="/matches/create"
+                          onClick={() => setShowActions(false)}
+                          className="whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium text-primary hover:bg-cream"
+                        >
+                          Create Match
+                        </Link>
+                        <Link
+                          href="/leagues/create"
+                          onClick={() => setShowActions(false)}
+                          className="whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium text-primary hover:bg-cream"
+                        >
+                          Create League
+                        </Link>
+                        <Link
+                          href="/leagues/join"
+                          onClick={() => setShowActions(false)}
+                          className="whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium text-primary hover:bg-cream"
+                        >
+                          Join League
+                        </Link>
+                      </div>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowActions((v) => !v)}
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-cream shadow-md shadow-primary/30"
+                  >
+                    <span className={`text-xl transition-transform ${showActions ? "rotate-45" : ""}`} aria-hidden="true">
                       ⊕
                     </span>
-                  </div>
-                </Link>
+                  </button>
+                </div>
               )
             }
 

@@ -68,14 +68,6 @@ export default function SignupPage() {
       router.push("/dashboard")
       router.refresh()
     } catch (err) {
-      // Debug: log full error object
-      console.error("[signup] Full error:", err)
-      console.error("[signup] Error details:", {
-        message: err instanceof Error ? err.message : String(err),
-        cause: err instanceof Error ? err.cause : undefined,
-        stack: err instanceof Error ? err.stack : undefined,
-        raw: err,
-      })
       setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {
       setLoading(false)
@@ -87,7 +79,7 @@ export default function SignupPage() {
       <div className="w-full max-w-[400px]">
         <h1 className="mb-2 text-2xl font-bold text-primary">Create Account</h1>
         <p className="mb-8 text-primary/70">
-          Join Mulligan League to start competing
+          Set up your golfer profile in 30 seconds.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -245,7 +237,7 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "Creating account…" : "Create Account"}
           </button>

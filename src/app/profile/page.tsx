@@ -5,7 +5,17 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { fetchMatchPlayerNames } from "@/lib/matchPlayers"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts"
 
 type Profile = {
   id: string
@@ -57,9 +67,18 @@ export default function ProfilePage() {
   const [scores, setScores] = useState<Score[]>([])
   const [memberships, setMemberships] = useState<LeagueMember[]>([])
   const [roundHistory, setRoundHistory] = useState<RoundHistoryRow[]>([])
+  const [roundPlayerNames, setRoundPlayerNames] = useState<Map<string | number, string[]>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [logoutLoading, setLogoutLoading] = useState(false)
+
+  // Profile editing
+  const [editing, setEditing] = useState(false)
+  const [editFirstName, setEditFirstName] = useState("")
+  const [editLastName, setEditLastName] = useState("")
+  const [editClub, setEditClub] = useState("")
+  const [editHandicap, setEditHandicap] = useState("")
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -96,7 +115,15 @@ export default function ProfilePage() {
 
         // Round history may fail if RPC doesn't exist yet — graceful fallback
         if (!historyRes.error) {
-          setRoundHistory((historyRes.data || []) as RoundHistoryRow[])
+          const history = (historyRes.data || []) as RoundHistoryRow[]
+          setRoundHistory(history)
+
+          // Fetch player names for these rounds
+          if (history.length > 0) {
+            const matchIds = history.map((r) => r.match_id)
+            const playerNames = await fetchMatchPlayerNames(supabase, matchIds, session.user.id)
+            setRoundPlayerNames(playerNames)
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load profile.")
@@ -135,6 +162,22 @@ export default function ProfilePage() {
     return { label: "Steady", color: "text-primary/60" }
   }, [scores])
 
+  // Chart data — chronological order (oldest first)
+  const chartData = useMemo(() => {
+    if (roundHistory.length < 2) return []
+    return [...roundHistory]
+      .reverse()
+      .map((r) => ({
+        date: r.round_date
+          ? new Date(r.round_date + "T00:00:00").toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })
+          : "",
+        score: r.score,
+      }))
+  }, [roundHistory])
+
   const handleLogout = async () => {
     setLogoutLoading(true)
     try {
@@ -147,9 +190,61 @@ export default function ProfilePage() {
     }
   }
 
-  if (authLoading) return <LoadingSpinner message="Checking your session…" />
+  const startEditing = () => {
+    setEditFirstName(profile?.first_name || (user?.user_metadata?.first_name as string) || "")
+    setEditLastName(profile?.last_name || (user?.user_metadata?.last_name as string) || "")
+    setEditClub(profile?.club || "")
+    setEditHandicap(profile?.handicap != null ? String(profile.handicap) : "")
+    setEditing(true)
+  }
+
+  const handleSaveProfile = async () => {
+    if (!user) return
+    setSaving(true)
+    setError(null)
+    try {
+      const firstName = editFirstName.trim()
+      const lastName = editLastName.trim()
+      const fullName = [firstName, lastName].filter(Boolean).join(" ") || null
+      const handicapNum = editHandicap.trim() ? parseFloat(editHandicap.trim()) : null
+
+      if (handicapNum != null && (Number.isNaN(handicapNum) || handicapNum < 0 || handicapNum > 54)) {
+        setError("Handicap must be between 0 and 54.")
+        setSaving(false)
+        return
+      }
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({
+          first_name: firstName || null,
+          last_name: lastName || null,
+          full_name: fullName,
+          club: editClub.trim() || null,
+          handicap: handicapNum,
+        })
+        .eq("id", user.id)
+
+      if (updateError) throw updateError
+
+      // Refresh profile data
+      const { data: refreshed } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle()
+      setProfile((refreshed || null) as Profile | null)
+      setEditing(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save profile.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (authLoading) return <LoadingSpinner message="Checking your session..." />
   if (!user) return null
-  if (loading) return <LoadingSpinner message="Loading profile…" />
+  if (loading) return <LoadingSpinner message="Loading profile..." />
 
   const displayName =
     profile?.full_name ||
@@ -162,16 +257,44 @@ export default function ProfilePage() {
   return (
     <main className="min-h-screen bg-cream px-4 pb-24 pt-4 md:pb-8">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-        {/* Header */}
+        {/* Header with inline stats */}
         <header className="rounded-2xl border border-primary/15 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-semibold text-cream">
               {displayName.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary/60">Profile</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Profile</p>
               <h1 className="mt-1 text-2xl font-bold text-primary">{displayName}</h1>
-              <p className="mt-1 text-sm text-primary/70">Your golf competition identity across leagues, matches, and posted scores.</p>
+              <p className="mt-1 text-sm text-primary/70">Your season at a glance.</p>
+            </div>
+          </div>
+
+          {/* Stats row inside the header card */}
+          <div className="mt-4 border-t border-primary/10 pt-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-primary/50">Best Score</p>
+                <p className="mt-1 text-xl font-bold text-primary">{bestScore ?? "\u2013"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-primary/50">Average</p>
+                <p className="mt-1 text-xl font-bold text-primary">
+                  {averageScore != null ? averageScore.toFixed(1) : "\u2013"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-primary/50">Rounds</p>
+                <p className="mt-1 text-xl font-bold text-primary">{scores.length}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-primary/50">
+                  {trend ? "Trend" : "Leagues"}
+                </p>
+                <p className={`mt-1 text-xl font-bold ${trend ? trend.color : "text-primary"}`}>
+                  {trend ? trend.label : memberships.length}
+                </p>
+              </div>
             </div>
           </div>
         </header>
@@ -181,32 +304,6 @@ export default function ProfilePage() {
             {error}
           </div>
         )}
-
-        {/* Stats cards */}
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-primary/15 bg-white p-4 shadow-sm">
-            <p className="text-[11px] uppercase tracking-wide text-primary/50">Best Score</p>
-            <p className="mt-2 text-2xl font-bold text-primary">{bestScore ?? "–"}</p>
-          </div>
-          <div className="rounded-2xl border border-primary/15 bg-white p-4 shadow-sm">
-            <p className="text-[11px] uppercase tracking-wide text-primary/50">Average</p>
-            <p className="mt-2 text-2xl font-bold text-primary">
-              {averageScore != null ? averageScore.toFixed(1) : "–"}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-primary/15 bg-white p-4 shadow-sm">
-            <p className="text-[11px] uppercase tracking-wide text-primary/50">Rounds Posted</p>
-            <p className="mt-2 text-2xl font-bold text-primary">{scores.length}</p>
-          </div>
-          <div className="rounded-2xl border border-primary/15 bg-white p-4 shadow-sm">
-            <p className="text-[11px] uppercase tracking-wide text-primary/50">
-              {trend ? "Trend" : "Leagues"}
-            </p>
-            <p className={`mt-2 text-2xl font-bold ${trend ? trend.color : "text-primary"}`}>
-              {trend ? trend.label : memberships.length}
-            </p>
-          </div>
-        </section>
 
         {/* Two column: Leagues + Recent Rounds */}
         <section className="grid gap-4 md:grid-cols-2">
@@ -223,7 +320,17 @@ export default function ProfilePage() {
             </div>
             <div className="space-y-3">
               {memberships.length === 0 ? (
-                <p className="text-sm text-primary/70">No leagues joined yet.</p>
+                <div className="space-y-3">
+                  <p className="text-sm text-primary/70">No leagues joined yet.</p>
+                  <div className="flex gap-2">
+                    <Link href="/leagues/create" className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-cream hover:bg-primary/90">
+                      Create League
+                    </Link>
+                    <Link href="/leagues/join" className="rounded-lg border border-primary/20 bg-cream px-3 py-2 text-xs font-medium text-primary hover:bg-primary/5">
+                      Join League
+                    </Link>
+                  </div>
+                </div>
               ) : (
                 memberships.map((membership) => {
                   const league = membership.leagues
@@ -245,7 +352,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Recent Rounds */}
+          {/* Recent Rounds — with player names */}
           <div className="rounded-2xl border border-primary/15 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
@@ -258,33 +365,39 @@ export default function ProfilePage() {
             </div>
             <div className="space-y-3">
               {roundHistory.length > 0 ? (
-                roundHistory.slice(0, 5).map((round, i) => (
-                  <Link
-                    key={`${round.match_id}-${i}`}
-                    href={`/matches/${round.match_id}`}
-                    className="block rounded-xl border border-primary/10 bg-cream px-4 py-3 hover:bg-primary/5"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-primary">
-                          {round.course_name || "Course"} · {round.score}
-                        </p>
-                        <p className="text-xs text-primary/60">
-                          {round.round_date || "Date TBA"} · {round.holes} holes
-                        </p>
+                roundHistory.slice(0, 5).map((round, i) => {
+                  const names = roundPlayerNames.get(round.match_id)
+                  const playerLabel = names && names.length > 0
+                    ? `vs. ${names.join(", ")}`
+                    : round.course_name || "Solo round"
+                  return (
+                    <Link
+                      key={`${round.match_id}-${i}`}
+                      href={`/matches/${round.match_id}`}
+                      className="block rounded-xl border border-primary/10 bg-cream px-4 py-3 hover:bg-primary/5"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-primary">
+                            {playerLabel} &middot; {round.score}
+                          </p>
+                          <p className="text-xs text-primary/60">
+                            {round.round_date || "Date TBA"} &middot; {round.holes} holes
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                            round.match_type === "casual"
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-emerald-50 text-emerald-700"
+                          }`}
+                        >
+                          {round.match_type === "casual" ? "Casual" : "League"}
+                        </span>
                       </div>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-                          round.match_type === "casual"
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-emerald-50 text-emerald-700"
-                        }`}
-                      >
-                        {round.match_type === "casual" ? "Casual" : "League"}
-                      </span>
-                    </div>
-                  </Link>
-                ))
+                    </Link>
+                  )
+                })
               ) : scores.length > 0 ? (
                 // Fallback if RPC not available yet
                 scores.slice(0, 5).map((score) => (
@@ -296,33 +409,123 @@ export default function ProfilePage() {
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-primary/70">No scores posted yet.</p>
+                <p className="text-sm text-primary/70">Your scorecard is clean. Post your first round.</p>
               )}
             </div>
           </div>
         </section>
 
-        {/* Create Match CTA */}
-        <section className="rounded-2xl border-2 border-dashed border-primary/20 bg-white p-5 text-center">
-          <h2 className="text-sm font-semibold text-primary">Track your game</h2>
-          <p className="mt-1 text-sm text-primary/60">Start a casual match to track your scores outside of league play.</p>
+        {/* Score Evolution Chart */}
+        <section className="rounded-2xl border border-primary/15 bg-white p-5 shadow-sm">
+          <h2 className="mb-1 text-sm font-semibold uppercase tracking-[0.2em] text-primary/60">Score Evolution</h2>
+          <p className="mb-4 text-sm text-primary/70">Your scoring trend over time.</p>
+
+          {chartData.length >= 2 ? (
+            <div className="h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#0F3D2E15" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 11, fill: "#0F3D2E99" }}
+                    tickLine={false}
+                    axisLine={{ stroke: "#0F3D2E20" }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "#0F3D2E99" }}
+                    tickLine={false}
+                    axisLine={{ stroke: "#0F3D2E20" }}
+                    domain={["dataMin - 2", "dataMax + 2"]}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#fff",
+                      border: "1px solid #0F3D2E20",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                    labelStyle={{ color: "#0F3D2E", fontWeight: 600 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="score"
+                    stroke="#0F3D2E"
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: "#0F3D2E", strokeWidth: 0 }}
+                    activeDot={{ r: 6, fill: "#0F3D2E" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-primary/20 bg-cream">
+              <p className="text-sm text-primary/50">Post at least 2 rounds to see your score trend.</p>
+            </div>
+          )}
+
           <Link
             href="/matches/create"
-            className="mt-4 inline-block rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-cream hover:bg-primary/90"
+            className="mt-3 inline-block text-sm font-medium text-primary underline-offset-4 hover:underline"
           >
-            Create Match
+            Log a round &rarr;
           </Link>
         </section>
 
         {/* Profile info + actions */}
         <section className="space-y-4 rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-          <Field label="Name" value={displayName} />
-          <Field label="Email" value={profile?.email || user.email || "Not set"} />
-          <Field label="Home Club" value={profile?.club || "Not set"} />
-          <Field
-            label="Handicap"
-            value={profile?.handicap != null ? profile.handicap.toFixed(1) : "Not set"}
-          />
+          {editing ? (
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="edit-first" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">First Name</label>
+                  <input id="edit-first" type="text" value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} disabled={saving}
+                    className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="First name" />
+                </div>
+                <div>
+                  <label htmlFor="edit-last" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Last Name</label>
+                  <input id="edit-last" type="text" value={editLastName} onChange={(e) => setEditLastName(e.target.value)} disabled={saving}
+                    className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="Last name" />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="edit-club" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Home Club</label>
+                <input id="edit-club" type="text" value={editClub} onChange={(e) => setEditClub(e.target.value)} disabled={saving}
+                  className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="Your home course" />
+              </div>
+              <div>
+                <label htmlFor="edit-handicap" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Handicap</label>
+                <input id="edit-handicap" type="number" step="0.1" min="0" max="54" value={editHandicap} onChange={(e) => setEditHandicap(e.target.value)} disabled={saving}
+                  className="w-32 rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="e.g. 12.5" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={handleSaveProfile} disabled={saving}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-cream hover:bg-primary/90 disabled:opacity-60">
+                  {saving ? "Saving\u2026" : "Save"}
+                </button>
+                <button type="button" onClick={() => { setEditing(false); setError(null) }} disabled={saving}
+                  className="rounded-lg border border-primary/20 bg-white px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Details</p>
+                <button type="button" onClick={startEditing}
+                  className="text-xs font-medium text-primary underline-offset-4 hover:underline">
+                  Edit
+                </button>
+              </div>
+              <Field label="Name" value={displayName} />
+              <Field label="Email" value={profile?.email || user.email || "Not set"} />
+              <Field label="Home Club" value={profile?.club || "Not set"} />
+              <Field
+                label="Handicap"
+                value={profile?.handicap != null ? profile.handicap.toFixed(1) : "Not set"}
+              />
+            </>
+          )}
         </section>
 
         <section className="space-y-3">
@@ -332,7 +535,7 @@ export default function ProfilePage() {
             disabled={logoutLoading}
             className="w-full rounded-lg border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {logoutLoading ? "Logging out…" : "Log Out"}
+            {logoutLoading ? "Logging out\u2026" : "Log Out"}
           </button>
         </section>
       </div>

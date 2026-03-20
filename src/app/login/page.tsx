@@ -10,6 +10,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [resetSent, setResetSent] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
 
   const [formData, setFormData] = useState({
     email: "",
@@ -40,14 +42,8 @@ export default function LoginPage() {
         password: formData.password,
       })
 
-      console.log("supabase.auth.signInWithPassword result", {
-        data,
-        error: signInError,
-      })
-
       if (signInError) throw signInError
 
-      console.log("Login successful, refreshing and redirecting to /dashboard")
       router.refresh()
       router.push("/dashboard")
     } catch (err) {
@@ -62,7 +58,7 @@ export default function LoginPage() {
       <div className="w-full max-w-[400px]">
         <h1 className="mb-2 text-2xl font-bold text-primary">Log In</h1>
         <p className="mb-8 text-primary/70">
-          Welcome back to Mulligan League
+          Good to see you again.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -126,20 +122,42 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "Logging in…" : "Log In"}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-primary/70">
-          <Link
-            href="#"
-            className="font-medium text-primary underline hover:no-underline"
-            onClick={(e) => e.preventDefault()}
-          >
-            Forgot password?
-          </Link>
+          {resetSent ? (
+            <span className="text-emerald-700">Check your email for a reset link.</span>
+          ) : (
+            <button
+              type="button"
+              disabled={resetLoading}
+              onClick={async () => {
+                const email = formData.email.trim()
+                if (!email) {
+                  setError("Enter your email above, then click forgot password.")
+                  return
+                }
+                setResetLoading(true)
+                setError(null)
+                try {
+                  const { error: resetError } = await supabase.auth.resetPasswordForEmail(email)
+                  if (resetError) throw resetError
+                  setResetSent(true)
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Failed to send reset email.")
+                } finally {
+                  setResetLoading(false)
+                }
+              }}
+              className="font-medium text-primary underline hover:no-underline disabled:opacity-60"
+            >
+              {resetLoading ? "Sending…" : "Forgot password?"}
+            </button>
+          )}
         </p>
 
         <p className="mt-4 text-center text-sm text-primary/70">

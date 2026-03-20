@@ -32,19 +32,22 @@ export default function Home() {
       <div className="mx-auto w-full max-w-md text-center">
         <h1 className="text-4xl font-bold text-primary">Mulligan League</h1>
         <p className="mt-3 text-lg text-primary/70">
-          Track your golf rounds. Compete with friends.
+          Your weekend golf crew, organized.
+        </p>
+        <p className="mt-1 text-sm text-primary/50">
+          Leagues, scores, bragging rights — all in one place.
         </p>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
             href="/signup"
-            className="rounded-lg bg-primary px-6 py-3 text-sm font-medium text-cream hover:bg-primary/90"
+            className="rounded-lg bg-primary px-6 py-3 text-sm font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98]"
           >
-            Create Account
+            Get Started Free
           </Link>
           <Link
             href="/login"
-            className="rounded-lg border border-primary/20 bg-white px-6 py-3 text-sm font-medium text-primary hover:bg-primary/5"
+            className="rounded-lg border border-primary/20 bg-white px-6 py-3 text-sm font-medium text-primary transition-all hover:bg-primary/5 active:scale-[0.98]"
           >
             Log In
           </Link>
@@ -53,15 +56,15 @@ export default function Home() {
         <div className="mt-12 grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-primary/10 bg-white p-4 shadow-sm">
             <p className="text-sm font-semibold text-primary">League Play</p>
-            <p className="mt-1 text-xs text-primary/60">Organize round-robin tournaments with your group.</p>
+            <p className="mt-1 text-xs text-primary/60">Set up a league for your crew. Weekly matchups, generated for you.</p>
           </div>
           <div className="rounded-xl border border-primary/10 bg-white p-4 shadow-sm">
             <p className="text-sm font-semibold text-primary">Score Tracking</p>
-            <p className="mt-1 text-xs text-primary/60">Log rounds and track your progress over time.</p>
+            <p className="mt-1 text-xs text-primary/60">Post your scores and watch your game evolve round by round.</p>
           </div>
           <div className="rounded-xl border border-primary/10 bg-white p-4 shadow-sm">
             <p className="text-sm font-semibold text-primary">Leaderboards</p>
-            <p className="mt-1 text-xs text-primary/60">See where you stack up against your friends.</p>
+            <p className="mt-1 text-xs text-primary/60">Know exactly who owes who a round of drinks.</p>
           </div>
         </div>
       </div>

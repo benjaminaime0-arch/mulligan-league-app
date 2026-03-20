@@ -81,7 +81,7 @@ export default function JoinMatchPage() {
         <header>
           <h1 className="text-2xl font-bold text-primary">Join a Match</h1>
           <p className="mt-1 text-sm text-primary/70">
-            Enter the 6-character code shared by the match creator.
+            Got an invite code? Enter it below to hop in.
           </p>
         </header>
 
@@ -121,7 +121,7 @@ export default function JoinMatchPage() {
           <button
             type="submit"
             disabled={joining || code.trim().length !== 6}
-            className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-medium text-cream transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {joining ? "Joining…" : "Join Match"}
           </button>

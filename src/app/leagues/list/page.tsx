@@ -27,6 +27,7 @@ export default function LeagueListPage() {
   const [authLoading, setAuthLoading] = useState(true)
 
   const [leagues, setLeagues] = useState<League[]>([])
+  const [memberCounts, setMemberCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -64,7 +65,26 @@ export default function LeagueListPage() {
           }
         }
 
-        setLeagues(Array.from(leagueMap.values()))
+        const leagueList = Array.from(leagueMap.values())
+        setLeagues(leagueList)
+
+        // Fetch member counts per league
+        if (leagueList.length > 0) {
+          const leagueIds = leagueList.map((l) => l.id)
+          const { data: allMembers } = await supabase
+            .from("league_members")
+            .select("league_id")
+            .in("league_id", leagueIds)
+
+          if (allMembers) {
+            const counts: Record<string, number> = {}
+            for (const m of allMembers) {
+              const key = String(m.league_id)
+              counts[key] = (counts[key] || 0) + 1
+            }
+            setMemberCounts(counts)
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load leagues.")
       } finally {
@@ -102,7 +122,7 @@ export default function LeagueListPage() {
           <div>
             <h1 className="text-2xl font-bold text-primary">Your Leagues</h1>
             <p className="mt-1 text-sm text-primary/70">
-              View and hop into any league you&apos;re part of.
+              All your active leagues in one place.
             </p>
           </div>
           <div className="flex gap-2">
@@ -134,7 +154,7 @@ export default function LeagueListPage() {
           <section className="mt-4 rounded-xl border border-dashed border-primary/20 bg-white p-6 text-center shadow-sm">
             <h2 className="text-base font-semibold text-primary">No leagues yet</h2>
             <p className="mt-2 text-sm text-primary/70">
-              Create a new league for your group, or join one with an invite code.
+              Start a league for your crew, or ask a buddy for their invite code.
             </p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Link
@@ -156,10 +176,11 @@ export default function LeagueListPage() {
         {leagues.length > 0 && (
           <section className="grid gap-4 md:grid-cols-2">
             {leagues.map((league) => {
+              const count = memberCounts[String(league.id)] || 0
               const playerCountLabel =
                 league.max_players != null
-                  ? `${league.max_players} player max`
-                  : "Player count"
+                  ? `${count}/${league.max_players} players`
+                  : `${count} player${count !== 1 ? "s" : ""}`
 
               const statusLabel = (league.status || "draft").toString()
 
@@ -167,7 +188,7 @@ export default function LeagueListPage() {
                 <Link
                   key={league.id}
                   href={`/leagues/${league.id}`}
-                  className="group flex flex-col rounded-xl border border-primary/15 bg-white p-4 text-primary shadow-sm transition hover:border-primary/30 hover:shadow-md"
+                  className="group flex flex-col rounded-xl border border-primary/15 bg-white p-4 text-primary shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
