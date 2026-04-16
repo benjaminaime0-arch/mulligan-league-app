@@ -90,6 +90,8 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   const [error, setError] = useState<string | null>(null)
   const [startingLeague, setStartingLeague] = useState(false)
   const [showStartConfirm, setShowStartConfirm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deletingLeague, setDeletingLeague] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -212,6 +214,28 @@ export default function LeaguePage({ params }: LeaguePageProps) {
       setError(err instanceof Error ? err.message : "Failed to start league.")
     } finally {
       setStartingLeague(false)
+    }
+  }
+
+  const handleDeleteLeague = async () => {
+    if (!league) return
+
+    setShowDeleteConfirm(false)
+    setDeletingLeague(true)
+    setError(null)
+    try {
+      const { error: deleteError } = await supabase
+        .from("leagues")
+        .delete()
+        .eq("id", league.id)
+
+      if (deleteError) throw deleteError
+
+      router.push("/leagues/list")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete league.")
+    } finally {
+      setDeletingLeague(false)
     }
   }
 
@@ -347,6 +371,16 @@ export default function LeaguePage({ params }: LeaguePageProps) {
               >
                 Create Match
               </Link>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={deletingLeague}
+                  className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+                >
+                  {deletingLeague ? "Deleting…" : "Delete"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -439,6 +473,19 @@ export default function LeaguePage({ params }: LeaguePageProps) {
               onCancel={() => setShowStartConfirm(false)}
             />
           </>
+        )}
+
+        {isAdmin && (
+          <ConfirmModal
+            open={showDeleteConfirm}
+            title="Delete this league?"
+            message="This will permanently delete the league, all matches, scores, and member data. This action cannot be undone."
+            confirmLabel="Delete League"
+            loading={deletingLeague}
+            destructive
+            onConfirm={handleDeleteLeague}
+            onCancel={() => setShowDeleteConfirm(false)}
+          />
         )}
 
         {/* Mobile: Leaderboard first, then Matches. Desktop: two-column layout */}

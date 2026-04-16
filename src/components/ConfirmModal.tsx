@@ -9,6 +9,7 @@ interface ConfirmModalProps {
   confirmLabel?: string
   cancelLabel?: string
   loading?: boolean
+  destructive?: boolean
   onConfirm: () => void
   onCancel: () => void
 }
@@ -20,6 +21,7 @@ export function ConfirmModal({
   confirmLabel = "Continue",
   cancelLabel = "Cancel",
   loading = false,
+  destructive = false,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
@@ -64,7 +66,11 @@ export function ConfirmModal({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-60"
+            className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all active:scale-[0.98] disabled:opacity-60 ${
+              destructive
+                ? "bg-red-600 text-white hover:bg-red-700"
+                : "bg-primary text-cream hover:bg-primary/90"
+            }`}
           >
             {loading ? "Working…" : confirmLabel}
           </button>

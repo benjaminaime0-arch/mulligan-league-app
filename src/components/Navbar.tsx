@@ -6,8 +6,9 @@ import { usePathname } from "next/navigation"
 import { Logo } from "@/components/Logo"
 
 const navItems = [
-  { href: "/leagues/list", label: "Leagues", icon: "🏆" },
+  { href: "/leagues/list", label: "Leagues", icon: "leagues" },
   { href: "/matches/create", label: "Match", icon: "+", isPrimaryAction: true },
+  { href: "/profile", label: "Profile", icon: "profile" },
 ]
 
 const authFreeRoutes = ["/", "/login", "/signup"]
@@ -110,12 +111,21 @@ export function Navbar() {
                 className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-[11px] font-medium"
               >
                 <span
-                  className={`text-lg ${
+                  className={`flex h-5 w-5 items-center justify-center ${
                     isActive ? "text-primary" : "text-primary/60"
                   }`}
                   aria-hidden="true"
                 >
-                  {item.icon}
+                  {item.icon === "leagues" && (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+                    </svg>
+                  )}
+                  {item.icon === "profile" && (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" />
+                    </svg>
+                  )}
                 </span>
                 <span
                   className={`${

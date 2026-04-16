@@ -40,6 +40,8 @@ type Score = {
   user_id: string
   score: number
   holes: number
+  status?: string | null
+  approved_by?: string | null
   created_at?: string
 }
 
@@ -69,6 +71,7 @@ export default function MatchPage({ params }: MatchPageProps) {
   const [copied, setCopied] = useState(false)
 
   const [editingScore, setEditingScore] = useState(false)
+  const [approvingScoreId, setApprovingScoreId] = useState<string | number | null>(null)
 
   // Celebration state
   const [showCelebration, setShowCelebration] = useState(false)
@@ -194,6 +197,7 @@ export default function MatchPage({ params }: MatchPageProps) {
         user_id: user.id,
         score: numericScore,
         holes,
+        status: "pending",
       })
 
       await Promise.race([
@@ -256,7 +260,7 @@ export default function MatchPage({ params }: MatchPageProps) {
     try {
       const { error: updateError } = await supabase
         .from("scores")
-        .update({ score: numericScore, holes })
+        .update({ score: numericScore, holes, status: "pending", approved_by: null, approved_at: null })
         .eq("id", currentUserScore.id)
 
       if (updateError) throw updateError
@@ -277,6 +281,38 @@ export default function MatchPage({ params }: MatchPageProps) {
       )
     } finally {
       setSubmittingScore(false)
+    }
+  }
+
+  const handleApproveScore = async (scoreId: string | number) => {
+    if (!user) return
+    setApprovingScoreId(scoreId)
+    try {
+      const { data, error: rpcError } = await supabase.rpc("approve_score", {
+        p_score_id: scoreId,
+      })
+
+      if (rpcError) throw rpcError
+
+      const result = data as { success: boolean; error?: string }
+      if (!result.success) {
+        setError(result.error || "Could not approve score.")
+        setApprovingScoreId(null)
+        return
+      }
+
+      // Refresh scores
+      const { data: scoresRes, error: fetchError } = await supabase
+        .from("scores")
+        .select("*")
+        .eq("match_id", matchId)
+      if (fetchError) throw fetchError
+
+      setScores((scoresRes || []) as Score[])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve score.")
+    } finally {
+      setApprovingScoreId(null)
     }
   }
 
@@ -438,7 +474,21 @@ export default function MatchPage({ params }: MatchPageProps) {
                 <tbody>
                   {players.map((player) => {
                     const playerScore = scoresByUserId.get(player.user_id)
-                    const statusLabel = playerScore ? "Submitted" : "Pending"
+                    const isOwnScore = user && player.user_id === user.id
+                    const isPending = playerScore?.status === "pending"
+                    const isApproved = playerScore?.status === "approved"
+                    const canApprove = currentUserIsPlayer && !isOwnScore && isPending
+
+                    let statusLabel = "No score"
+                    let statusClass = "bg-gray-50 text-gray-500"
+                    if (playerScore && isApproved) {
+                      statusLabel = "Approved"
+                      statusClass = "bg-emerald-50 text-emerald-700"
+                    } else if (playerScore && isPending) {
+                      statusLabel = "Pending approval"
+                      statusClass = "bg-amber-50 text-amber-700"
+                    }
+
                     return (
                       <tr
                         key={player.id}
@@ -453,16 +503,24 @@ export default function MatchPage({ params }: MatchPageProps) {
                         <td className="py-2 pr-4 text-primary">
                           {playerScore ? playerScore.holes : "–"}
                         </td>
-                        <td className="py-2 text-primary">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                              playerScore
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-amber-50 text-amber-700"
-                            }`}
-                          >
-                            {statusLabel}
-                          </span>
+                        <td className="py-2">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}
+                            >
+                              {statusLabel}
+                            </span>
+                            {canApprove && (
+                              <button
+                                type="button"
+                                onClick={() => handleApproveScore(playerScore.id)}
+                                disabled={approvingScoreId === playerScore.id}
+                                className="rounded-lg bg-emerald-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-60"
+                              >
+                                {approvingScoreId === playerScore.id ? "Approving…" : "Approve"}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )
@@ -482,6 +540,7 @@ export default function MatchPage({ params }: MatchPageProps) {
               </svg>
             </div>
             <h2 className="text-xl font-bold text-primary">Score Posted!</h2>
+            <p className="mt-1 text-sm text-primary/60">Waiting for another player to approve your score.</p>
             <div className="mt-4 rounded-xl bg-cream p-5">
               <p className="text-4xl font-bold text-primary">{celebrationScore}</p>
               <p className="mt-1 text-xs uppercase tracking-[0.2em] text-primary/60">
@@ -501,7 +560,7 @@ export default function MatchPage({ params }: MatchPageProps) {
               {match.league_id && (
                 <button
                   type="button"
-                  onClick={() => router.push("/leaderboard")}
+                  onClick={() => router.push(`/leagues/${match.league_id}`)}
                   className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-cream hover:bg-primary/90"
                 >
                   View Leaderboard
@@ -622,6 +681,7 @@ export default function MatchPage({ params }: MatchPageProps) {
             {editingScore ? (
               <form onSubmit={handleUpdateScore} className="space-y-4">
                 <h2 className="text-sm font-semibold text-primary">Edit your score</h2>
+                <p className="text-xs text-primary/60">Editing will reset approval — another player will need to re-approve.</p>
                 {scoreError && (
                   <div role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
                     {scoreError}
@@ -664,6 +724,9 @@ export default function MatchPage({ params }: MatchPageProps) {
                   <p className="mt-1 text-lg font-bold text-primary">
                     {currentUserScore.score} <span className="text-sm font-normal text-primary/60">({currentUserScore.holes} holes)</span>
                   </p>
+                  <p className="mt-0.5 text-xs text-primary/50">
+                    {currentUserScore.status === "approved" ? "Approved" : "Pending approval from another player"}
+                  </p>
                 </div>
                 <button type="button" onClick={() => {
                   setScoreValue(String(currentUserScore.score))
@@ -681,4 +744,3 @@ export default function MatchPage({ params }: MatchPageProps) {
     </main>
   )
 }
-
