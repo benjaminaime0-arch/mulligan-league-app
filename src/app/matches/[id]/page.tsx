@@ -19,6 +19,7 @@ type Match = {
   leagues?: {
     id: string | number
     name: string
+    admin_id?: string | null
   } | null
 }
 
@@ -71,6 +72,7 @@ export default function MatchPage({ params }: MatchPageProps) {
   const [submittingScore, setSubmittingScore] = useState(false)
   const [scoreError, setScoreError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [deletingMatch, setDeletingMatch] = useState(false)
 
   const [editingScore, setEditingScore] = useState(false)
   const [approvingScoreId, setApprovingScoreId] = useState<string | number | null>(null)
@@ -196,7 +198,7 @@ export default function MatchPage({ params }: MatchPageProps) {
 
     setSubmittingScore(true)
     try {
-      const scorePromise = supabase.from("scores").insert({
+      const { error: insertError } = await supabase.from("scores").insert({
         match_id: match.id,
         user_id: user.id,
         score: numericScore,
@@ -204,22 +206,16 @@ export default function MatchPage({ params }: MatchPageProps) {
         status: "pending",
       })
 
-      await Promise.race([
-        scorePromise.then(({ error }) => {
-          if (error) throw error
-        }),
-        new Promise<void>((_, reject) =>
-          setTimeout(() => reject(new Error("Score submission timed out.")), 10000),
-        ),
-      ])
+      if (insertError) throw insertError
 
-      const [scoresRes] = await Promise.all([
-        supabase.from("scores").select("*").eq("match_id", match.id),
-      ])
+      const { data: scoresData, error: fetchError } = await supabase
+        .from("scores")
+        .select("*")
+        .eq("match_id", match.id)
 
-      if (scoresRes.error) {
-        throw scoresRes.error
-      }
+      if (fetchError) throw fetchError
+
+      const scoresRes = { data: scoresData, error: fetchError }
 
       setScores((scoresRes.data || []) as Score[])
       setShowScoreForm(false)
@@ -317,6 +313,28 @@ export default function MatchPage({ params }: MatchPageProps) {
       setError(err instanceof Error ? err.message : "Failed to approve score.")
     } finally {
       setApprovingScoreId(null)
+    }
+  }
+
+  const isLeagueAdmin = !!user && !!match?.leagues?.admin_id && match.leagues.admin_id === user.id
+
+  const handleDeleteMatch = async () => {
+    if (!match || !isLeagueAdmin) return
+    if (!window.confirm("Delete this match and all its scores? This cannot be undone.")) return
+
+    setDeletingMatch(true)
+    try {
+      const { error: delError } = await supabase
+        .from("matches")
+        .delete()
+        .eq("id", match.id)
+
+      if (delError) throw delError
+
+      router.push(`/leagues/${match.league_id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete match.")
+      setDeletingMatch(false)
     }
   }
 
@@ -742,6 +760,9 @@ export default function MatchPage({ params }: MatchPageProps) {
                   </p>
                 </div>
                 <button type="button" onClick={() => {
+                  if (currentUserScore.status === "approved") {
+                    if (!window.confirm("This score is already approved. Editing will reset approval and another player will need to re-approve. Continue?")) return
+                  }
                   setScoreValue(String(currentUserScore.score))
                   setHoles(currentUserScore.holes as 9 | 18)
                   setEditingScore(true)
@@ -752,6 +773,20 @@ export default function MatchPage({ params }: MatchPageProps) {
               </div>
             )}
           </section>
+        )}
+
+        {/* Delete match — league admins only */}
+        {isLeagueAdmin && (
+          <div className="pt-4 text-center">
+            <button
+              type="button"
+              onClick={handleDeleteMatch}
+              disabled={deletingMatch}
+              className="text-xs text-red-400 underline-offset-4 hover:text-red-600 hover:underline disabled:opacity-60"
+            >
+              {deletingMatch ? "Deleting…" : "Delete this match"}
+            </button>
+          </div>
         )}
       </div>
     </main>

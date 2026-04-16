@@ -223,18 +223,22 @@ export default function CreateLeaguePage() {
                   id="endDate"
                   type="date"
                   value={endDate}
+                  min={startDate || undefined}
                   onChange={(e) => setEndDate(e.target.value)}
                   className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2.5 text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   disabled={submitting}
                 />
+                {startDate && endDate && new Date(endDate) <= new Date(startDate) && (
+                  <p className="mt-1 text-xs text-red-600">End date must be after start date.</p>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Nombre de cartes comptabilisé */}
+          {/* Scoring cards counted */}
           <div>
             <label htmlFor="scoringCards" className="mb-1 block text-sm font-medium text-primary">
-              Nombre de cartes comptabilisé
+              Scoring cards counted
             </label>
             <select
               id="scoringCards"
@@ -256,10 +260,10 @@ export default function CreateLeaguePage() {
             </p>
           </div>
 
-          {/* Nombre de cartes possible */}
+          {/* Total cards possible */}
           <div>
             <label htmlFor="totalCards" className="mb-1 block text-sm font-medium text-primary">
-              Nombre de cartes possible
+              Total cards possible
             </label>
             <select
               id="totalCards"
@@ -279,10 +283,10 @@ export default function CreateLeaguePage() {
             </p>
           </div>
 
-          {/* Format de jeux */}
+          {/* Game format */}
           <div>
             <label htmlFor="format" className="mb-1 block text-sm font-medium text-primary">
-              Format de jeux
+              Game format
             </label>
             <select
               id="format"
