@@ -1,11 +1,25 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
 
 export default function JoinLeaguePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-cream">
+          <p className="text-primary/70">Loading…</p>
+        </main>
+      }
+    >
+      <JoinLeagueContent />
+    </Suspense>
+  )
+}
+
+function JoinLeagueContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [user, setUser] = useState<User | null>(null)
