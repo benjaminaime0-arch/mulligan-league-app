@@ -335,10 +335,11 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                       type="button"
                       onClick={async () => {
                         if (!league.invite_code) return
-                        const message = `Join my golf league "${league.name}" on Mulligan League! Code: ${league.invite_code}`
+                        const joinUrl = `${window.location.origin}/leagues/join?code=${league.invite_code}`
+                        const message = `Join my golf league "${league.name}" on Mulligan League!\n${joinUrl}`
                         if (typeof navigator !== "undefined" && navigator.share) {
                           try {
-                            await navigator.share({ text: message })
+                            await navigator.share({ text: message, url: joinUrl })
                           } catch {
                             // user cancelled or share failed
                           }
@@ -407,10 +408,11 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                 type="button"
                 onClick={async () => {
                   if (!league.invite_code) return
-                  const message = `Join my golf league "${league.name}" on Mulligan League! Code: ${league.invite_code}`
+                  const joinUrl = `${window.location.origin}/leagues/join?code=${league.invite_code}`
+                  const message = `Join my golf league "${league.name}" on Mulligan League!\n${joinUrl}`
                   if (typeof navigator !== "undefined" && navigator.share) {
                     try {
-                      await navigator.share({ text: message })
+                      await navigator.share({ text: message, url: joinUrl })
                     } catch {
                       // user cancelled or share failed
                     }

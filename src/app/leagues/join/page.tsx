@@ -1,16 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
 
 export default function JoinLeaguePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
 
-  const [code, setCode] = useState("")
+  const [code, setCode] = useState(searchParams.get("code")?.toUpperCase().slice(0, 6) || "")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [leagueId, setLeagueId] = useState<string | number | null>(null)
