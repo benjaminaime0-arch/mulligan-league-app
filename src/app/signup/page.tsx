@@ -66,7 +66,7 @@ export default function SignupPage() {
 
       if (signUpError) throw signUpError
 
-      router.push("/dashboard")
+      router.push("/profile")
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")

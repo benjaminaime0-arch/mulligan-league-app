@@ -5,15 +5,11 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Logo } from "@/components/Logo"
 
-const primary = "text-primary"
-const accent = "text-emerald-600"
-
 const navItems = [
-  { href: "/dashboard", label: "Home", icon: "⌂" },
+  { href: "/profile", label: "Home", icon: "⌂" },
   { href: "/leagues/list", label: "Leagues", icon: "🏆" },
   { href: "/matches/create", label: "Match", icon: "+", isPrimaryAction: true },
   { href: "/leaderboard", label: "Ranks", icon: "📊" },
-  { href: "/profile", label: "Profile", icon: "👤" },
 ]
 
 const authFreeRoutes = ["/", "/login", "/signup"]
@@ -33,15 +29,15 @@ export function Navbar() {
       <header className="sticky top-0 z-40 hidden border-b border-primary/10 bg-white/95 backdrop-blur md:block">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <Link
-            href="/dashboard"
+            href="/profile"
             className="flex items-center gap-2 text-sm font-semibold tracking-wide text-primary hover:text-primary/80"
-            aria-label="Mulligan League — Dashboard"
+            aria-label="Mulligan League — Home"
           >
             <Logo mark size={32} />
             <span className="hidden sm:inline">Mulligan League</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm font-medium">
-            <DesktopLink href="/dashboard" label="Dashboard" pathname={pathname} />
+            <DesktopLink href="/profile" label="Home" pathname={pathname} />
             <DesktopLink href="/leagues/list" label="Leagues" pathname={pathname} />
             <DesktopLink href="/leaderboard" label="Leaderboard" pathname={pathname} />
             <Link
@@ -49,17 +45,6 @@ export function Navbar() {
               className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-cream hover:bg-primary/90"
             >
               Create Match
-            </Link>
-            <Link
-              href="/profile"
-              className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold ${
-                pathname.startsWith("/profile")
-                  ? "border-primary bg-primary text-cream"
-                  : "border-primary/20 bg-cream text-primary hover:border-primary/40"
-              }`}
-              aria-label="Profile"
-            >
-              👤
             </Link>
           </nav>
         </div>
@@ -70,8 +55,8 @@ export function Navbar() {
         <div className="mx-auto flex max-w-2xl items-stretch justify-between px-1 py-1.5">
           {navItems.map((item) => {
             const isActive =
-              item.href === "/dashboard"
-                ? pathname === "/dashboard"
+              item.href === "/profile"
+                ? pathname === "/profile"
                 : pathname.startsWith(item.href)
 
             if (item.isPrimaryAction) {
@@ -157,7 +142,7 @@ interface DesktopLinkProps {
 
 function DesktopLink({ href, label, pathname }: DesktopLinkProps) {
   const isActive =
-    href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href)
+    href === "/profile" ? pathname === "/profile" : pathname.startsWith(href)
 
   return (
     <Link
@@ -172,4 +157,3 @@ function DesktopLink({ href, label, pathname }: DesktopLinkProps) {
     </Link>
   )
 }
-

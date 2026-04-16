@@ -46,7 +46,7 @@ export default function LoginPage() {
       if (signInError) throw signInError
 
       router.refresh()
-      router.push("/dashboard")
+      router.push("/profile")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid email or password")
     } finally {

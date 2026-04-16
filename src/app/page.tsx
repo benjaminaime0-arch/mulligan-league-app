@@ -13,7 +13,7 @@ export default function Home() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
-        router.replace("/dashboard")
+        router.replace("/profile")
       } else {
         setChecking(false)
       }
