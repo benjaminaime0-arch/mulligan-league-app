@@ -92,6 +92,8 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   const [showStartConfirm, setShowStartConfirm] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deletingLeague, setDeletingLeague] = useState(false)
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
+  const [leavingLeague, setLeavingLeague] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -239,6 +241,29 @@ export default function LeaguePage({ params }: LeaguePageProps) {
     }
   }
 
+  const handleLeaveLeague = async () => {
+    if (!league || !user) return
+
+    setShowLeaveConfirm(false)
+    setLeavingLeague(true)
+    setError(null)
+    try {
+      const { error: leaveError } = await supabase
+        .from("league_members")
+        .delete()
+        .eq("league_id", league.id)
+        .eq("user_id", user.id)
+
+      if (leaveError) throw leaveError
+
+      router.push("/leagues/list")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to leave league.")
+    } finally {
+      setLeavingLeague(false)
+    }
+  }
+
   if (authLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-cream">
@@ -372,7 +397,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
               >
                 Create Match
               </Link>
-              {isAdmin && (
+              {isAdmin ? (
                 <button
                   type="button"
                   onClick={() => setShowDeleteConfirm(true)}
@@ -380,6 +405,15 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                   className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
                 >
                   {deletingLeague ? "Deleting…" : "Delete"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowLeaveConfirm(true)}
+                  disabled={leavingLeague}
+                  className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+                >
+                  {leavingLeague ? "Leaving…" : "Leave"}
                 </button>
               )}
             </div>
@@ -477,7 +511,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
           </>
         )}
 
-        {isAdmin && (
+        {isAdmin ? (
           <ConfirmModal
             open={showDeleteConfirm}
             title="Delete this league?"
@@ -487,6 +521,17 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             destructive
             onConfirm={handleDeleteLeague}
             onCancel={() => setShowDeleteConfirm(false)}
+          />
+        ) : (
+          <ConfirmModal
+            open={showLeaveConfirm}
+            title="Leave this league?"
+            message="You will be removed from the league and your scores will remain on record. You can rejoin later with an invite code."
+            confirmLabel="Leave League"
+            loading={leavingLeague}
+            destructive
+            onConfirm={handleLeaveLeague}
+            onCancel={() => setShowLeaveConfirm(false)}
           />
         )}
 
