@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Logo } from "@/components/Logo"
+import { supabase } from "@/lib/supabase"
 
 const navItems = [
   { href: "/leagues/list", label: "Leagues", icon: "leagues" },
@@ -16,6 +17,26 @@ const authFreeRoutes = ["/", "/login", "/signup"]
 export function Navbar() {
   const pathname = usePathname()
   const [showActions, setShowActions] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchAvatar = async () => {
+      const { data: sessionData } = await supabase.auth.getSession()
+      if (!sessionData.session) return
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("avatar_url")
+        .eq("id", sessionData.session.user.id)
+        .maybeSingle()
+
+      if (data?.avatar_url) setAvatarUrl(data.avatar_url)
+    }
+
+    if (!authFreeRoutes.includes(pathname)) {
+      fetchAvatar()
+    }
+  }, [pathname])
 
   // Hide navbar entirely on auth-free routes
   if (authFreeRoutes.includes(pathname)) {
@@ -48,6 +69,17 @@ export function Navbar() {
               className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-cream hover:bg-primary/90"
             >
               Create Match
+            </Link>
+            <Link href="/profile" className="ml-1">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Profile" className="h-8 w-8 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" />
+                  </svg>
+                </div>
+              )}
             </Link>
           </nav>
         </div>
@@ -104,6 +136,37 @@ export function Navbar() {
               )
             }
 
+            // Profile tab with avatar
+            if (item.icon === "profile") {
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-[11px] font-medium"
+                >
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt="Profile"
+                      className={`h-5 w-5 rounded-full object-cover ${isActive ? "ring-2 ring-primary" : ""}`}
+                    />
+                  ) : (
+                    <span
+                      className={`flex h-5 w-5 items-center justify-center ${isActive ? "text-primary" : "text-primary/60"}`}
+                      aria-hidden="true"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" />
+                      </svg>
+                    </span>
+                  )}
+                  <span className={isActive ? "text-primary" : "text-primary/60"}>
+                    {item.label}
+                  </span>
+                </Link>
+              )
+            }
+
             return (
               <Link
                 key={item.href}
@@ -119,11 +182,6 @@ export function Navbar() {
                   {item.icon === "leagues" && (
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-                    </svg>
-                  )}
-                  {item.icon === "profile" && (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" />
                     </svg>
                   )}
                 </span>

@@ -15,6 +15,7 @@ type Profile = {
   email?: string | null
   town?: string | null
   handicap?: number | null
+  avatar_url?: string | null
 }
 
 type LeagueMember = {
@@ -59,6 +60,7 @@ export default function ProfilePage() {
   const [editTown, setEditTown] = useState("")
   const [editHandicap, setEditHandicap] = useState("")
   const [saving, setSaving] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -229,6 +231,54 @@ export default function ProfilePage() {
     }
   }
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user || !e.target.files || e.target.files.length === 0) return
+
+    const file = e.target.files[0]
+
+    // Validate file type and size
+    if (!file.type.startsWith("image/")) {
+      setError("Please select an image file.")
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Image must be under 2 MB.")
+      return
+    }
+
+    setUploadingAvatar(true)
+    setError(null)
+    try {
+      const ext = file.name.split(".").pop() || "jpg"
+      const filePath = `${user.id}/avatar.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: publicUrlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath)
+
+      const avatarUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: avatarUrl })
+        .eq("id", user.id)
+
+      if (updateError) throw updateError
+
+      setProfile((prev) => prev ? { ...prev, avatar_url: avatarUrl } : prev)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload avatar.")
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
   if (authLoading) return <LoadingSpinner message="Checking your session..." />
   if (!user) return null
   if (loading) return <LoadingSpinner message="Loading profile..." />
@@ -292,9 +342,38 @@ export default function ProfilePage() {
           ) : (
             <>
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-semibold text-cream">
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
+                <label className="group relative cursor-pointer" htmlFor="avatar-upload">
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt={displayName}
+                      className="h-12 w-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-semibold text-cream">
+                      {displayName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                      <circle cx="12" cy="13" r="4" />
+                    </svg>
+                  </div>
+                  {uploadingAvatar && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    </div>
+                  )}
+                  <input
+                    id="avatar-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                    disabled={uploadingAvatar}
+                  />
+                </label>
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div>
