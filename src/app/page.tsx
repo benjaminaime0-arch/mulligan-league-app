@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { Logo } from "@/components/Logo"
 
 export default function Home() {
   const router = useRouter()
@@ -30,7 +31,10 @@ export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-cream px-4">
       <div className="mx-auto w-full max-w-md text-center">
-        <h1 className="text-4xl font-bold text-primary">Mulligan League</h1>
+        <div className="mx-auto mb-2 flex justify-center">
+          <Logo size={200} priority />
+        </div>
+        <h1 className="sr-only">Mulligan League</h1>
         <p className="mt-3 text-lg text-primary/70">
           Your weekend golf crew, organized.
         </p>

@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { Logo } from "@/components/Logo"
 
 const primary = "text-primary"
 const accent = "text-emerald-600"
@@ -33,9 +34,11 @@ export function Navbar() {
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <Link
             href="/dashboard"
-            className="text-sm font-semibold tracking-wide text-primary hover:text-primary/80"
+            className="flex items-center gap-2 text-sm font-semibold tracking-wide text-primary hover:text-primary/80"
+            aria-label="Mulligan League — Dashboard"
           >
-            Mulligan League
+            <Logo mark size={32} />
+            <span className="hidden sm:inline">Mulligan League</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm font-medium">
             <DesktopLink href="/dashboard" label="Dashboard" pathname={pathname} />

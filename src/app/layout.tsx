@@ -28,20 +28,29 @@ export const metadata: Metadata = {
     "golf competition",
     "organize golf",
   ],
+  metadataBase: new URL("https://app.mulliganleague.com"),
+  icons: {
+    icon: [
+      { url: "/logo-mark.png", type: "image/png" },
+      { url: "/favicon.ico" },
+    ],
+    apple: [{ url: "/logo-mark.png" }],
+  },
   openGraph: {
     title: "Mulligan League — Organize Your Golf Group",
     description:
       "Turn your golf group into a real league. Create private leagues, track weekly scores, and compete with friends. Free to use.",
     type: "website",
     siteName: "Mulligan League",
+    images: [{ url: "/logo.png", width: 1024, height: 1024, alt: "Mulligan League" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Mulligan League — Organize Your Golf Group",
     description:
       "Turn your golf group into a real league. Create private leagues, track weekly scores, and compete with friends. Free to use.",
+    images: ["/logo.png"],
   },
-  metadataBase: new URL("https://app.mulliganleague.com"),
 }
 
 export default function RootLayout({

@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { Logo } from "@/components/Logo"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -77,6 +78,9 @@ export default function SignupPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-[400px]">
+        <Link href="/" className="mb-6 flex justify-center" aria-label="Mulligan League home">
+          <Logo size={140} priority />
+        </Link>
         <h1 className="mb-2 text-2xl font-bold text-primary">Create Account</h1>
         <p className="mb-8 text-primary/70">
           Set up your golfer profile in 30 seconds.
