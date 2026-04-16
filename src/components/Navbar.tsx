@@ -6,10 +6,8 @@ import { usePathname } from "next/navigation"
 import { Logo } from "@/components/Logo"
 
 const navItems = [
-  { href: "/profile", label: "Home", icon: "⌂" },
   { href: "/leagues/list", label: "Leagues", icon: "🏆" },
   { href: "/matches/create", label: "Match", icon: "+", isPrimaryAction: true },
-  { href: "/leaderboard", label: "Ranks", icon: "📊" },
 ]
 
 const authFreeRoutes = ["/", "/login", "/signup"]
@@ -37,9 +35,13 @@ export function Navbar() {
             <span className="hidden sm:inline">Mulligan League</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm font-medium">
-            <DesktopLink href="/profile" label="Home" pathname={pathname} />
             <DesktopLink href="/leagues/list" label="Leagues" pathname={pathname} />
-            <DesktopLink href="/leaderboard" label="Leaderboard" pathname={pathname} />
+            <Link
+              href="/leagues/create"
+              className="rounded-lg border border-primary/30 bg-white px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/5"
+            >
+              Create League
+            </Link>
             <Link
               href="/matches/create"
               className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-cream hover:bg-primary/90"
@@ -54,10 +56,7 @@ export function Navbar() {
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-primary/10 bg-white/95 backdrop-blur md:hidden">
         <div className="mx-auto flex max-w-2xl items-stretch justify-between px-1 py-1.5">
           {navItems.map((item) => {
-            const isActive =
-              item.href === "/profile"
-                ? pathname === "/profile"
-                : pathname.startsWith(item.href)
+            const isActive = pathname.startsWith(item.href)
 
             if (item.isPrimaryAction) {
               return (

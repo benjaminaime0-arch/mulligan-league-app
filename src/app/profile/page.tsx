@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { fetchMatchPlayerNames } from "@/lib/matchPlayers"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 
 type Profile = {
@@ -45,6 +46,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [memberships, setMemberships] = useState<LeagueMember[]>([])
   const [scheduledMatches, setScheduledMatches] = useState<ScheduledMatch[]>([])
+  const [matchPlayerNames, setMatchPlayerNames] = useState<Map<string | number, string[]>>(new Map())
   const [matchesPlayed, setMatchesPlayed] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -137,6 +139,13 @@ export default function ProfilePage() {
           .sort((a, b) => (a.match_date || "").localeCompare(b.match_date || ""))
         setScheduledMatches(upcoming)
 
+        // Fetch player names for scheduled matches
+        if (upcoming.length > 0) {
+          const matchIds = upcoming.map((m) => m.id)
+          const playerNames = await fetchMatchPlayerNames(supabase, matchIds)
+          setMatchPlayerNames(playerNames)
+        }
+
         if (scoresCountRes.error) throw scoresCountRes.error
         setMatchesPlayed(scoresCountRes.count || 0)
       } catch (err) {
@@ -179,6 +188,12 @@ export default function ProfilePage() {
       const town = editTown.trim()
       const handicapNum = editHandicap.trim() ? parseInt(editHandicap.trim(), 10) : null
 
+      if (!firstName) {
+        setError("First name is required.")
+        setSaving(false)
+        return
+      }
+
       if (
         handicapNum != null &&
         (Number.isNaN(handicapNum) || handicapNum < 0 || handicapNum > 54)
@@ -191,14 +206,14 @@ export default function ProfilePage() {
       const { error: updateError } = await supabase
         .from("profiles")
         .update({
-          first_name: firstName || null,
+          first_name: firstName,
           last_name: lastName || null,
           town: town || null,
           handicap: handicapNum,
         })
         .eq("id", user.id)
 
-      if (updateError) throw updateError
+      if (updateError) throw new Error(updateError.message || "Database update failed.")
 
       const { data: refreshed } = await supabase
         .from("profiles")
@@ -339,7 +354,11 @@ export default function ProfilePage() {
               <p className="text-sm text-primary/70">No matches scheduled. Create one to get started.</p>
             ) : (
               scheduledMatches.map((m) => {
-                const label = m.leagues?.name || (m.match_type === "casual" ? "Casual" : "Match")
+                const leagueName = m.leagues?.name || (m.match_type === "casual" ? "Casual" : "Match")
+                const courseName = m.course_name || null
+                const names = matchPlayerNames.get(m.id)
+                const playersLabel = names && names.length > 0 ? names.join(" vs ") : null
+                const parts = [leagueName, courseName, playersLabel].filter(Boolean)
                 return (
                   <Link
                     key={m.id}
@@ -349,8 +368,7 @@ export default function ProfilePage() {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-primary">
-                          {label}
-                          {m.course_name ? ` · ${m.course_name}` : ""}
+                          {parts.join(" · ")}
                         </p>
                         <p className="text-xs text-primary/60">
                           {formatDate(m.match_date)}

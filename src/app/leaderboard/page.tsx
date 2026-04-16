@@ -22,8 +22,9 @@ type LeaderboardRow = {
   position?: number | null
   player_name?: string | null
   best_score?: number | null
-  average?: number | null
-  rounds?: number | null
+  total_score?: number | null
+  rounds_counted?: number | null
+  rounds_played?: number | null
   user_id?: string | null
 }
 
@@ -256,11 +257,11 @@ export default function LeaderboardPage() {
                 <table className="min-w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-primary/10 text-xs uppercase tracking-wide text-primary/60">
-                      <th className="py-2 pr-4">Pos</th>
-                      <th className="py-2 pr-4">Player</th>
-                      <th className="py-2 pr-4">Best</th>
-                      <th className="py-2 pr-4">Average</th>
-                      <th className="py-2">Rounds</th>
+                      <th className="py-2 pr-3">Pos</th>
+                      <th className="py-2 pr-3">Player</th>
+                      <th className="py-2 pr-3">Total</th>
+                      <th className="py-2 pr-3">Best</th>
+                      <th className="py-2">Cards</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -273,10 +274,10 @@ export default function LeaderboardPage() {
                             isCurrentUser ? "bg-emerald-50/60" : ""
                           }`}
                         >
-                          <td className="py-2 pr-4 text-primary">
+                          <td className="py-2 pr-3 text-primary">
                             {row.position ?? idx + 1}
                           </td>
-                          <td className="py-2 pr-4 text-primary">
+                          <td className="py-2 pr-3 text-primary">
                             {row.player_name || "Player"}
                             {isCurrentUser && (
                               <span className="ml-1 text-[10px] font-semibold uppercase text-emerald-700">
@@ -284,16 +285,14 @@ export default function LeaderboardPage() {
                               </span>
                             )}
                           </td>
-                          <td className="py-2 pr-4 text-primary">
+                          <td className="py-2 pr-3 text-primary">
+                            {row.total_score ?? "–"}
+                          </td>
+                          <td className="py-2 pr-3 text-primary">
                             {row.best_score ?? "–"}
                           </td>
-                          <td className="py-2 pr-4 text-primary">
-                            {row.average != null
-                              ? row.average.toFixed(1)
-                              : "–"}
-                          </td>
                           <td className="py-2 text-primary">
-                            {row.rounds ?? 0}
+                            {row.rounds_counted ?? 0}/{row.rounds_played ?? 0}
                           </td>
                         </tr>
                       )

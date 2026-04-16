@@ -14,8 +14,16 @@ type League = {
   course_name?: string | null
   invite_code?: string | null
   max_players?: number | null
-  created_by?: string | null
+  admin_id?: string | null
   status?: string | null
+  league_type?: string | null
+  scoring_cards_count?: number | null
+  total_cards_count?: number | null
+}
+
+type UserLeague = {
+  id: string | number
+  name: string
 }
 
 type MemberWithProfile = {
@@ -52,7 +60,9 @@ type LeaderboardRow = {
   position?: number | null
   player_name?: string | null
   best_score?: number | null
-  rounds?: number | null
+  total_score?: number | null
+  rounds_counted?: number | null
+  rounds_played?: number | null
 }
 
 interface LeaguePageProps {
@@ -73,6 +83,8 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
   const [periodMatches, setPeriodMatches] = useState<Match[]>([])
   const [matchPlayerNames, setMatchPlayerNames] = useState<Map<string | number, string[]>>(new Map())
+
+  const [userLeagues, setUserLeagues] = useState<UserLeague[]>([])
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -96,7 +108,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
         setLoading(true)
         setError(null)
 
-        const [leagueRes, membersRes, periodRes, leaderboardRes] = await Promise.all([
+        const [leagueRes, membersRes, periodRes, leaderboardRes, userLeaguesRes] = await Promise.all([
           supabase.from("leagues").select("*").eq("id", leagueId).single(),
           supabase.from("league_members").select("*, profiles(*)").eq("league_id", leagueId),
           supabase
@@ -106,6 +118,10 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             .eq("status", "active")
             .maybeSingle(),
           supabase.rpc("get_leaderboard", { p_league_id: leagueId }),
+          supabase
+            .from("league_members")
+            .select("league_id, leagues(id, name)")
+            .eq("user_id", session.user.id),
         ])
 
         if (leagueRes.error) throw leagueRes.error
@@ -115,6 +131,18 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
         if (membersRes.error) throw membersRes.error
         setMembers((membersRes.data || []) as MemberWithProfile[])
+
+        // Build user league list for navigation
+        if (!userLeaguesRes.error && userLeaguesRes.data) {
+          type UserLeagueRow = { league_id: string; leagues: { id: string; name: string } | { id: string; name: string }[] | null }
+          const leagueList: UserLeague[] = []
+          for (const r of userLeaguesRes.data as unknown as UserLeagueRow[]) {
+            if (!r.leagues) continue
+            const lg = Array.isArray(r.leagues) ? r.leagues[0] : r.leagues
+            if (lg) leagueList.push({ id: lg.id, name: lg.name })
+          }
+          setUserLeagues(leagueList)
+        }
 
         if (periodRes.error && periodRes.error.code !== "PGRST116") {
           throw periodRes.error
@@ -158,22 +186,12 @@ export default function LeaguePage({ params }: LeaguePageProps) {
     init()
   }, [leagueId, router])
 
-  const isAdmin = league && user && league.created_by === user.id
+  const isAdmin = league && user && league.admin_id === user.id
 
-  const formatDateRange = (start?: string | null, end?: string | null) => {
-    if (!start || !end) return null
-    const startDate = new Date(start)
-    const endDate = new Date(end)
-    const startStr = startDate.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    })
-    const endStr = endDate.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    })
-    return `${startStr} \u2013 ${endStr}`
-  }
+  // League navigation
+  const currentLeagueIndex = userLeagues.findIndex((l) => String(l.id) === String(leagueId))
+  const prevLeague = currentLeagueIndex > 0 ? userLeagues[currentLeagueIndex - 1] : null
+  const nextLeague = currentLeagueIndex >= 0 && currentLeagueIndex < userLeagues.length - 1 ? userLeagues[currentLeagueIndex + 1] : null
 
   const handleStartLeague = async () => {
     if (!league) return
@@ -189,8 +207,6 @@ export default function LeaguePage({ params }: LeaguePageProps) {
         throw rpcError
       }
 
-      // Re-run the full page data fetch instead of router.refresh()
-      // which doesn't re-run client-side useEffect
       window.location.reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start league.")
@@ -202,7 +218,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   if (authLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-cream">
-        <p className="text-primary/70">Checking your session\u2026</p>
+        <p className="text-primary/70">Checking your session…</p>
       </main>
     )
   }
@@ -214,7 +230,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-cream">
-        <p className="text-primary/70">Loading league\u2026</p>
+        <p className="text-primary/70">Loading league…</p>
       </main>
     )
   }
@@ -239,34 +255,145 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   }
 
   const memberCount = members.length
-  const periodLabel =
-    currentPeriod?.name ||
-    (currentPeriod ? "Current period" : null)
-
-  const periodRange = currentPeriod
-    ? formatDateRange(currentPeriod.start_date || null, currentPeriod.end_date || null)
-    : null
 
   return (
     <main className="min-h-screen bg-cream px-4 py-6">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-primary">{league.name}</h1>
-            <p className="text-sm text-primary/70">
-              {league.course_name || "Course TBA"} &middot;{" "}
-              {memberCount} player{memberCount === 1 ? "" : "s"}
-              {league.max_players ? ` \u00b7 Max ${league.max_players}` : null}
-            </p>
+        <header className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-3">
+                {prevLeague ? (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/leagues/${prevLeague.id}`)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/20 bg-white text-primary hover:bg-primary/5"
+                    title={prevLeague.name}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                  </button>
+                ) : userLeagues.length > 1 ? (
+                  <div className="h-8 w-8" />
+                ) : null}
+                <h1 className="text-2xl font-bold text-primary">{league.name}</h1>
+                {nextLeague ? (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/leagues/${nextLeague.id}`)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/20 bg-white text-primary hover:bg-primary/5"
+                    title={nextLeague.name}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>
+                  </button>
+                ) : userLeagues.length > 1 ? (
+                  <div className="h-8 w-8" />
+                ) : null}
+                {/* Compact invite code next to title — desktop */}
+                {league.invite_code && (
+                  <div className="ml-2 hidden items-center gap-2 sm:flex">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!league.invite_code) return
+                        if (typeof navigator === "undefined" || !navigator.clipboard) return
+                        try {
+                          await navigator.clipboard.writeText(league.invite_code)
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      className="rounded-md bg-primary/10 px-2.5 py-1 font-mono text-sm tracking-[0.15em] text-primary hover:bg-primary/15"
+                      title="Click to copy invite code"
+                    >
+                      {league.invite_code}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!league.invite_code) return
+                        const message = `Join my golf league "${league.name}" on Mulligan League! Code: ${league.invite_code}`
+                        if (typeof navigator !== "undefined" && navigator.share) {
+                          try {
+                            await navigator.share({ text: message })
+                          } catch {
+                            // user cancelled or share failed
+                          }
+                        } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+                          try {
+                            await navigator.clipboard.writeText(message)
+                          } catch {
+                            // ignore
+                          }
+                        }
+                      }}
+                      className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-white px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/5"
+                    >
+                      Share Invite
+                    </button>
+                  </div>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-primary/70">
+                {league.course_name || "Course TBA"} &middot;{" "}
+                {memberCount} player{memberCount === 1 ? "" : "s"}
+                {league.league_type ? ` · ${league.league_type.replace(/_/g, " ")}` : null}
+                {league.scoring_cards_count ? ` · ${league.scoring_cards_count} best cards counted` : null}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Link
+                href={`/matches/create?league=${league.id}`}
+                className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-white px-3 py-2 text-sm font-medium text-primary hover:bg-primary/5"
+              >
+                Create Match
+              </Link>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Link
-              href={`/matches/create?league=${league.id}`}
-              className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-white px-3 py-2 text-sm font-medium text-primary hover:bg-primary/5"
-            >
-              Create Match
-            </Link>
-          </div>
+
+          {/* Mobile invite code — shown below header on small screens */}
+          {league.invite_code && (
+            <div className="flex items-center gap-2 sm:hidden">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!league.invite_code) return
+                  if (typeof navigator === "undefined" || !navigator.clipboard) return
+                  try {
+                    await navigator.clipboard.writeText(league.invite_code)
+                  } catch {
+                    // ignore
+                  }
+                }}
+                className="rounded-md bg-primary/10 px-2.5 py-1 font-mono text-sm tracking-[0.15em] text-primary hover:bg-primary/15"
+                title="Tap to copy invite code"
+              >
+                {league.invite_code}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!league.invite_code) return
+                  const message = `Join my golf league "${league.name}" on Mulligan League! Code: ${league.invite_code}`
+                  if (typeof navigator !== "undefined" && navigator.share) {
+                    try {
+                      await navigator.share({ text: message })
+                    } catch {
+                      // user cancelled or share failed
+                    }
+                  } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+                    try {
+                      await navigator.clipboard.writeText(message)
+                    } catch {
+                      // ignore
+                    }
+                  }
+                }}
+                className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-white px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/5"
+              >
+                Share Invite
+              </button>
+            </div>
+          )}
         </header>
 
         {/* Draft guide for admins */}
@@ -276,11 +403,11 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             <ol className="mt-3 space-y-2 text-sm text-emerald-700">
               <li className="flex items-start gap-2">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-xs font-semibold text-emerald-800">1</span>
-                <span>Invite players \u2014 share the invite code below with your group.</span>
+                <span>Invite players — share the invite code with your group.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-xs font-semibold text-emerald-800">2</span>
-                <span>Start the league \u2014 this generates weekly match periods.</span>
+                <span>Start the league — this generates weekly match periods.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-xs font-semibold text-emerald-800">3</span>
@@ -290,188 +417,69 @@ export default function LeaguePage({ params }: LeaguePageProps) {
           </section>
         )}
 
-        {league.invite_code && (
-          <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold tracking-[0.2em] text-primary/60">
-                  INVITE CODE
-                </p>
-                <p className="mt-1 text-2xl font-mono tracking-[0.25em] text-primary">
-                  {league.invite_code}
-                </p>
-              </div>
-              <div className="mt-2 flex gap-2 sm:mt-0">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!league.invite_code) return
-                    if (typeof navigator === "undefined" || !navigator.clipboard) return
-                    try {
-                      await navigator.clipboard.writeText(league.invite_code)
-                    } catch {
-                      // ignore
-                    }
-                  }}
-                  className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-sm font-medium text-cream hover:bg-primary/90"
-                >
-                  Copy Code
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!league.invite_code) return
-                    const message = `Join my golf league "${league.name}" on Mulligan League! Code: ${league.invite_code}`
-                    if (typeof navigator !== "undefined" && navigator.share) {
-                      try {
-                        await navigator.share({ text: message })
-                      } catch {
-                        // user cancelled or share failed
-                      }
-                    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
-                      try {
-                        await navigator.clipboard.writeText(message)
-                      } catch {
-                        // ignore
-                      }
-                    }
-                  }}
-                  className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-white px-3 py-2 text-sm font-medium text-primary hover:bg-primary/5"
-                >
-                  Share Invite
-                </button>
-              </div>
+        {league.status !== "active" && league.status !== "completed" && (
+          <>
+            <div className="flex justify-start">
+              <button
+                type="button"
+                onClick={() => setShowStartConfirm(true)}
+                disabled={startingLeague}
+                className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {startingLeague ? "Starting…" : "Start League"}
+              </button>
             </div>
-          </section>
+            <ConfirmModal
+              open={showStartConfirm}
+              title="Start your league?"
+              message="This will generate weekly match periods for your league. Make sure all players have joined before starting."
+              confirmLabel="Start League"
+              loading={startingLeague}
+              onConfirm={handleStartLeague}
+              onCancel={() => setShowStartConfirm(false)}
+            />
+          </>
         )}
 
-        <section className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          {/* Left column — Current Period + Start League + Matches */}
-          <div className="space-y-4">
-            <div className="space-y-4">
-              <div className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
-                <h2 className="mb-2 text-sm font-semibold text-primary">Current Period</h2>
-                {currentPeriod ? (
-                  <div>
-                    <p className="text-base font-medium text-primary">
-                      {periodLabel}
-                    </p>
-                    {periodRange && (
-                      <p className="mt-1 text-sm text-primary/70">{periodRange}</p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-sm text-primary/70">
-                    Waiting to kick off. Start the league once everyone has joined.
-                  </p>
-                )}
-              </div>
-
-              {league.status !== "active" && league.status !== "completed" && (
-                <>
-                  <div className="flex justify-start">
-                    <button
-                      type="button"
-                      onClick={() => setShowStartConfirm(true)}
-                      disabled={startingLeague}
-                      className="mt-2 inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {startingLeague ? "Starting\u2026" : "Start League"}
-                    </button>
-                  </div>
-                  <ConfirmModal
-                    open={showStartConfirm}
-                    title="Start your league?"
-                    message="This will generate weekly match periods for your league. Make sure all players have joined before starting."
-                    confirmLabel="Start League"
-                    loading={startingLeague}
-                    onConfirm={handleStartLeague}
-                    onCancel={() => setShowStartConfirm(false)}
-                  />
-                </>
-              )}
-
-              {currentPeriod && (
-                <div className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <h2 className="text-sm font-semibold text-primary">
-                      Matches this period
-                    </h2>
-                  </div>
-                  {periodMatches.length === 0 ? (
-                    <p className="text-sm text-primary/70">
-                      No matches scheduled yet. Create one to get the week rolling.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {periodMatches.map((match) => {
-                        const dateLabel = match.match_date
-                          ? new Date(match.match_date).toLocaleDateString(undefined, {
-                              month: "short",
-                              day: "numeric",
-                            })
-                          : "Date TBA"
-                        const names = matchPlayerNames.get(match.id)
-                        const playerLabel = names && names.length > 0
-                          ? names.join(", ")
-                          : match.course_name || league.course_name || "Course TBA"
-                        return (
-                          <Link
-                            key={match.id}
-                            href={`/matches/${match.id}`}
-                            className="flex items-center justify-between rounded-lg bg-cream px-3 py-2 text-sm text-primary hover:bg-primary/5"
-                          >
-                            <div>
-                              <p className="font-medium">
-                                {playerLabel}
-                              </p>
-                              <p className="text-xs text-primary/70">
-                                {dateLabel} &middot; {(match.status || "scheduled").toString()}
-                              </p>
-                            </div>
-                          </Link>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right column — Leaderboard (sticky) */}
-          <div className="md:sticky md:top-6 md:self-start">
+        {/* Mobile: Leaderboard first, then Matches. Desktop: two-column layout */}
+        <section className="flex flex-col gap-4 md:grid md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          {/* Leaderboard — shows first on mobile (order-1), right column on desktop */}
+          <div className="order-1 md:order-2 md:sticky md:top-6 md:self-start">
             <div className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
               <h2 className="mb-3 text-sm font-semibold text-primary">Leaderboard</h2>
               {leaderboard.length === 0 ? (
                 <p className="text-sm text-primary/70">
-                  The board is empty \u2014 be the first to post a score and claim the top spot.
+                  The board is empty — be the first to post a score and claim the top spot.
                 </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-primary/10 text-xs uppercase tracking-wide text-primary/60">
-                        <th className="py-2 pr-4">Pos</th>
-                        <th className="py-2 pr-4">Player</th>
-                        <th className="py-2 pr-4">Best</th>
-                        <th className="py-2">Rounds</th>
+                        <th className="py-2 pr-3">Pos</th>
+                        <th className="py-2 pr-3">Player</th>
+                        <th className="py-2 pr-3">Total</th>
+                        <th className="py-2 pr-3">Best</th>
+                        <th className="py-2">Cards</th>
                       </tr>
                     </thead>
                     <tbody>
                       {leaderboard.map((row, idx) => (
                         <tr key={idx} className="border-b border-primary/5 last:border-0">
-                          <td className="py-2 pr-4 text-primary">
+                          <td className="py-2 pr-3 text-primary">
                             {row.position ?? idx + 1}
                           </td>
-                          <td className="py-2 pr-4 text-primary">
+                          <td className="py-2 pr-3 text-primary">
                             {row.player_name || "Player"}
                           </td>
-                          <td className="py-2 pr-4 text-primary">
-                            {row.best_score ?? "\u2013"}
+                          <td className="py-2 pr-3 font-bold text-primary">
+                            {row.total_score ?? "–"}
+                          </td>
+                          <td className="py-2 pr-3 text-primary">
+                            {row.best_score ?? "–"}
                           </td>
                           <td className="py-2 text-primary">
-                            {row.rounds ?? 0}
+                            {row.rounds_counted ?? 0}/{row.rounds_played ?? 0}
                           </td>
                         </tr>
                       ))}
@@ -480,6 +488,53 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Scheduled Matches — shows second on mobile (order-2), left column on desktop */}
+          <div className="order-2 md:order-1 space-y-4">
+            {currentPeriod && (
+              <div className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
+                <h2 className="mb-2 text-sm font-semibold text-primary">
+                  Scheduled Matches
+                </h2>
+                {periodMatches.length === 0 ? (
+                  <p className="text-sm text-primary/70">
+                    No matches scheduled yet. Create one to get the week rolling.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {periodMatches.map((match) => {
+                      const dateLabel = match.match_date
+                        ? new Date(match.match_date).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                          })
+                        : "Date TBA"
+                      const names = matchPlayerNames.get(match.id)
+                      const playerLabel = names && names.length > 0
+                        ? names.join(", ")
+                        : match.course_name || league.course_name || "Course TBA"
+                      return (
+                        <Link
+                          key={match.id}
+                          href={`/matches/${match.id}`}
+                          className="flex items-center justify-between rounded-lg bg-cream px-3 py-2 text-sm text-primary hover:bg-primary/5"
+                        >
+                          <div>
+                            <p className="font-medium">
+                              {playerLabel}
+                            </p>
+                            <p className="text-xs text-primary/70">
+                              {dateLabel} &middot; {(match.status || "scheduled").toString()}
+                            </p>
+                          </div>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </section>
       </div>

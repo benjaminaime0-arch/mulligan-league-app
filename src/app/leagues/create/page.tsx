@@ -5,6 +5,16 @@ import { useRouter } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
 
+const FORMATS = [
+  { value: "stroke_play", label: "Stroke Play" },
+  { value: "stableford", label: "Stableford" },
+  { value: "match_play", label: "Match Play" },
+  { value: "ryder_cup", label: "Ryder Cup" },
+  { value: "foursome", label: "Foursome" },
+  { value: "greensome", label: "Greensome" },
+  { value: "fourball", label: "Four-Ball" },
+]
+
 export default function CreateLeaguePage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
@@ -12,7 +22,12 @@ export default function CreateLeaguePage() {
 
   const [name, setName] = useState("")
   const [course, setCourse] = useState("")
-  const [players, setPlayers] = useState(4)
+  const [players, setPlayers] = useState(2)
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
+  const [scoringCards, setScoringCards] = useState(1)
+  const [totalCards, setTotalCards] = useState(1)
+  const [format, setFormat] = useState("stroke_play")
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -24,18 +39,22 @@ export default function CreateLeaguePage() {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession()
       const session = data.session
-
       if (!session) {
         router.push("/login")
         return
       }
-
       setUser(session.user)
       setAuthLoading(false)
     }
-
     checkSession()
   }, [router])
+
+  // Keep scoringCards <= totalCards
+  useEffect(() => {
+    if (scoringCards > totalCards) {
+      setScoringCards(totalCards)
+    }
+  }, [totalCards, scoringCards])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,7 +62,15 @@ export default function CreateLeaguePage() {
     setCopied(false)
 
     if (!name.trim() || !course.trim()) {
-      setError("Please fill in all fields.")
+      setError("Please fill in league name and golf course.")
+      return
+    }
+    if (!startDate || !endDate) {
+      setError("Please select both start and end dates.")
+      return
+    }
+    if (new Date(endDate) <= new Date(startDate)) {
+      setError("End date must be after start date.")
       return
     }
 
@@ -53,11 +80,14 @@ export default function CreateLeaguePage() {
         p_name: name.trim(),
         p_course_name: course.trim(),
         p_max_players: players,
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_scoring_cards: scoringCards,
+        p_total_cards: totalCards,
+        p_league_type: format,
       })
 
-      if (rpcError) {
-        throw rpcError
-      }
+      if (rpcError) throw rpcError
 
       const result = data as
         | { success: boolean; league_id?: string | number; invite_code?: string; error?: string }
@@ -77,12 +107,9 @@ export default function CreateLeaguePage() {
     }
   }
 
-  const weekCount = Math.max(players - 1, 1)
-
   const handleCopy = async () => {
     if (!inviteCode) return
     if (typeof navigator === "undefined" || !navigator.clipboard) return
-
     try {
       await navigator.clipboard.writeText(inviteCode)
       setCopied(true)
@@ -100,9 +127,7 @@ export default function CreateLeaguePage() {
     )
   }
 
-  if (!user) {
-    return null
-  }
+  if (!user) return null
 
   return (
     <main className="min-h-screen bg-cream px-4 py-8">
@@ -121,6 +146,7 @@ export default function CreateLeaguePage() {
             </div>
           )}
 
+          {/* League Name */}
           <div>
             <label htmlFor="name" className="mb-1 block text-sm font-medium text-primary">
               League name
@@ -136,6 +162,7 @@ export default function CreateLeaguePage() {
             />
           </div>
 
+          {/* Golf Course */}
           <div>
             <label htmlFor="course" className="mb-1 block text-sm font-medium text-primary">
               Golf course
@@ -151,37 +178,126 @@ export default function CreateLeaguePage() {
             />
           </div>
 
+          {/* Number of Players */}
           <div>
             <label htmlFor="players" className="mb-1 block text-sm font-medium text-primary">
               Number of players
             </label>
-            <div className="flex items-center gap-3">
-              <input
-                id="players"
-                type="number"
-                min={4}
-                max={10}
-                step={1}
-                value={players}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value, 10)
-                  if (Number.isNaN(value)) return
-                  setPlayers(Math.min(10, Math.max(4, value)))
-                }}
-                className="w-24 rounded-lg border border-primary/20 bg-cream px-3 py-2.5 text-center text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                disabled={submitting}
-              />
-              <p className="text-xs text-primary/70">
-                4–10 players. Ideal for weekly round-robin formats.
-              </p>
+            <select
+              id="players"
+              value={players}
+              onChange={(e) => setPlayers(parseInt(e.target.value, 10))}
+              className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              disabled={submitting}
+            >
+              {[2, 3, 4, 5, 6, 7, 8].map((n) => (
+                <option key={n} value={n}>
+                  {n} players
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* League Duration */}
+          <div>
+            <p className="mb-1 text-sm font-medium text-primary">League duration</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="startDate" className="mb-1 block text-xs text-primary/60">
+                  Start date
+                </label>
+                <input
+                  id="startDate"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2.5 text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  disabled={submitting}
+                />
+              </div>
+              <div>
+                <label htmlFor="endDate" className="mb-1 block text-xs text-primary/60">
+                  End date
+                </label>
+                <input
+                  id="endDate"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2.5 text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  disabled={submitting}
+                />
+              </div>
             </div>
           </div>
 
-          <p className="rounded-lg bg-cream px-4 py-3 text-sm text-primary">
-            This league will run for{" "}
-            <span className="font-semibold">{weekCount}</span> week{weekCount === 1 ? "" : "s"} with
-            1 match per player per week.
-          </p>
+          {/* Nombre de cartes comptabilisé */}
+          <div>
+            <label htmlFor="scoringCards" className="mb-1 block text-sm font-medium text-primary">
+              Nombre de cartes comptabilisé
+            </label>
+            <select
+              id="scoringCards"
+              value={scoringCards}
+              onChange={(e) => setScoringCards(parseInt(e.target.value, 10))}
+              className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              disabled={submitting}
+            >
+              {Array.from({ length: 10 }, (_, i) => i + 1)
+                .filter((n) => n <= totalCards)
+                .map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+            </select>
+            <p className="mt-1 text-xs text-primary/50">
+              Best scores counted in the leaderboard
+            </p>
+          </div>
+
+          {/* Nombre de cartes possible */}
+          <div>
+            <label htmlFor="totalCards" className="mb-1 block text-sm font-medium text-primary">
+              Nombre de cartes possible
+            </label>
+            <select
+              id="totalCards"
+              value={totalCards}
+              onChange={(e) => setTotalCards(parseInt(e.target.value, 10))}
+              className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              disabled={submitting}
+            >
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-primary/50">
+              Total matches a player can play during the league
+            </p>
+          </div>
+
+          {/* Format de jeux */}
+          <div>
+            <label htmlFor="format" className="mb-1 block text-sm font-medium text-primary">
+              Format de jeux
+            </label>
+            <select
+              id="format"
+              value={format}
+              onChange={(e) => setFormat(e.target.value)}
+              className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              disabled={submitting}
+            >
+              {FORMATS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <button
             type="submit"
@@ -244,4 +360,3 @@ export default function CreateLeaguePage() {
     </main>
   )
 }
-
