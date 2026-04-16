@@ -13,6 +13,7 @@ export default function SignupPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const [formData, setFormData] = useState({
+    username: "",
     firstName: "",
     lastName: "",
     email: "",
@@ -23,6 +24,10 @@ export default function SignupPage() {
 
   const validate = () => {
     const errors: Record<string, string> = {}
+    const username = formData.username.trim().toLowerCase()
+    if (!username) errors.username = "Username is required"
+    else if (username.length < 3) errors.username = "Username must be at least 3 characters"
+    else if (!/^[a-z0-9_]+$/.test(username)) errors.username = "Letters, numbers, and underscores only"
     if (!formData.firstName.trim()) errors.firstName = "First name is required"
     if (!formData.lastName.trim()) errors.lastName = "Last name is required"
     if (!formData.email.trim()) errors.email = "Email is required"
@@ -56,6 +61,7 @@ export default function SignupPage() {
         password: formData.password,
         options: {
           data: {
+            username: formData.username.trim().toLowerCase(),
             first_name: formData.firstName.trim(),
             last_name: formData.lastName.trim(),
             club: formData.club.trim() || undefined,
@@ -64,7 +70,12 @@ export default function SignupPage() {
         },
       })
 
-      if (signUpError) throw signUpError
+      if (signUpError) {
+        if (signUpError.message?.includes("profiles_username_unique") || signUpError.message?.includes("duplicate")) {
+          throw new Error("This username is already taken. Please choose another.")
+        }
+        throw signUpError
+      }
 
       router.push("/profile")
       router.refresh()
@@ -95,6 +106,32 @@ export default function SignupPage() {
               {error}
             </div>
           )}
+
+          <div>
+            <label
+              htmlFor="username"
+              className="mb-1 block text-sm font-medium text-primary"
+            >
+              Username
+            </label>
+            <input
+              id="username"
+              type="text"
+              value={formData.username}
+              onChange={(e) =>
+                setFormData((p) => ({ ...p, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))
+              }
+              className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder="johnny_golf"
+              autoComplete="username"
+              maxLength={30}
+              disabled={loading}
+            />
+            <p className="mt-1 text-[11px] text-primary/40">Letters, numbers, and underscores only</p>
+            {fieldErrors.username && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors.username}</p>
+            )}
+          </div>
 
           <div>
             <label

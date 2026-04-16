@@ -17,6 +17,7 @@ type Profile = {
   town?: string | null
   handicap?: number | null
   avatar_url?: string | null
+  username?: string | null
 }
 
 type LeagueMember = {
@@ -56,6 +57,7 @@ export default function ProfilePage() {
 
   // Profile editing
   const [editing, setEditing] = useState(false)
+  const [editUsername, setEditUsername] = useState("")
   const [editFirstName, setEditFirstName] = useState("")
   const [editLastName, setEditLastName] = useState("")
   const [editTown, setEditTown] = useState("")
@@ -175,6 +177,7 @@ export default function ProfilePage() {
   }
 
   const startEditing = () => {
+    setEditUsername(profile?.username || "")
     setEditFirstName(profile?.first_name || (user?.user_metadata?.first_name as string) || "")
     setEditLastName(profile?.last_name || (user?.user_metadata?.last_name as string) || "")
     setEditTown(profile?.town || "")
@@ -187,13 +190,26 @@ export default function ProfilePage() {
     setSaving(true)
     setError(null)
     try {
+      const username = editUsername.trim().toLowerCase()
       const firstName = editFirstName.trim()
       const lastName = editLastName.trim()
       const town = editTown.trim()
       const handicapNum = editHandicap.trim() ? parseInt(editHandicap.trim(), 10) : null
 
-      if (!firstName) {
-        setError("First name is required.")
+      if (!username) {
+        setError("Username is required.")
+        setSaving(false)
+        return
+      }
+
+      if (username.length < 3) {
+        setError("Username must be at least 3 characters.")
+        setSaving(false)
+        return
+      }
+
+      if (!/^[a-z0-9_]+$/.test(username)) {
+        setError("Username can only contain letters, numbers, and underscores.")
         setSaving(false)
         return
       }
@@ -210,14 +226,20 @@ export default function ProfilePage() {
       const { error: updateError } = await supabase
         .from("profiles")
         .update({
-          first_name: firstName,
+          username,
+          first_name: firstName || null,
           last_name: lastName || null,
           town: town || null,
           handicap: handicapNum,
         })
         .eq("id", user.id)
 
-      if (updateError) throw new Error(updateError.message || "Database update failed.")
+      if (updateError) {
+        if (updateError.message?.includes("profiles_username_unique") || updateError.code === "23505") {
+          throw new Error("This username is already taken. Please choose another.")
+        }
+        throw new Error(updateError.message || "Database update failed.")
+      }
 
       const { data: refreshed } = await supabase
         .from("profiles")
@@ -293,6 +315,7 @@ export default function ProfilePage() {
   if (loading) return <LoadingSpinner message="Loading profile..." />
 
   const displayName =
+    profile?.username ||
     [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
     (user.user_metadata?.full_name as string) ||
     [user.user_metadata?.first_name, user.user_metadata?.last_name].filter(Boolean).join(" ") ||
@@ -314,6 +337,12 @@ export default function ProfilePage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Edit Profile</p>
+              </div>
+              <div>
+                <label htmlFor="edit-username" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Username</label>
+                <input id="edit-username" type="text" value={editUsername} onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} disabled={saving}
+                  className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="e.g. ben_golf" maxLength={30} />
+                <p className="mt-1 text-[10px] text-primary/40">Letters, numbers, and underscores only</p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
@@ -388,6 +417,9 @@ export default function ProfilePage() {
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Profile</p>
                       <h1 className="mt-1 text-2xl font-bold text-primary">{displayName}</h1>
+                      {profile?.username && profile?.first_name && (
+                        <p className="text-sm text-primary/60">{[profile.first_name, profile.last_name].filter(Boolean).join(" ")}</p>
+                      )}
                     </div>
                     <button
                       type="button"
