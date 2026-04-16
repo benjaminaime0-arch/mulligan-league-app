@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
 import { fetchMatchPlayerNames } from "@/lib/matchPlayers"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
+import AvatarCropModal from "@/components/AvatarCropModal"
 
 type Profile = {
   id: string
@@ -61,6 +62,7 @@ export default function ProfilePage() {
   const [editHandicap, setEditHandicap] = useState("")
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [cropFile, setCropFile] = useState<File | null>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -231,30 +233,37 @@ export default function ProfilePage() {
     }
   }
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user || !e.target.files || e.target.files.length === 0) return
-
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return
     const file = e.target.files[0]
 
-    // Validate file type and size
     if (!file.type.startsWith("image/")) {
       setError("Please select an image file.")
       return
     }
-    if (file.size > 2 * 1024 * 1024) {
-      setError("Image must be under 2 MB.")
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Image must be under 10 MB.")
       return
     }
+
+    setError(null)
+    setCropFile(file)
+    // Reset the input so the same file can be re-selected
+    e.target.value = ""
+  }
+
+  const handleCroppedUpload = async (blob: Blob) => {
+    setCropFile(null)
+    if (!user) return
 
     setUploadingAvatar(true)
     setError(null)
     try {
-      const ext = file.name.split(".").pop() || "jpg"
-      const filePath = `${user.id}/avatar.${ext}`
+      const filePath = `${user.id}/avatar.jpg`
 
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(filePath, file, { upsert: true })
+        .upload(filePath, blob, { upsert: true, contentType: "image/jpeg" })
 
       if (uploadError) throw uploadError
 
@@ -370,7 +379,7 @@ export default function ProfilePage() {
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={handleAvatarUpload}
+                    onChange={handleAvatarSelect}
                     disabled={uploadingAvatar}
                   />
                 </label>
@@ -528,6 +537,15 @@ export default function ProfilePage() {
           </button>
         </section>
       </div>
+
+      {/* Avatar crop modal */}
+      {cropFile && (
+        <AvatarCropModal
+          file={cropFile}
+          onCrop={handleCroppedUpload}
+          onCancel={() => setCropFile(null)}
+        />
+      )}
     </main>
   )
 }
