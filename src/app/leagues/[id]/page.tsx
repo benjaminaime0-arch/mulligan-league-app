@@ -58,7 +58,9 @@ type Match = {
 
 type LeaderboardRow = {
   position?: number | null
+  user_id?: string | null
   player_name?: string | null
+  avatar_url?: string | null
   best_score?: number | null
   total_score?: number | null
   rounds_counted?: number | null
@@ -564,7 +566,16 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                             {row.position ?? idx + 1}
                           </td>
                           <td className="py-2 pr-3 text-primary">
-                            {row.player_name || "Player"}
+                            <div className="flex items-center gap-2">
+                              {row.avatar_url ? (
+                                <img src={row.avatar_url} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" />
+                              ) : (
+                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary/60">
+                                  {(row.player_name || "P").charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <span>{row.player_name || "Player"}</span>
+                            </div>
                           </td>
                           <td className="py-2 pr-3 font-bold text-primary">
                             {row.total_score ?? "–"}

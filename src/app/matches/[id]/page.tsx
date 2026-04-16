@@ -31,6 +31,7 @@ type MatchPlayerWithProfile = {
     first_name?: string | null
     last_name?: string | null
     full_name?: string | null
+    avatar_url?: string | null
   } | null
 }
 
@@ -495,7 +496,16 @@ export default function MatchPage({ params }: MatchPageProps) {
                         className="border-b border-primary/5 last:border-0"
                       >
                         <td className="py-2 pr-4 text-primary">
-                          {memberDisplayName(player)}
+                          <div className="flex items-center gap-2">
+                            {player.profiles?.avatar_url ? (
+                              <img src={player.profiles.avatar_url} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" />
+                            ) : (
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary/60">
+                                {memberDisplayName(player).charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <span>{memberDisplayName(player)}</span>
+                          </div>
                         </td>
                         <td className="py-2 pr-4 text-primary">
                           {playerScore ? playerScore.score : "–"}
