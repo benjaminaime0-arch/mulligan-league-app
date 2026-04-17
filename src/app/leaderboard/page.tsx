@@ -10,6 +10,7 @@ import { Avatar } from "@/components/Avatar"
 type League = {
   id: string | number
   name: string
+  course_name?: string | null
 }
 
 type MemberWithLeague = {
@@ -205,11 +206,11 @@ export default function LeaderboardPage() {
                 </button>
               )}
               <div className="min-w-0 flex-1 text-center">
-                <h2 className="text-sm font-semibold text-primary">
+                <h2 className="text-lg font-bold text-primary">
                   {currentLeague.name}
                 </h2>
-                <p className="text-xs text-primary/60">
-                  Best rounds and scoring averages for this league.
+                <p className="text-xs uppercase tracking-[0.2em] text-primary/50">
+                  {currentLeague.course_name || "Course TBA"}
                 </p>
               </div>
               {leagues.length > 1 && (
