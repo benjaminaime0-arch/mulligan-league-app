@@ -4,11 +4,9 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
-import type { Match, MatchPlayerWithProfile, Score } from "./types"
+import type { Match, MatchPlayerWithProfile, Score, MatchApproval } from "./types"
 import { PlayersTable } from "./components/PlayersTable"
-import { CelebrationCard } from "./components/CelebrationCard"
 import { ScoreSubmitForm } from "./components/ScoreSubmitForm"
-import { ScoreEditSection } from "./components/ScoreEditSection"
 import { InviteCodeSection } from "./components/InviteCodeSection"
 
 interface MatchPageProps {
@@ -23,16 +21,14 @@ export default function MatchPage({ params }: MatchPageProps) {
   const [match, setMatch] = useState<Match | null>(null)
   const [players, setPlayers] = useState<MatchPlayerWithProfile[]>([])
   const [scores, setScores] = useState<Score[]>([])
+  const [approvals, setApprovals] = useState<MatchApproval[]>([])
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deletingMatch, setDeletingMatch] = useState(false)
-
-  // Celebration state
-  const [showCelebration, setShowCelebration] = useState(false)
-  const [celebrationScore, setCelebrationScore] = useState<number | null>(null)
-  const [celebrationHoles, setCelebrationHoles] = useState<9 | 18>(18)
-  const [userAverage, setUserAverage] = useState<number | null>(null)
+  const [joiningMatch, setJoiningMatch] = useState(false)
+  const [isLeagueMember, setIsLeagueMember] = useState(false)
+  const [approvingScores, setApprovingScores] = useState(false)
 
   useEffect(() => {
     if (authLoading || !user) return
@@ -65,6 +61,24 @@ export default function MatchPage({ params }: MatchPageProps) {
 
         if (scoresRes.error) throw scoresRes.error
         setScores((scoresRes.data || []) as Score[])
+
+        // Fetch approvals
+        const { data: approvalsData } = await supabase
+          .from("match_approvals")
+          .select("*")
+          .eq("match_id", matchId)
+        setApprovals((approvalsData || []) as MatchApproval[])
+
+        // Check if current user is a member of this match's league
+        if (matchRes.data.league_id) {
+          const { data: membership } = await supabase
+            .from("league_members")
+            .select("id")
+            .eq("league_id", matchRes.data.league_id)
+            .eq("user_id", user.id)
+            .maybeSingle()
+          setIsLeagueMember(!!membership)
+        }
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to load match details.",
@@ -95,81 +109,116 @@ export default function MatchPage({ params }: MatchPageProps) {
     return map
   }, [scores])
 
+  // Existing scores as a simple user_id → score number map for the form
+  const existingScoresMap = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const s of scores) {
+      map.set(s.user_id, s.score)
+    }
+    return map
+  }, [scores])
+
   const currentUserIsPlayer =
     !!user && players.some((p) => p.user_id === user.id)
 
-  const currentUserScore = user ? scoresByUserId.get(user.id) : undefined
+  const currentUserHasApproved =
+    !!user && approvals.some((a) => a.user_id === user.id)
 
-  const refreshScores = async () => {
-    const { data, error: fetchError } = await supabase
-      .from("scores")
-      .select("*")
-      .eq("match_id", matchId)
-    if (!fetchError) setScores((data || []) as Score[])
-  }
+  const allPlayersHaveScores =
+    players.length > 0 && players.every((p) => scoresByUserId.has(p.user_id))
 
-  const handleSubmitScore = async (numericScore: number, holes: 9 | 18) => {
-    if (!user || !match) return
-
-    const { error: insertError } = await supabase.from("scores").insert({
-      match_id: match.id,
-      user_id: user.id,
-      score: numericScore,
-      holes,
-      status: "pending",
+  const allScoresApproved =
+    allPlayersHaveScores &&
+    players.every((p) => {
+      const score = scoresByUserId.get(p.user_id)
+      return score?.status === "approved"
     })
 
-    if (insertError) throw insertError
+  const refreshMatchData = async () => {
+    const [scoresRes, approvalsRes] = await Promise.all([
+      supabase.from("scores").select("*").eq("match_id", matchId),
+      supabase.from("match_approvals").select("*").eq("match_id", matchId),
+    ])
+    if (!scoresRes.error) setScores((scoresRes.data || []) as Score[])
+    if (!approvalsRes.error) setApprovals((approvalsRes.data || []) as MatchApproval[])
+  }
 
-    await refreshScores()
+  const handleSubmitAllScores = async (
+    scoreEntries: Array<{ user_id: string; score: number; holes: number }>
+  ) => {
+    if (!user || !match) return
 
-    // Fetch user's overall average for celebration context
-    const { data: allUserScores } = await supabase
-      .from("scores")
-      .select("score")
-      .eq("user_id", user.id)
-    if (allUserScores && allUserScores.length > 1) {
-      const total = allUserScores.reduce((sum: number, s: { score: number }) => sum + s.score, 0)
-      setUserAverage(total / allUserScores.length)
+    const { data, error: rpcError } = await supabase.rpc("submit_match_scores", {
+      p_match_id: match.id,
+      p_scores: JSON.stringify(scoreEntries),
+    })
+
+    if (rpcError) throw rpcError
+
+    const result = data as { success: boolean; error?: string }
+    if (!result.success) {
+      throw new Error(result.error || "Failed to submit scores")
     }
 
-    // Show celebration
-    setCelebrationScore(numericScore)
-    setCelebrationHoles(holes)
-    setShowCelebration(true)
+    await refreshMatchData()
   }
 
-  const handleUpdateScore = async (numericScore: number, holes: 9 | 18) => {
-    if (!user || !match || !currentUserScore) return
-
-    const { error: updateError } = await supabase
-      .from("scores")
-      .update({ score: numericScore, holes, status: "pending", approved_by: null, approved_at: null })
-      .eq("id", currentUserScore.id)
-
-    if (updateError) throw updateError
-
-    await refreshScores()
-  }
-
-  const handleApproveScore = async (scoreId: string | number) => {
-    if (!user) return
+  const handleApproveMatchScores = async () => {
+    if (!user || !match) return
+    setApprovingScores(true)
+    setError(null)
     try {
-      const { data, error: rpcError } = await supabase.rpc("approve_score", {
-        p_score_id: scoreId,
+      const { data, error: rpcError } = await supabase.rpc("approve_match_scores", {
+        p_match_id: match.id,
       })
 
       if (rpcError) throw rpcError
 
       const result = data as { success: boolean; error?: string }
       if (!result.success) {
-        setError(result.error || "Could not approve score.")
+        setError(result.error || "Could not approve scores.")
         return
       }
 
-      await refreshScores()
+      await refreshMatchData()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to approve score.")
+      setError(err instanceof Error ? err.message : "Failed to approve scores.")
+    } finally {
+      setApprovingScores(false)
+    }
+  }
+
+  const MAX_MATCH_PLAYERS = 4
+  const canJoinMatch =
+    !!user &&
+    !currentUserIsPlayer &&
+    isLeagueMember &&
+    players.length < MAX_MATCH_PLAYERS &&
+    match?.status !== "completed" &&
+    match?.status !== "cancelled"
+
+  const handleJoinMatch = async () => {
+    if (!user || !match) return
+    setJoiningMatch(true)
+    setError(null)
+    try {
+      const { error: joinError } = await supabase
+        .from("match_players")
+        .insert({ match_id: match.id, user_id: user.id })
+
+      if (joinError) throw joinError
+
+      // Refresh players list
+      const { data: updatedPlayers } = await supabase
+        .from("match_players")
+        .select("*, profiles(*)")
+        .eq("match_id", matchId)
+
+      if (updatedPlayers) setPlayers(updatedPlayers as MatchPlayerWithProfile[])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to join match.")
+    } finally {
+      setJoiningMatch(false)
     }
   }
 
@@ -215,7 +264,7 @@ export default function MatchPage({ params }: MatchPageProps) {
     )
   }
 
-  if (error || !match) {
+  if (error && !match) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-cream px-4">
         <div className="w-full max-w-md rounded-xl border border-red-200 bg-white p-6 text-center shadow-sm">
@@ -233,6 +282,8 @@ export default function MatchPage({ params }: MatchPageProps) {
       </main>
     )
   }
+
+  if (!match) return null
 
   const formatMatchDate = (iso?: string | null) => {
     if (!iso) return "Date TBA"
@@ -309,39 +360,91 @@ export default function MatchPage({ params }: MatchPageProps) {
           <InviteCodeSection inviteCode={match.invite_code} courseName={match.course_name} />
         )}
 
+        {/* Error banner */}
+        {error && (
+          <div role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
         {/* Players table */}
         <PlayersTable
           players={players}
           scoresByUserId={scoresByUserId}
+          approvals={approvals}
           currentUserId={user.id}
-          currentUserIsPlayer={currentUserIsPlayer}
-          approvingScoreId={null}
-          onApproveScore={handleApproveScore}
           memberDisplayName={memberDisplayName}
         />
 
-        {/* Celebration after score submission */}
-        {showCelebration && celebrationScore != null && (
-          <CelebrationCard
-            score={celebrationScore}
-            holes={celebrationHoles}
-            userAverage={userAverage}
-            leagueId={match.league_id}
-            onDismiss={() => setShowCelebration(false)}
+        {/* Join match — for league members when there's room */}
+        {canJoinMatch && (
+          <div className="rounded-xl border border-dashed border-primary/20 bg-white p-5 text-center shadow-sm">
+            <p className="mb-3 text-sm text-primary/70">
+              This match has open spots ({players.length}/{MAX_MATCH_PLAYERS} players).
+            </p>
+            <button
+              type="button"
+              onClick={handleJoinMatch}
+              disabled={joiningMatch}
+              className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-60"
+            >
+              {joiningMatch ? "Joining…" : "Join this Match"}
+            </button>
+          </div>
+        )}
+
+        {/* Score submission / editing — visible to match players */}
+        {currentUserIsPlayer && !allScoresApproved && (
+          <ScoreSubmitForm
+            players={players}
+            existingScores={existingScoresMap}
+            onSubmit={handleSubmitAllScores}
+            memberDisplayName={memberDisplayName}
           />
         )}
 
-        {/* Submit score (no existing score) */}
-        {currentUserIsPlayer && !currentUserScore && (
-          <ScoreSubmitForm onSubmit={handleSubmitScore} />
+        {/* Approve scores — visible when scores exist and user hasn't approved yet */}
+        {currentUserIsPlayer && allPlayersHaveScores && !allScoresApproved && !currentUserHasApproved && (
+          <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <p className="text-sm text-primary/70">
+                Review the scores above. If they look correct, approve them.
+              </p>
+              <p className="text-xs text-primary/50">
+                Scores become official once all {players.length} players approve.
+                Unapproved scores are auto-approved after 24 hours.
+              </p>
+              <button
+                type="button"
+                onClick={handleApproveMatchScores}
+                disabled={approvingScores}
+                className="rounded-lg bg-emerald-500 px-6 py-2.5 text-sm font-medium text-white transition-all hover:bg-emerald-600 active:scale-[0.98] disabled:opacity-60"
+              >
+                {approvingScores ? "Approving…" : "Approve Scores"}
+              </button>
+            </div>
+          </section>
         )}
 
-        {/* Edit existing score */}
-        {currentUserIsPlayer && currentUserScore && !showCelebration && (
-          <ScoreEditSection
-            currentUserScore={currentUserScore}
-            onUpdate={handleUpdateScore}
-          />
+        {/* Confirmation when user has already approved */}
+        {currentUserIsPlayer && allPlayersHaveScores && !allScoresApproved && currentUserHasApproved && (
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 text-center shadow-sm">
+            <p className="text-sm font-medium text-emerald-700">
+              You&apos;ve approved these scores.
+            </p>
+            <p className="mt-1 text-xs text-emerald-600/70">
+              Waiting for {players.length - approvals.length} more player{players.length - approvals.length !== 1 ? "s" : ""} to approve.
+            </p>
+          </div>
+        )}
+
+        {/* All scores approved celebration */}
+        {allScoresApproved && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center shadow-sm">
+            <p className="text-sm font-semibold text-emerald-800">
+              All scores approved and finalized!
+            </p>
+          </div>
         )}
 
         {/* Delete match — league admins only */}

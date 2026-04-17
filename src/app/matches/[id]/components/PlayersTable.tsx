@@ -1,28 +1,49 @@
 import { Avatar } from "@/components/Avatar"
-import type { MatchPlayerWithProfile, Score } from "../types"
+import type { MatchPlayerWithProfile, Score, MatchApproval } from "../types"
 
 interface PlayersTableProps {
   players: MatchPlayerWithProfile[]
   scoresByUserId: Map<string, Score>
+  approvals: MatchApproval[]
   currentUserId: string | undefined
-  currentUserIsPlayer: boolean
-  approvingScoreId: string | number | null
-  onApproveScore: (scoreId: string | number) => void
   memberDisplayName: (player: MatchPlayerWithProfile) => string
 }
 
 export function PlayersTable({
   players,
   scoresByUserId,
+  approvals,
   currentUserId,
-  currentUserIsPlayer,
-  approvingScoreId,
-  onApproveScore,
   memberDisplayName,
 }: PlayersTableProps) {
+  const hasAnyScores = scoresByUserId.size > 0
+  const allPlayersHaveScores = players.length > 0 && players.every((p) => scoresByUserId.has(p.user_id))
+  const allApproved = allPlayersHaveScores && players.every((p) => {
+    const score = scoresByUserId.get(p.user_id)
+    return score?.status === "approved"
+  })
+
+  const approvalCount = approvals.length
+  const totalPlayers = players.length
+
   return (
     <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
-      <h2 className="mb-3 text-sm font-semibold text-primary">Players</h2>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-primary">Players</h2>
+        {hasAnyScores && !allApproved && allPlayersHaveScores && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+            Approval {approvalCount}/{totalPlayers}
+          </span>
+        )}
+        {allApproved && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            All approved
+          </span>
+        )}
+      </div>
+
       {players.length === 0 ? (
         <p className="text-sm text-primary/70">No players in this match.</p>
       ) : (
@@ -39,18 +60,19 @@ export function PlayersTable({
             <tbody>
               {players.map((player) => {
                 const playerScore = scoresByUserId.get(player.user_id)
-                const isOwnScore = currentUserId && player.user_id === currentUserId
-                const isPending = playerScore?.status === "pending"
                 const isApproved = playerScore?.status === "approved"
-                const canApprove = currentUserIsPlayer && !isOwnScore && isPending
+                const hasApprovedByUser = approvals.some((a) => a.user_id === player.user_id)
 
                 let statusLabel = "No score"
                 let statusClass = "bg-gray-50 text-gray-500"
                 if (playerScore && isApproved) {
                   statusLabel = "Approved"
                   statusClass = "bg-emerald-50 text-emerald-700"
-                } else if (playerScore && isPending) {
-                  statusLabel = "Pending approval"
+                } else if (playerScore && hasApprovedByUser) {
+                  statusLabel = "Confirmed"
+                  statusClass = "bg-blue-50 text-blue-700"
+                } else if (playerScore) {
+                  statusLabel = "Pending"
                   statusClass = "bg-amber-50 text-amber-700"
                 }
 
@@ -72,23 +94,11 @@ export function PlayersTable({
                       {playerScore ? playerScore.holes : "–"}
                     </td>
                     <td className="py-2">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}
-                        >
-                          {statusLabel}
-                        </span>
-                        {canApprove && playerScore && (
-                          <button
-                            type="button"
-                            onClick={() => onApproveScore(playerScore.id)}
-                            disabled={approvingScoreId === playerScore.id}
-                            className="rounded-lg bg-emerald-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-60"
-                          >
-                            {approvingScoreId === playerScore.id ? "Approving…" : "Approve"}
-                          </button>
-                        )}
-                      </div>
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}
+                      >
+                        {statusLabel}
+                      </span>
                     </td>
                   </tr>
                 )

@@ -37,6 +37,15 @@ export type Score = {
   score: number
   holes: number
   status?: string | null
+  submitted_by?: string | null
   approved_by?: string | null
+  approved_at?: string | null
+  created_at?: string
+}
+
+export type MatchApproval = {
+  id: string
+  match_id: string
+  user_id: string
   created_at?: string
 }
