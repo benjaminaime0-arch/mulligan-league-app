@@ -31,18 +31,24 @@ function MatchCard({
     >
       <div className="flex flex-wrap items-center justify-center gap-x-2.5">
         {matchPlayers && matchPlayers.length > 0 ? (
-          matchPlayers.map((p, i) => {
-            const avatar = <Avatar src={p.avatar_url} size={32} fallback={p.name} />
-            const isLast = i === matchPlayers.length - 1
-            return (
-              <span key={i} className="inline-flex items-center gap-1.5">
-                {i === 0 && avatar}
-                <span className="text-base font-semibold">{p.name}</span>
-                {!isLast && <span className="text-xs font-normal text-primary/40">vs</span>}
-                {i > 0 && avatar}
-              </span>
-            )
-          })
+          matchPlayers.map((p, i) => (
+            <span key={i} className="inline-flex items-center gap-1.5">
+              {i > 0 && <span className="text-xs font-normal text-primary/40">&amp;</span>}
+              <Avatar src={p.avatar_url} size={32} fallback={p.name} />
+              <span className="text-base font-semibold">{p.name}</span>
+              {p.score != null && (
+                <span
+                  className={`text-sm font-semibold ${
+                    p.isBestScore
+                      ? "text-emerald-600"
+                      : "text-orange-500"
+                  }`}
+                >
+                  {p.score}
+                </span>
+              )}
+            </span>
+          ))
         ) : (
           <span className="text-base font-semibold">{match.course_name || league.course_name || "Course TBA"}</span>
         )}
@@ -64,12 +70,19 @@ function MatchCard({
 export function ScheduledMatches({ matches, league, matchPlayersMap }: ScheduledMatchesProps) {
   const today = new Date().toISOString().slice(0, 10)
 
-  const upcoming = matches.filter(
-    (m) => m.status !== "completed" && (!m.match_date || m.match_date >= today),
-  )
-  const past = matches.filter(
-    (m) => m.status === "completed" || (m.match_date != null && m.match_date < today),
-  )
+  const byDateTime = (a: Match, b: Match) => {
+    const cmpDate = (a.match_date ?? "").localeCompare(b.match_date ?? "")
+    if (cmpDate !== 0) return cmpDate
+    return (a.match_time ?? "").localeCompare(b.match_time ?? "")
+  }
+
+  const upcoming = matches
+    .filter((m) => m.status !== "completed" && (!m.match_date || m.match_date >= today))
+    .sort(byDateTime) // soonest first
+
+  const past = matches
+    .filter((m) => m.status === "completed" || (m.match_date != null && m.match_date < today))
+    .sort((a, b) => -byDateTime(a, b)) // latest first
 
   return (
     <>
@@ -105,7 +118,12 @@ export function ScheduledMatches({ matches, league, matchPlayersMap }: Scheduled
       {/* Past Matches */}
       {past.length > 0 && (
         <div className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-primary">Past Matches</h2>
+          <div className="mb-4 flex items-baseline justify-between">
+            <h2 className="text-sm font-semibold text-primary">Past Matches</h2>
+            <p className="text-[10px] text-primary/40">
+              <span className="font-semibold text-emerald-600">Green</span> = counted toward leaderboard
+            </p>
+          </div>
           <div className="space-y-3">
             {past.map((match) => (
               <MatchCard

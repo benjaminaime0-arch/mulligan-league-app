@@ -152,10 +152,16 @@ function CreateMatchContent() {
 
   const isPlayerSelected = (userId: string) => selectedPlayerIds.includes(userId)
 
+  const MAX_MATCH_PLAYERS = 4
+
   const togglePlayer = (userId: string) => {
-    setSelectedPlayerIds((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId],
-    )
+    setSelectedPlayerIds((prev) => {
+      if (prev.includes(userId)) {
+        return prev.filter((id) => id !== userId)
+      }
+      if (prev.length >= MAX_MATCH_PLAYERS) return prev // cap at 4
+      return [...prev, userId]
+    })
   }
 
   const memberDisplayName = (member: MemberWithProfile) => {
@@ -186,8 +192,12 @@ function CreateMatchContent() {
       setError("No active period for this league. Start the league first.")
       return
     }
-    if (selectedPlayerIds.length === 0) {
-      setError("Select at least one player for this match.")
+    if (selectedPlayerIds.length < 2) {
+      setError("Select at least 2 players for this match.")
+      return
+    }
+    if (selectedPlayerIds.length > MAX_MATCH_PLAYERS) {
+      setError(`A match can have at most ${MAX_MATCH_PLAYERS} players.`)
       return
     }
 
@@ -341,7 +351,10 @@ function CreateMatchContent() {
           {/* Player Selection */}
           {selectedLeagueId && (
             <div>
-              <p className="mb-2 text-sm font-medium text-primary">Players</p>
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-medium text-primary">Players</p>
+                <p className="text-xs text-primary/50">{selectedPlayerIds.length}/{MAX_MATCH_PLAYERS} selected</p>
+              </div>
               {membersLoading ? (
                 <p className="py-3 text-center text-sm text-primary/50">Loading members…</p>
               ) : (
@@ -351,11 +364,14 @@ function CreateMatchContent() {
                   ) : (
                     sortedMembers.map((member) => {
                       const checked = isPlayerSelected(member.user_id)
+                      const atCap = selectedPlayerIds.length >= MAX_MATCH_PLAYERS && !checked
                       const displayName = memberDisplayName(member)
                       return (
                         <label
                           key={String(member.id)}
-                          className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm text-primary hover:bg-white"
+                          className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm text-primary ${
+                            atCap ? "cursor-not-allowed opacity-40" : "cursor-pointer hover:bg-white"
+                          }`}
                         >
                           <span>{displayName}</span>
                           <input
@@ -363,7 +379,7 @@ function CreateMatchContent() {
                             className="h-4 w-4 rounded border-primary/40 text-primary focus:ring-primary"
                             checked={checked}
                             onChange={() => togglePlayer(member.user_id)}
-                            disabled={submitting}
+                            disabled={submitting || atCap}
                           />
                         </label>
                       )

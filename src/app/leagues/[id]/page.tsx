@@ -111,21 +111,64 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
           if (matches.length > 0) {
             const matchIds = matches.map((m) => m.id)
-            const { data: mpData } = await supabase
-              .from("match_players")
-              .select("match_id, profiles(first_name, avatar_url)")
-              .in("match_id", matchIds)
+            const [mpRes, scoresRes] = await Promise.all([
+              supabase
+                .from("match_players")
+                .select("match_id, user_id, profiles(first_name, avatar_url)")
+                .in("match_id", matchIds),
+              supabase
+                .from("scores")
+                .select("match_id, user_id, score, status")
+                .in("match_id", matchIds)
+                .eq("status", "approved"),
+            ])
 
-            if (mpData) {
-              const map = new Map<string | number, MatchPlayer[]>()
-              for (const row of mpData as Array<{
+            // Build a score lookup: match_id+user_id → score
+            const scoreLookup = new Map<string, number>()
+            // Also collect all approved scores per user to determine best-N
+            const userScores = new Map<string, Array<{ matchId: string | number; score: number }>>()
+
+            if (scoresRes.data) {
+              for (const s of scoresRes.data as Array<{
                 match_id: string | number
+                user_id: string
+                score: number
+                status: string
+              }>) {
+                scoreLookup.set(`${s.match_id}:${s.user_id}`, s.score)
+                const arr = userScores.get(s.user_id) || []
+                arr.push({ matchId: s.match_id, score: s.score })
+                userScores.set(s.user_id, arr)
+              }
+            }
+
+            // Determine which match scores are "best N" per player
+            const bestMatchIds = new Set<string>() // "matchId:userId" keys
+            const scoringCards = leagueRes.data.scoring_cards_count as number | null
+            for (const [userId, entries] of Array.from(userScores)) {
+              const sorted = [...entries].sort((a, b) => a.score - b.score)
+              const counted = scoringCards ? sorted.slice(0, scoringCards) : sorted
+              for (const e of counted) {
+                bestMatchIds.add(`${e.matchId}:${userId}`)
+              }
+            }
+
+            if (mpRes.data) {
+              const map = new Map<string | number, MatchPlayer[]>()
+              for (const row of mpRes.data as Array<{
+                match_id: string | number
+                user_id: string
                 profiles: { first_name?: string | null; avatar_url?: string | null } | null
               }>) {
                 const existing = map.get(row.match_id) || []
+                const key = `${row.match_id}:${row.user_id}`
+                const score = scoreLookup.get(key) ?? null
                 existing.push({
                   name: row.profiles?.first_name || "Player",
                   avatar_url: row.profiles?.avatar_url ?? null,
+                  user_id: row.user_id,
+                  score,
+                  isBestScore: score != null ? bestMatchIds.has(key) : undefined,
                 })
                 map.set(row.match_id, existing)
               }

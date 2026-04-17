@@ -1,6 +1,9 @@
 export type MatchPlayer = {
   name: string
   avatar_url?: string | null
+  user_id?: string | null
+  score?: number | null
+  isBestScore?: boolean
 }
 
 export type League = {
