@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
+import { Avatar } from "@/components/Avatar"
 
 type League = {
   id: string | number
@@ -21,6 +22,7 @@ type MemberWithLeague = {
 type LeaderboardRow = {
   position?: number | null
   player_name?: string | null
+  avatar_url?: string | null
   best_score?: number | null
   total_score?: number | null
   rounds_counted?: number | null
@@ -33,11 +35,29 @@ export default function LeaderboardPage() {
   const { user, loading: authLoading } = useAuth()
 
   const [leagues, setLeagues] = useState<League[]>([])
-  const [selectedLeagueId, setSelectedLeagueId] = useState<string | number | null>(null)
+  const [leagueIndex, setLeagueIndex] = useState(0)
 
   const [rows, setRows] = useState<LeaderboardRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const loadLeaderboard = useCallback(async (leagueId: string | number) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const { data, error } = await supabase.rpc("get_leaderboard", {
+        p_league_id: leagueId,
+      })
+
+      if (error) throw error
+      setRows((data || []) as LeaderboardRow[])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load leaderboard.")
+      setRows([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     if (authLoading || !user) return
@@ -52,9 +72,7 @@ export default function LeaderboardPage() {
           .select("*, leagues(*)")
           .eq("user_id", user.id)
 
-        if (memberError) {
-          throw memberError
-        }
+        if (memberError) throw memberError
 
         const typedMembers = (memberRows || []) as MemberWithLeague[]
         const leagueMap = new Map<string | number, League>()
@@ -67,12 +85,8 @@ export default function LeaderboardPage() {
         const userLeagues = Array.from(leagueMap.values())
         setLeagues(userLeagues)
 
-        const initialLeagueId =
-          userLeagues.length === 1 ? userLeagues[0].id : userLeagues[0]?.id ?? null
-        setSelectedLeagueId(initialLeagueId ?? null)
-
-        if (initialLeagueId != null) {
-          await loadLeaderboard(initialLeagueId)
+        if (userLeagues.length > 0) {
+          await loadLeaderboard(userLeagues[0].id)
         } else {
           setRows([])
         }
@@ -84,40 +98,19 @@ export default function LeaderboardPage() {
     }
 
     init()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user])
+  }, [authLoading, user, loadLeaderboard])
 
-  const loadLeaderboard = async (leagueId: string | number) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const { data, error } = await supabase.rpc("get_leaderboard", {
-        p_league_id: leagueId,
-      })
+  const goNext = useCallback(async () => {
+    const next = (leagueIndex + 1) % leagues.length
+    setLeagueIndex(next)
+    await loadLeaderboard(leagues[next].id)
+  }, [leagueIndex, leagues, loadLeaderboard])
 
-      if (error) {
-        throw error
-      }
-
-      setRows((data || []) as LeaderboardRow[])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load leaderboard.")
-      setRows([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleLeagueChange = async (value: string) => {
-    if (!value) {
-      setSelectedLeagueId(null)
-      setRows([])
-      return
-    }
-    const numeric = Number.isNaN(Number(value)) ? value : Number(value)
-    setSelectedLeagueId(numeric)
-    await loadLeaderboard(numeric)
-  }
+  const goPrev = useCallback(async () => {
+    const prev = (leagueIndex - 1 + leagues.length) % leagues.length
+    setLeagueIndex(prev)
+    await loadLeaderboard(leagues[prev].id)
+  }, [leagueIndex, leagues, loadLeaderboard])
 
   const highlightUserRow = (row: LeaderboardRow) =>
     !!user && row.user_id != null && row.user_id === user.id
@@ -143,7 +136,7 @@ export default function LeaderboardPage() {
     return null
   }
 
-  if (loading && !selectedLeagueId) {
+  if (loading && leagues.length === 0) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-cream">
         <p className="text-primary/70">Loading leaderboard…</p>
@@ -151,41 +144,16 @@ export default function LeaderboardPage() {
     )
   }
 
-  const selectedLeagueName =
-    leagues.find((l) => l.id === selectedLeagueId)?.name || "League leaderboard"
+  const currentLeague = leagues[leagueIndex]
 
   return (
-    <main className="min-h-screen bg-cream px-4 pb-24 pt-4 md:pb-8">
+    <main className="min-h-screen bg-cream px-4 pb-6 pt-4">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-primary">Leaderboard</h1>
-            <p className="mt-1 text-sm text-primary/70">
-              Who&apos;s on top this season?
-            </p>
-          </div>
-          {leagues.length > 1 && (
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="league-select"
-                className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/60"
-              >
-                League
-              </label>
-              <select
-                id="league-select"
-                value={selectedLeagueId?.toString() ?? ""}
-                onChange={(e) => handleLeagueChange(e.target.value)}
-                className="rounded-lg border border-primary/30 bg-white px-3 py-1.5 text-sm text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                {leagues.map((league) => (
-                  <option key={league.id} value={league.id.toString()}>
-                    {league.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+        <header>
+          <h1 className="text-2xl font-bold text-primary">Leaderboard</h1>
+          <p className="mt-1 text-sm text-primary/70">
+            Who&apos;s on top this season?
+          </p>
         </header>
 
         {leagues.length === 0 && !error ? (
@@ -220,18 +188,65 @@ export default function LeaderboardPage() {
           </div>
         )}
 
-        {selectedLeagueId && (
+        {currentLeague && (
           <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
+            {/* League switcher header */}
             <div className="mb-3 flex items-center justify-between gap-2">
-              <div>
+              {leagues.length > 1 && (
+                <button
+                  type="button"
+                  onClick={goPrev}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
+                  aria-label="Previous league"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+              )}
+              <div className="min-w-0 flex-1 text-center">
                 <h2 className="text-sm font-semibold text-primary">
-                  {selectedLeagueName}
+                  {currentLeague.name}
                 </h2>
                 <p className="text-xs text-primary/60">
                   Best rounds and scoring averages for this league.
                 </p>
               </div>
+              {leagues.length > 1 && (
+                <button
+                  type="button"
+                  onClick={goNext}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
+                  aria-label="Next league"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+              )}
             </div>
+
+            {/* Dot indicators */}
+            {leagues.length > 1 && (
+              <div className="mb-3 flex items-center justify-center gap-1.5">
+                {leagues.map((l, idx) => (
+                  <button
+                    key={l.id}
+                    type="button"
+                    onClick={async () => {
+                      setLeagueIndex(idx)
+                      await loadLeaderboard(l.id)
+                    }}
+                    className={`h-1.5 rounded-full transition-all ${
+                      idx === leagueIndex
+                        ? "w-5 bg-primary"
+                        : "w-1.5 bg-primary/20 hover:bg-primary/40"
+                    }`}
+                    aria-label={`View ${l.name}`}
+                  />
+                ))}
+              </div>
+            )}
 
             {loading ? (
               <p className="py-8 text-center text-sm text-primary/70">
@@ -267,12 +282,17 @@ export default function LeaderboardPage() {
                             {row.position ?? idx + 1}
                           </td>
                           <td className="py-2 pr-3 text-primary">
-                            {row.player_name || "Player"}
-                            {isCurrentUser && (
-                              <span className="ml-1 text-[10px] font-semibold uppercase text-emerald-700">
-                                You
+                            <div className="flex items-center gap-2">
+                              <Avatar src={row.avatar_url} size={24} fallback={row.player_name || "P"} />
+                              <span>
+                                {row.player_name || "Player"}
+                                {isCurrentUser && (
+                                  <span className="ml-1 text-[10px] font-semibold uppercase text-emerald-700">
+                                    You
+                                  </span>
+                                )}
                               </span>
-                            )}
+                            </div>
                           </td>
                           <td className="py-2 pr-3 text-primary">
                             {row.total_score ?? "–"}

@@ -116,7 +116,7 @@ export default function PlayerProfilePage() {
 
   if (!profile) {
     return (
-      <main className="mx-auto max-w-2xl px-4 pb-28 pt-10 text-center md:pb-10">
+      <main className="mx-auto max-w-2xl px-4 pb-6 pt-10 text-center">
         <p className="text-primary/60">Player not found.</p>
         <button
           onClick={() => router.back()}
@@ -137,7 +137,7 @@ export default function PlayerProfilePage() {
       : null
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-28 pt-6 md:pb-10 md:pt-8">
+    <main className="mx-auto max-w-2xl px-4 pb-6 pt-6 md:pt-8">
       {/* Back button */}
       <button
         onClick={() => router.back()}

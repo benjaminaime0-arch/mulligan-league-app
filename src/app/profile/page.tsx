@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { fetchMatchPlayerNames } from "@/lib/matchPlayers"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 import AvatarCropModal from "@/components/AvatarCropModal"
+import { PushNotificationToggle } from "@/components/PushNotificationToggle"
 
 type Profile = {
   id: string
@@ -313,7 +314,7 @@ export default function ProfilePage() {
     "Player"
 
   return (
-    <main className="min-h-screen bg-cream px-4 pb-24 pt-4 md:pb-8">
+    <main className="min-h-screen bg-cream px-4 pb-6 pt-4">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         {error && (
           <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -548,6 +549,12 @@ export default function ProfilePage() {
               })
             )}
           </div>
+        </section>
+
+        {/* Settings */}
+        <section className="rounded-2xl border border-primary/15 bg-white p-5 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-primary/60">Settings</h2>
+          <PushNotificationToggle />
         </section>
 
         {/* Log Out */}

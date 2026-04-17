@@ -297,7 +297,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   const isDraft = league.status !== "active" && league.status !== "completed"
 
   return (
-    <main className="min-h-screen bg-cream px-4 pb-24 pt-6 md:pb-8">
+    <main className="min-h-screen bg-cream px-4 pb-6 pt-6">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-8">
         {/* Header */}
         <header className="flex flex-col gap-4 text-center">
@@ -329,9 +329,6 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                 ) : userLeagues.length > 1 ? (
                   <div className="h-8 w-8" />
                 ) : null}
-                {league.invite_code && (
-                  <LeagueInviteCode inviteCode={league.invite_code} leagueName={league.name} variant="desktop" />
-                )}
               </div>
               <p className="mt-1 text-sm text-primary/70">
                 {league.course_name || "Course TBA"}
@@ -341,10 +338,6 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             </div>
           </div>
 
-          {/* Mobile invite code */}
-          {league.invite_code && (
-            <LeagueInviteCode inviteCode={league.invite_code} leagueName={league.name} variant="mobile" />
-          )}
         </header>
 
         {/* Draft guide for admins */}
@@ -410,6 +403,11 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             />
           )}
         </section>
+
+        {/* Invite code */}
+        {league.invite_code && (
+          <LeagueInviteCode inviteCode={league.invite_code} leagueName={league.name} variant="bottom" />
+        )}
 
         {/* Delete / Leave */}
         <div className="pt-4 text-center">

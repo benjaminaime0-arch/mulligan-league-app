@@ -83,7 +83,7 @@ export default function PlayersPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-28 pt-6 md:pb-10 md:pt-8">
+    <main className="mx-auto max-w-2xl px-4 pb-6 pt-6 md:pt-8">
       <h1 className="mb-1 text-xl font-bold text-primary">Players</h1>
       <p className="mb-5 text-sm text-primary/60">
         Find golfers and see their profiles.

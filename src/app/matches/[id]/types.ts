@@ -24,7 +24,6 @@ export type MatchPlayerWithProfile = {
     id: string
     first_name?: string | null
     last_name?: string | null
-    full_name?: string | null
     username?: string | null
     avatar_url?: string | null
   } | null

@@ -1,8 +1,8 @@
 interface LeagueInviteCodeProps {
   inviteCode: string
   leagueName: string
-  /** "desktop" shows inline next to title, "mobile" shows centered block */
-  variant: "desktop" | "mobile"
+  /** "desktop" shows inline next to title, "mobile" shows centered block, "bottom" always visible */
+  variant: "desktop" | "mobile" | "bottom"
 }
 
 export function LeagueInviteCode({ inviteCode, leagueName, variant }: LeagueInviteCodeProps) {
@@ -36,7 +36,9 @@ export function LeagueInviteCode({ inviteCode, leagueName, variant }: LeagueInvi
   const containerClass =
     variant === "desktop"
       ? "ml-2 hidden items-center justify-center gap-2 sm:flex"
-      : "flex items-center justify-center gap-2 sm:hidden"
+      : variant === "mobile"
+      ? "flex items-center justify-center gap-2 sm:hidden"
+      : "flex items-center justify-center gap-2"
 
   return (
     <div className={containerClass}>

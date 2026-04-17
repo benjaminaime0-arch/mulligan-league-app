@@ -10,6 +10,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const viewport: Viewport = {
   themeColor: "#0F3D2E",
+  viewportFit: "cover",
 }
 
 export const metadata: Metadata = {
@@ -80,7 +81,7 @@ export default function RootLayout({
           </>
         )}
         <Navbar />
-        <div className="pb-20 md:pb-0">{children}</div>
+        <div className="pb-[4.5rem] md:pb-0">{children}</div>
       </body>
     </html>
   )
