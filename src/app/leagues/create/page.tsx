@@ -22,7 +22,7 @@ export default function CreateLeaguePage() {
 
   const [name, setName] = useState("")
   const [course, setCourse] = useState("")
-  const [players, setPlayers] = useState(2)
+  const [players, setPlayers] = useState(4)
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
   const [scoringCards, setScoringCards] = useState(1)

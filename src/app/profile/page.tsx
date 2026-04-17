@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
 import { fetchMatchPlayerNames } from "@/lib/matchPlayers"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
+import { Avatar } from "@/components/Avatar"
 
 type Profile = {
   id: string
@@ -15,6 +16,7 @@ type Profile = {
   email?: string | null
   town?: string | null
   handicap?: number | null
+  avatar_url?: string | null
 }
 
 type LeagueMember = {
@@ -292,9 +294,12 @@ export default function ProfilePage() {
           ) : (
             <>
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-semibold text-cream">
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
+                <Avatar
+                  src={profile?.avatar_url}
+                  alt={displayName}
+                  size={48}
+                  fallback={displayName}
+                />
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div>
