@@ -121,7 +121,10 @@ export function ScheduledMatches({ matches, league, matchPlayersMap }: Scheduled
           <div className="mb-4 flex items-baseline justify-between">
             <h2 className="text-sm font-semibold text-primary">Past Matches</h2>
             <p className="text-[10px] text-primary/40">
-              <span className="font-semibold text-emerald-600">Green</span> = counted toward leaderboard
+              <span className="font-semibold text-emerald-600">Green</span> ={" "}
+              {league.scoring_cards_count
+                ? `${league.scoring_cards_count} best cards counted for ${league.name}`
+                : "counted toward leaderboard"}
             </p>
           </div>
           <div className="space-y-3">
