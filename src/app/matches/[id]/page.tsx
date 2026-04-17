@@ -150,7 +150,7 @@ export default function MatchPage({ params }: MatchPageProps) {
 
     const { data, error: rpcError } = await supabase.rpc("submit_match_scores", {
       p_match_id: match.id,
-      p_scores: JSON.stringify(scoreEntries),
+      p_scores: scoreEntries,
     })
 
     if (rpcError) throw rpcError
