@@ -7,7 +7,6 @@ import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
 import { fetchMatchPlayerNames } from "@/lib/matchPlayers"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
-import AvatarCropModal from "@/components/AvatarCropModal"
 
 type Profile = {
   id: string
@@ -16,8 +15,6 @@ type Profile = {
   email?: string | null
   town?: string | null
   handicap?: number | null
-  avatar_url?: string | null
-  username?: string | null
 }
 
 type LeagueMember = {
@@ -57,14 +54,11 @@ export default function ProfilePage() {
 
   // Profile editing
   const [editing, setEditing] = useState(false)
-  const [editUsername, setEditUsername] = useState("")
   const [editFirstName, setEditFirstName] = useState("")
   const [editLastName, setEditLastName] = useState("")
   const [editTown, setEditTown] = useState("")
   const [editHandicap, setEditHandicap] = useState("")
   const [saving, setSaving] = useState(false)
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const [cropFile, setCropFile] = useState<File | null>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -177,7 +171,6 @@ export default function ProfilePage() {
   }
 
   const startEditing = () => {
-    setEditUsername(profile?.username || "")
     setEditFirstName(profile?.first_name || (user?.user_metadata?.first_name as string) || "")
     setEditLastName(profile?.last_name || (user?.user_metadata?.last_name as string) || "")
     setEditTown(profile?.town || "")
@@ -190,26 +183,13 @@ export default function ProfilePage() {
     setSaving(true)
     setError(null)
     try {
-      const username = editUsername.trim().toLowerCase()
       const firstName = editFirstName.trim()
       const lastName = editLastName.trim()
       const town = editTown.trim()
       const handicapNum = editHandicap.trim() ? parseInt(editHandicap.trim(), 10) : null
 
-      if (!username) {
-        setError("Username is required.")
-        setSaving(false)
-        return
-      }
-
-      if (username.length < 3) {
-        setError("Username must be at least 3 characters.")
-        setSaving(false)
-        return
-      }
-
-      if (!/^[a-z0-9_]+$/.test(username)) {
-        setError("Username can only contain letters, numbers, and underscores.")
+      if (!firstName) {
+        setError("First name is required.")
         setSaving(false)
         return
       }
@@ -226,20 +206,14 @@ export default function ProfilePage() {
       const { error: updateError } = await supabase
         .from("profiles")
         .update({
-          username,
-          first_name: firstName || null,
+          first_name: firstName,
           last_name: lastName || null,
           town: town || null,
           handicap: handicapNum,
         })
         .eq("id", user.id)
 
-      if (updateError) {
-        if (updateError.message?.includes("profiles_username_unique") || updateError.code === "23505") {
-          throw new Error("This username is already taken. Please choose another.")
-        }
-        throw new Error(updateError.message || "Database update failed.")
-      }
+      if (updateError) throw new Error(updateError.message || "Database update failed.")
 
       const { data: refreshed } = await supabase
         .from("profiles")
@@ -255,67 +229,11 @@ export default function ProfilePage() {
     }
   }
 
-  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return
-    const file = e.target.files[0]
-
-    if (!file.type.startsWith("image/")) {
-      setError("Please select an image file.")
-      return
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Image must be under 10 MB.")
-      return
-    }
-
-    setError(null)
-    setCropFile(file)
-    // Reset the input so the same file can be re-selected
-    e.target.value = ""
-  }
-
-  const handleCroppedUpload = async (blob: Blob) => {
-    setCropFile(null)
-    if (!user) return
-
-    setUploadingAvatar(true)
-    setError(null)
-    try {
-      const filePath = `${user.id}/avatar.jpg`
-
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, blob, { upsert: true, contentType: "image/jpeg" })
-
-      if (uploadError) throw uploadError
-
-      const { data: publicUrlData } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(filePath)
-
-      const avatarUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`
-
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ avatar_url: avatarUrl })
-        .eq("id", user.id)
-
-      if (updateError) throw updateError
-
-      setProfile((prev) => prev ? { ...prev, avatar_url: avatarUrl } : prev)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload avatar.")
-    } finally {
-      setUploadingAvatar(false)
-    }
-  }
-
   if (authLoading) return <LoadingSpinner message="Checking your session..." />
   if (!user) return null
   if (loading) return <LoadingSpinner message="Loading profile..." />
 
   const displayName =
-    profile?.username ||
     [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
     (user.user_metadata?.full_name as string) ||
     [user.user_metadata?.first_name, user.user_metadata?.last_name].filter(Boolean).join(" ") ||
@@ -337,12 +255,6 @@ export default function ProfilePage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Edit Profile</p>
-              </div>
-              <div>
-                <label htmlFor="edit-username" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Username</label>
-                <input id="edit-username" type="text" value={editUsername} onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} disabled={saving}
-                  className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="e.g. ben_golf" maxLength={30} />
-                <p className="mt-1 text-[10px] text-primary/40">Letters, numbers, and underscores only</p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
@@ -380,46 +292,14 @@ export default function ProfilePage() {
           ) : (
             <>
               <div className="flex items-center gap-4">
-                <label className="group relative cursor-pointer" htmlFor="avatar-upload">
-                  {profile?.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt={displayName}
-                      className="h-12 w-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-semibold text-cream">
-                      {displayName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                      <circle cx="12" cy="13" r="4" />
-                    </svg>
-                  </div>
-                  {uploadingAvatar && (
-                    <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    </div>
-                  )}
-                  <input
-                    id="avatar-upload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleAvatarSelect}
-                    disabled={uploadingAvatar}
-                  />
-                </label>
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-semibold text-cream">
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Profile</p>
                       <h1 className="mt-1 text-2xl font-bold text-primary">{displayName}</h1>
-                      {profile?.username && profile?.first_name && (
-                        <p className="text-sm text-primary/60">{[profile.first_name, profile.last_name].filter(Boolean).join(" ")}</p>
-                      )}
                     </div>
                     <button
                       type="button"
@@ -569,15 +449,6 @@ export default function ProfilePage() {
           </button>
         </section>
       </div>
-
-      {/* Avatar crop modal */}
-      {cropFile && (
-        <AvatarCropModal
-          file={cropFile}
-          onCrop={handleCroppedUpload}
-          onCancel={() => setCropFile(null)}
-        />
-      )}
     </main>
   )
 }

@@ -1,12 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-export type MatchPlayer = {
-  name: string
-  avatar_url?: string | null
-}
-
 /**
- * Fetches player display names and avatars for a batch of match IDs.
+ * Fetches player display names for a batch of match IDs.
  *
  * @param client  – Supabase client instance
  * @param matchIds – Array of match IDs to look up
@@ -24,7 +19,7 @@ export async function fetchMatchPlayerNames(
 
   const { data, error } = await client
     .from("match_players")
-    .select("match_id, user_id, profiles(username, first_name, last_name)")
+    .select("match_id, user_id, profiles(first_name, last_name)")
     .in("match_id", matchIds)
 
   if (error || !data) return result
@@ -32,60 +27,18 @@ export async function fetchMatchPlayerNames(
   for (const row of data as Array<{
     match_id: string | number
     user_id: string
-    profiles: { username?: string | null; first_name?: string | null; last_name?: string | null } | null
+    profiles: { first_name?: string | null; last_name?: string | null } | null
   }>) {
     if (excludeUserId && row.user_id === excludeUserId) continue
 
     const profile = row.profiles
     const name =
-      profile?.username ||
       profile?.first_name ||
       profile?.last_name ||
       "Player"
 
     const existing = result.get(row.match_id) || []
     existing.push(name)
-    result.set(row.match_id, existing)
-  }
-
-  return result
-}
-
-/**
- * Fetches player display names AND avatar URLs for a batch of match IDs.
- */
-export async function fetchMatchPlayers(
-  client: SupabaseClient,
-  matchIds: (string | number)[],
-  excludeUserId?: string,
-): Promise<Map<string | number, MatchPlayer[]>> {
-  const result = new Map<string | number, MatchPlayer[]>()
-
-  if (matchIds.length === 0) return result
-
-  const { data, error } = await client
-    .from("match_players")
-    .select("match_id, user_id, profiles(username, first_name, last_name, avatar_url)")
-    .in("match_id", matchIds)
-
-  if (error || !data) return result
-
-  for (const row of data as Array<{
-    match_id: string | number
-    user_id: string
-    profiles: { username?: string | null; first_name?: string | null; last_name?: string | null; avatar_url?: string | null } | null
-  }>) {
-    if (excludeUserId && row.user_id === excludeUserId) continue
-
-    const profile = row.profiles
-    const name =
-      profile?.username ||
-      profile?.first_name ||
-      profile?.last_name ||
-      "Player"
-
-    const existing = result.get(row.match_id) || []
-    existing.push({ name, avatar_url: profile?.avatar_url || null })
     result.set(row.match_id, existing)
   }
 
