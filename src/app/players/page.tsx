@@ -9,6 +9,7 @@ import { Avatar } from "@/components/Avatar"
 
 type RecentPlayer = {
   id: string
+  username: string | null
   first_name: string
   last_name: string | null
   avatar_url: string | null
@@ -46,7 +47,7 @@ export default function PlayersPage() {
       // Get unique fellow members from those leagues
       const { data: fellows } = await supabase
         .from("league_members")
-        .select("user_id, profiles!inner(id, first_name, last_name, avatar_url, club, town, handicap)")
+        .select("user_id, profiles!inner(id, username, first_name, last_name, avatar_url, club, town, handicap)")
         .in("league_id", leagueIds)
         .neq("user_id", user.id)
 
@@ -115,13 +116,13 @@ export default function PlayersPage() {
                 >
                   <Avatar
                     src={player.avatar_url}
-                    alt={player.first_name}
+                    alt={player.username || player.first_name}
                     size={40}
-                    fallback={player.first_name}
+                    fallback={player.username || player.first_name}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-primary">
-                      {player.first_name} {player.last_name || ""}
+                      {player.username || `${player.first_name} ${player.last_name || ""}`.trim()}
                     </p>
                     <p className="truncate text-xs text-primary/50">
                       {[player.club, player.town, player.handicap != null ? `Hcp ${player.handicap}` : null]

@@ -9,6 +9,7 @@ import { Avatar } from "@/components/Avatar"
 
 type Profile = {
   id: string
+  username: string | null
   first_name: string
   last_name: string | null
   avatar_url: string | null
@@ -60,7 +61,7 @@ export default function PlayerProfilePage() {
       // Fetch profile
       const { data: prof } = await supabase
         .from("profiles")
-        .select("id, first_name, last_name, avatar_url, club, town, handicap")
+        .select("id, username, first_name, last_name, avatar_url, club, town, handicap")
         .eq("id", id)
         .maybeSingle()
 
@@ -152,14 +153,17 @@ export default function PlayerProfilePage() {
       <div className="flex items-center gap-4">
         <Avatar
           src={profile.avatar_url}
-          alt={profile.first_name}
+          alt={profile.username || profile.first_name}
           size={64}
-          fallback={profile.first_name}
+          fallback={profile.username || profile.first_name}
         />
         <div>
           <h1 className="text-xl font-bold text-primary">
-            {profile.first_name} {profile.last_name || ""}
+            {profile.username || `${profile.first_name} ${profile.last_name || ""}`.trim()}
           </h1>
+          {profile.username && profile.first_name && (
+            <p className="text-xs text-primary/40">{profile.first_name} {profile.last_name || ""}</p>
+          )}
           <p className="text-sm text-primary/50">
             {[profile.club, profile.town].filter(Boolean).join(" · ") || "No location set"}
           </p>

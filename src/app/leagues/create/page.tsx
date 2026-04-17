@@ -220,31 +220,6 @@ export default function CreateLeaguePage() {
             </div>
           </div>
 
-          {/* Scoring cards counted */}
-          <div>
-            <label htmlFor="scoringCards" className="mb-1 block text-sm font-medium text-primary">
-              Scoring cards counted
-            </label>
-            <select
-              id="scoringCards"
-              value={scoringCards}
-              onChange={(e) => setScoringCards(parseInt(e.target.value, 10))}
-              className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              disabled={submitting}
-            >
-              {Array.from({ length: 10 }, (_, i) => i + 1)
-                .filter((n) => n <= totalCards)
-                .map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-            </select>
-            <p className="mt-1 text-xs text-primary/50">
-              Best scores counted in the leaderboard
-            </p>
-          </div>
-
           {/* Total cards possible */}
           <div>
             <label htmlFor="totalCards" className="mb-1 block text-sm font-medium text-primary">
@@ -265,6 +240,31 @@ export default function CreateLeaguePage() {
             </select>
             <p className="mt-1 text-xs text-primary/50">
               Total matches a player can play during the league
+            </p>
+          </div>
+
+          {/* Scoring cards counted */}
+          <div>
+            <label htmlFor="scoringCards" className="mb-1 block text-sm font-medium text-primary">
+              Total cards counted
+            </label>
+            <select
+              id="scoringCards"
+              value={scoringCards}
+              onChange={(e) => setScoringCards(parseInt(e.target.value, 10))}
+              className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              disabled={submitting}
+            >
+              {Array.from({ length: 10 }, (_, i) => i + 1)
+                .filter((n) => n <= totalCards)
+                .map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+            </select>
+            <p className="mt-1 text-xs text-primary/50">
+              Best scores counted in the leaderboard
             </p>
           </div>
 

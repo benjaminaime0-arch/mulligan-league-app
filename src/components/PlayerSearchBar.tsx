@@ -6,6 +6,7 @@ import { Avatar } from "@/components/Avatar"
 
 export type PlayerResult = {
   id: string
+  username: string | null
   first_name: string
   last_name: string | null
   avatar_url: string | null
@@ -118,13 +119,13 @@ export function PlayerSearchBar({
               >
                 <Avatar
                   src={player.avatar_url}
-                  alt={player.first_name}
+                  alt={player.username || player.first_name}
                   size={36}
-                  fallback={player.first_name}
+                  fallback={player.username || player.first_name}
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-primary">
-                    {player.first_name} {player.last_name || ""}
+                    {player.username || `${player.first_name} ${player.last_name || ""}`.trim()}
                   </p>
                   <p className="truncate text-xs text-primary/50">
                     {[player.club, player.town, player.handicap != null ? `Hcp ${player.handicap}` : null]

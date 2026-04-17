@@ -19,7 +19,7 @@ export async function fetchMatchPlayerNames(
 
   const { data, error } = await client
     .from("match_players")
-    .select("match_id, user_id, profiles(first_name, last_name)")
+    .select("match_id, user_id, profiles(username, first_name, last_name)")
     .in("match_id", matchIds)
 
   if (error || !data) return result
@@ -27,12 +27,13 @@ export async function fetchMatchPlayerNames(
   for (const row of data as Array<{
     match_id: string | number
     user_id: string
-    profiles: { first_name?: string | null; last_name?: string | null } | null
+    profiles: { username?: string | null; first_name?: string | null; last_name?: string | null } | null
   }>) {
     if (excludeUserId && row.user_id === excludeUserId) continue
 
     const profile = row.profiles
     const name =
+      profile?.username ||
       profile?.first_name ||
       profile?.last_name ||
       "Player"

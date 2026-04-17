@@ -114,7 +114,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             const [mpRes, scoresRes] = await Promise.all([
               supabase
                 .from("match_players")
-                .select("match_id, user_id, profiles(first_name, avatar_url)")
+                .select("match_id, user_id, profiles(username, first_name, avatar_url)")
                 .in("match_id", matchIds),
               supabase
                 .from("scores")
@@ -158,13 +158,13 @@ export default function LeaguePage({ params }: LeaguePageProps) {
               for (const row of mpRes.data as Array<{
                 match_id: string | number
                 user_id: string
-                profiles: { first_name?: string | null; avatar_url?: string | null } | null
+                profiles: { username?: string | null; first_name?: string | null; avatar_url?: string | null } | null
               }>) {
                 const existing = map.get(row.match_id) || []
                 const key = `${row.match_id}:${row.user_id}`
                 const score = scoreLookup.get(key) ?? null
                 existing.push({
-                  name: row.profiles?.first_name || "Player",
+                  name: row.profiles?.username || row.profiles?.first_name || "Player",
                   avatar_url: row.profiles?.avatar_url ?? null,
                   user_id: row.user_id,
                   score,

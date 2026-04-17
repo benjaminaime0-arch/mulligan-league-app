@@ -24,10 +24,10 @@ export default function SignupPage() {
 
   const validate = () => {
     const errors: Record<string, string> = {}
-    const username = formData.username.trim().toLowerCase()
+    const username = formData.username.trim()
     if (!username) errors.username = "Username is required"
     else if (username.length < 3) errors.username = "Username must be at least 3 characters"
-    else if (!/^[a-z0-9_]+$/.test(username)) errors.username = "Letters, numbers, and underscores only"
+    else if (!/^[a-zA-Z0-9]+$/.test(username)) errors.username = "Letters and numbers only"
     if (!formData.firstName.trim()) errors.firstName = "First name is required"
     if (!formData.lastName.trim()) errors.lastName = "Last name is required"
     if (!formData.email.trim()) errors.email = "Email is required"
@@ -61,7 +61,7 @@ export default function SignupPage() {
         password: formData.password,
         options: {
           data: {
-            username: formData.username.trim().toLowerCase(),
+            username: formData.username.trim(),
             first_name: formData.firstName.trim(),
             last_name: formData.lastName.trim(),
             club: formData.club.trim() || undefined,
@@ -119,10 +119,10 @@ export default function SignupPage() {
               type="text"
               value={formData.username}
               onChange={(e) =>
-                setFormData((p) => ({ ...p, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))
+                setFormData((p) => ({ ...p, username: e.target.value.replace(/[^a-zA-Z0-9]/g, "") }))
               }
               className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="johnny_golf"
+              placeholder="JohnnyGolf"
               autoComplete="username"
               maxLength={30}
               disabled={loading}

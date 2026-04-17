@@ -25,6 +25,7 @@ type MemberWithProfile = {
   league_id: string | number
   user_id: string
   profiles?: {
+    username?: string | null
     first_name?: string | null
     last_name?: string | null
   } | null
@@ -110,7 +111,7 @@ function CreateMatchContent() {
         const [membersRes, periodRes] = await Promise.all([
           supabase
             .from("league_members")
-            .select("id, league_id, user_id, profiles(first_name, last_name)")
+            .select("id, league_id, user_id, profiles(username, first_name, last_name)")
             .eq("league_id", selectedLeagueId),
           supabase
             .from("league_periods")
@@ -166,8 +167,7 @@ function CreateMatchContent() {
 
   const memberDisplayName = (member: MemberWithProfile) => {
     const profile = member.profiles
-    const nameFromProfile = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ")
-    return nameFromProfile || "Player"
+    return profile?.username || [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") || "Player"
   }
 
   const sortedMembers = useMemo(

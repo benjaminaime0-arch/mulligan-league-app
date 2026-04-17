@@ -180,7 +180,7 @@ export default function ProfilePage() {
     setSaving(true)
     setError(null)
     try {
-      const username = editUsername.trim().toLowerCase()
+      const username = editUsername.trim()
       const firstName = editFirstName.trim()
       const lastName = editLastName.trim()
       const town = editTown.trim()
@@ -198,8 +198,8 @@ export default function ProfilePage() {
         return
       }
 
-      if (!/^[a-z0-9_]+$/.test(username)) {
-        setError("Username can only contain letters, numbers, and underscores.")
+      if (!/^[a-zA-Z0-9]+$/.test(username)) {
+        setError("Username can only contain letters and numbers.")
         setSaving(false)
         return
       }
@@ -330,9 +330,9 @@ export default function ProfilePage() {
               </div>
               <div>
                 <label htmlFor="edit-username" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Username</label>
-                <input id="edit-username" type="text" value={editUsername} onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} disabled={saving}
-                  className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="e.g. ben_golf" maxLength={30} />
-                <p className="mt-1 text-[10px] text-primary/40">Letters, numbers, and underscores only</p>
+                <input id="edit-username" type="text" value={editUsername} onChange={(e) => setEditUsername(e.target.value.replace(/[^a-zA-Z0-9]/g, ""))} disabled={saving}
+                  className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="e.g. BenGolf" maxLength={30} />
+                <p className="mt-1 text-[10px] text-primary/40">Letters and numbers only</p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
