@@ -2,8 +2,8 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/hooks/useAuth"
 
 export default function JoinLeaguePage() {
   return (
@@ -22,8 +22,7 @@ export default function JoinLeaguePage() {
 function JoinLeagueContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [user, setUser] = useState<User | null>(null)
-  const [authLoading, setAuthLoading] = useState(true)
+  const { user, loading: authLoading } = useAuth()
 
   const [code, setCode] = useState(searchParams.get("code")?.toUpperCase().slice(0, 6) || "")
   const [submitting, setSubmitting] = useState(false)
@@ -32,23 +31,6 @@ function JoinLeagueContent() {
   const [successLeagueName, setSuccessLeagueName] = useState<string | null>(null)
   const [successCourseName, setSuccessCourseName] = useState<string | null>(null)
   const [successMemberCount, setSuccessMemberCount] = useState<number>(0)
-
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession()
-      const session = data.session
-
-      if (!session) {
-        router.push("/login")
-        return
-      }
-
-      setUser(session.user)
-      setAuthLoading(false)
-    }
-
-    checkSession()
-  }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

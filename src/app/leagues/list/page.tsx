@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/hooks/useAuth"
 
 type League = {
   id: string | number
@@ -22,9 +22,7 @@ type MemberWithLeague = {
 
 export default function LeagueListPage() {
   const router = useRouter()
-
-  const [user, setUser] = useState<User | null>(null)
-  const [authLoading, setAuthLoading] = useState(true)
+  const { user, loading: authLoading } = useAuth()
 
   const [leagues, setLeagues] = useState<League[]>([])
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({})
@@ -32,18 +30,9 @@ export default function LeagueListPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (authLoading || !user) return
+
     const init = async () => {
-      const { data } = await supabase.auth.getSession()
-      const session = data.session
-
-      if (!session) {
-        router.push("/login")
-        return
-      }
-
-      setUser(session.user)
-      setAuthLoading(false)
-
       try {
         setLoading(true)
         setError(null)
@@ -51,7 +40,7 @@ export default function LeagueListPage() {
         const { data: memberRows, error: memberError } = await supabase
           .from("league_members")
           .select("*, leagues(*)")
-          .eq("user_id", session.user.id)
+          .eq("user_id", user.id)
 
         if (memberError) {
           throw memberError
@@ -93,7 +82,7 @@ export default function LeagueListPage() {
     }
 
     init()
-  }, [router])
+  }, [authLoading, user])
 
   if (authLoading) {
     return (

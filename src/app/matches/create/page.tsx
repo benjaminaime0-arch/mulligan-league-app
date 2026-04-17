@@ -3,8 +3,8 @@
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/hooks/useAuth"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 
 type League = {
@@ -41,9 +41,7 @@ function CreateMatchContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedLeagueId = searchParams.get("league")
-
-  const [user, setUser] = useState<User | null>(null)
-  const [authLoading, setAuthLoading] = useState(true)
+  const { user, loading: authLoading } = useAuth()
 
   // User's leagues
   const [userLeagues, setUserLeagues] = useState<League[]>([])
@@ -65,23 +63,16 @@ function CreateMatchContent() {
 
   const selectedLeague = userLeagues.find((l) => l.id === selectedLeagueId) || null
 
-  // Auth + load user's leagues
+  // Load user's leagues once auth is ready
   useEffect(() => {
-    const init = async () => {
-      const { data } = await supabase.auth.getSession()
-      const session = data.session
-      if (!session) {
-        router.push("/login")
-        return
-      }
-      setUser(session.user)
-      setAuthLoading(false)
+    if (authLoading || !user) return
 
+    const init = async () => {
       // Load leagues the user belongs to
       const { data: memberships, error: memErr } = await supabase
         .from("league_members")
         .select("id, league_id, user_id, leagues(id, name, course_name)")
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
 
       if (!memErr && memberships) {
         const leagues = (memberships as unknown as LeagueMembership[])
@@ -99,7 +90,7 @@ function CreateMatchContent() {
       setLeaguesLoading(false)
     }
     init()
-  }, [router, preselectedLeagueId])
+  }, [authLoading, user, preselectedLeagueId])
 
   // Load members + period when league changes
   useEffect(() => {

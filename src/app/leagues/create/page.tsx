@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/hooks/useAuth"
 
 const FORMATS = [
   { value: "stroke_play", label: "Stroke Play" },
@@ -17,8 +17,7 @@ const FORMATS = [
 
 export default function CreateLeaguePage() {
   const router = useRouter()
-  const [user, setUser] = useState<User | null>(null)
-  const [authLoading, setAuthLoading] = useState(true)
+  const { user, loading: authLoading } = useAuth()
 
   const [name, setName] = useState("")
   const [course, setCourse] = useState("")
@@ -34,20 +33,6 @@ export default function CreateLeaguePage() {
   const [inviteCode, setInviteCode] = useState<string | null>(null)
   const [leagueId, setLeagueId] = useState<string | number | null>(null)
   const [copied, setCopied] = useState(false)
-
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession()
-      const session = data.session
-      if (!session) {
-        router.push("/login")
-        return
-      }
-      setUser(session.user)
-      setAuthLoading(false)
-    }
-    checkSession()
-  }, [router])
 
   // Keep scoringCards <= totalCards
   useEffect(() => {

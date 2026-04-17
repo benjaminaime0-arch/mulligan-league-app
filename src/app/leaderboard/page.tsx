@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/hooks/useAuth"
 
 type League = {
   id: string | number
@@ -30,9 +30,7 @@ type LeaderboardRow = {
 
 export default function LeaderboardPage() {
   const router = useRouter()
-
-  const [user, setUser] = useState<User | null>(null)
-  const [authLoading, setAuthLoading] = useState(true)
+  const { user, loading: authLoading } = useAuth()
 
   const [leagues, setLeagues] = useState<League[]>([])
   const [selectedLeagueId, setSelectedLeagueId] = useState<string | number | null>(null)
@@ -42,18 +40,9 @@ export default function LeaderboardPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (authLoading || !user) return
+
     const init = async () => {
-      const { data } = await supabase.auth.getSession()
-      const session = data.session
-
-      if (!session) {
-        router.push("/login")
-        return
-      }
-
-      setUser(session.user)
-      setAuthLoading(false)
-
       try {
         setLoading(true)
         setError(null)
@@ -61,7 +50,7 @@ export default function LeaderboardPage() {
         const { data: memberRows, error: memberError } = await supabase
           .from("league_members")
           .select("*, leagues(*)")
-          .eq("user_id", session.user.id)
+          .eq("user_id", user.id)
 
         if (memberError) {
           throw memberError
@@ -96,7 +85,7 @@ export default function LeaderboardPage() {
 
     init()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router])
+  }, [authLoading, user])
 
   const loadLeaderboard = async (leagueId: string | number) => {
     setLoading(true)
