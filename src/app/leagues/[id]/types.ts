@@ -1,4 +1,7 @@
-import type { MatchPlayer } from "@/lib/matchPlayers"
+export type MatchPlayer = {
+  name: string
+  avatar_url?: string | null
+}
 
 export type League = {
   id: string | number
@@ -60,4 +63,3 @@ export type LeaderboardRow = {
   rounds_played?: number | null
 }
 
-export type { MatchPlayer }

@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
-import { fetchMatchPlayerNames } from "@/lib/matchPlayers"
 import { ConfirmModal } from "@/components/ConfirmModal"
 import type {
   League,
@@ -112,8 +111,26 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
           if (matches.length > 0) {
             const matchIds = matches.map((m) => m.id)
-            const playersData = await fetchMatchPlayerNames(supabase, matchIds)
-            setMatchPlayersMap(playersData)
+            const { data: mpData } = await supabase
+              .from("match_players")
+              .select("match_id, profiles(first_name, avatar_url)")
+              .in("match_id", matchIds)
+
+            if (mpData) {
+              const map = new Map<string | number, MatchPlayer[]>()
+              for (const row of mpData as Array<{
+                match_id: string | number
+                profiles: { first_name?: string | null; avatar_url?: string | null } | null
+              }>) {
+                const existing = map.get(row.match_id) || []
+                existing.push({
+                  name: row.profiles?.first_name || "Player",
+                  avatar_url: row.profiles?.avatar_url ?? null,
+                })
+                map.set(row.match_id, existing)
+              }
+              setMatchPlayersMap(map)
+            }
           }
         } else {
           setPeriodMatches([])
