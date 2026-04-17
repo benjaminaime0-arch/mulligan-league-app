@@ -8,66 +8,116 @@ interface ScheduledMatchesProps {
   matchPlayersMap: Map<string | number, MatchPlayer[]>
 }
 
-export function ScheduledMatches({ matches, league, matchPlayersMap }: ScheduledMatchesProps) {
+function MatchCard({
+  match,
+  league,
+  matchPlayers,
+}: {
+  match: Match
+  league: League
+  matchPlayers?: MatchPlayer[]
+}) {
+  const dateLabel = match.match_date
+    ? new Date(match.match_date).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      })
+    : "Date TBA"
+
   return (
-    <div className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-primary">Scheduled Matches</h2>
-        <Link
-          href={`/matches/create?league=${league.id}`}
-          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-cream hover:bg-primary/90"
-        >
-          Create Match
-        </Link>
-      </div>
-      {matches.length === 0 ? (
-        <p className="text-center text-sm text-primary/70">
-          No matches scheduled yet. Create one to get the week rolling.
-        </p>
-      ) : (
-        <div className="space-y-3">
-          {matches.map((match) => {
-            const dateLabel = match.match_date
-              ? new Date(match.match_date).toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                })
-              : "Date TBA"
-            const matchPlayers = matchPlayersMap.get(match.id)
+    <Link
+      href={`/matches/${match.id}`}
+      className="block rounded-lg bg-cream px-4 py-4 text-center text-primary hover:bg-primary/5"
+    >
+      <div className="flex flex-wrap items-center justify-center gap-x-2.5">
+        {matchPlayers && matchPlayers.length > 0 ? (
+          matchPlayers.map((p, i) => {
+            const avatar = <Avatar src={p.avatar_url} size={32} fallback={p.name} />
+            const isLast = i === matchPlayers.length - 1
             return (
-              <Link
-                key={match.id}
-                href={`/matches/${match.id}`}
-                className="block rounded-lg bg-cream px-4 py-4 text-center text-primary hover:bg-primary/5"
-              >
-                <div className="flex flex-wrap items-center justify-center gap-x-2.5">
-                  {matchPlayers && matchPlayers.length > 0 ? (
-                    matchPlayers.map((p, i) => {
-                      const avatar = <Avatar src={p.avatar_url} size={32} fallback={p.name} />
-                      const isLast = i === matchPlayers.length - 1
-                      return (
-                        <span key={i} className="inline-flex items-center gap-1.5">
-                          {i === 0 && avatar}
-                          <span className="text-base font-semibold">{p.name}</span>
-                          {!isLast && <span className="text-xs font-normal text-primary/40">vs</span>}
-                          {i > 0 && avatar}
-                        </span>
-                      )
-                    })
-                  ) : (
-                    <span className="text-base font-semibold">{match.course_name || league.course_name || "Course TBA"}</span>
-                  )}
-                </div>
-                <p className="mt-1.5 text-xs text-primary/60">
-                  {dateLabel}
-                  {match.match_time ? ` · ${match.match_time.slice(0, 5)}` : ""}
-                  {(match.course_name || league.course_name) ? ` · ${match.course_name || league.course_name}` : ""}
-                </p>
-              </Link>
+              <span key={i} className="inline-flex items-center gap-1.5">
+                {i === 0 && avatar}
+                <span className="text-base font-semibold">{p.name}</span>
+                {!isLast && <span className="text-xs font-normal text-primary/40">vs</span>}
+                {i > 0 && avatar}
+              </span>
             )
-          })}
+          })
+        ) : (
+          <span className="text-base font-semibold">{match.course_name || league.course_name || "Course TBA"}</span>
+        )}
+      </div>
+      <p className="mt-1.5 text-xs text-primary/60">
+        {dateLabel}
+        {match.match_time ? ` · ${match.match_time.slice(0, 5)}` : ""}
+        {(match.course_name || league.course_name) ? ` · ${match.course_name || league.course_name}` : ""}
+        {match.status === "completed" && (
+          <span className="ml-1.5 inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary/60">
+            Completed
+          </span>
+        )}
+      </p>
+    </Link>
+  )
+}
+
+export function ScheduledMatches({ matches, league, matchPlayersMap }: ScheduledMatchesProps) {
+  const today = new Date().toISOString().slice(0, 10)
+
+  const upcoming = matches.filter(
+    (m) => m.status !== "completed" && (!m.match_date || m.match_date >= today),
+  )
+  const past = matches.filter(
+    (m) => m.status === "completed" || (m.match_date != null && m.match_date < today),
+  )
+
+  return (
+    <>
+      {/* Scheduled / Upcoming */}
+      <div className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-primary">Scheduled Matches</h2>
+          <Link
+            href={`/matches/create?league=${league.id}`}
+            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-cream hover:bg-primary/90"
+          >
+            Create Match
+          </Link>
+        </div>
+        {upcoming.length === 0 ? (
+          <p className="text-center text-sm text-primary/70">
+            No matches scheduled yet. Create one to get the week rolling.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {upcoming.map((match) => (
+              <MatchCard
+                key={match.id}
+                match={match}
+                league={league}
+                matchPlayers={matchPlayersMap.get(match.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Past Matches */}
+      {past.length > 0 && (
+        <div className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold text-primary">Past Matches</h2>
+          <div className="space-y-3">
+            {past.map((match) => (
+              <MatchCard
+                key={match.id}
+                match={match}
+                league={league}
+                matchPlayers={matchPlayersMap.get(match.id)}
+              />
+            ))}
+          </div>
         </div>
       )}
-    </div>
+    </>
   )
 }

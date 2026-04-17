@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
-import { fetchMatchPlayers } from "@/lib/matchPlayers"
+import { fetchMatchPlayerNames } from "@/lib/matchPlayers"
 import { ConfirmModal } from "@/components/ConfirmModal"
 import type {
   League,
@@ -112,7 +112,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
           if (matches.length > 0) {
             const matchIds = matches.map((m) => m.id)
-            const playersData = await fetchMatchPlayers(supabase, matchIds)
+            const playersData = await fetchMatchPlayerNames(supabase, matchIds)
             setMatchPlayersMap(playersData)
           }
         } else {
