@@ -452,104 +452,14 @@ export default function ProfilePage() {
           )}
         </section>
 
-        {/* 2. Scheduled Matches */}
-        <section className="rounded-2xl border border-primary/15 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-primary/60">Scheduled Matches</h2>
-              <p className="mt-1 text-sm text-primary/70">Your upcoming rounds.</p>
-            </div>
-            <Link href="/matches/create" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
-              New match
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {scheduledMatches.length === 0 ? (
-              <p className="text-sm text-primary/70">No matches scheduled. Create one to get started.</p>
-            ) : (
-              scheduledMatches.map((m) => {
-                const leagueName = m.leagues?.name || (m.match_type === "casual" ? "Casual" : "Match")
-                const courseName = m.course_name || null
-                const names = matchPlayerNames.get(m.id)
-                const playersLabel = names && names.length > 0 ? names.join(" vs ") : null
-                const parts = [leagueName, courseName, playersLabel].filter(Boolean)
-                return (
-                  <Link
-                    key={m.id}
-                    href={`/matches/${m.id}`}
-                    className="block rounded-xl border border-primary/10 bg-cream px-4 py-3 hover:bg-primary/5"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-primary">
-                          {parts.join(" · ")}
-                        </p>
-                        <p className="text-xs text-primary/60">
-                          {formatDate(m.match_date)}
-                          {m.match_time ? ` · ${m.match_time.slice(0, 5)}` : ""}
-                        </p>
-                      </div>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-                          m.match_type === "casual"
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-emerald-50 text-emerald-700"
-                        }`}
-                      >
-                        {m.match_type === "casual" ? "Casual" : "League"}
-                      </span>
-                    </div>
-                  </Link>
-                )
-              })
-            )}
-          </div>
-        </section>
+        {/* 2. Scheduled Matches — Carousel */}
+        <MatchCarousel
+          matches={scheduledMatches}
+          matchPlayerNames={matchPlayerNames}
+        />
 
-        {/* 3. My Leagues */}
-        <section className="rounded-2xl border border-primary/15 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-primary/60">My Leagues</h2>
-              <p className="mt-1 text-sm text-primary/70">Where you are currently competing.</p>
-            </div>
-            <Link href="/leagues/list" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
-              See all
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {memberships.length === 0 ? (
-              <div className="space-y-3">
-                <p className="text-sm text-primary/70">No leagues joined yet.</p>
-                <div className="flex gap-2">
-                  <Link href="/leagues/create" className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-cream hover:bg-primary/90">
-                    Create League
-                  </Link>
-                  <Link href="/leagues/join" className="rounded-lg border border-primary/20 bg-cream px-3 py-2 text-xs font-medium text-primary hover:bg-primary/5">
-                    Join League
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              memberships.map((membership) => {
-                const league = membership.leagues
-                if (!league) return null
-                return (
-                  <Link
-                    key={membership.id}
-                    href={`/leagues/${league.id}`}
-                    className="block rounded-xl border border-primary/10 bg-cream px-4 py-3 hover:bg-primary/5"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-primary">{league.name}</p>
-                      <span className="text-xs uppercase tracking-wide text-primary/50">{league.status || "active"}</span>
-                    </div>
-                  </Link>
-                )
-              })
-            )}
-          </div>
-        </section>
+        {/* 3. My Leagues — Carousel */}
+        <LeagueCarousel memberships={memberships} />
 
         {/* Settings */}
         <section className="rounded-2xl border border-primary/15 bg-white p-5 shadow-sm">
@@ -587,4 +497,173 @@ function formatDate(iso: string | null): string {
   const d = new Date(iso + "T00:00:00")
   if (Number.isNaN(d.getTime())) return iso
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+}
+
+/* ── Match Carousel ──────────────────────────────────────────── */
+
+function MatchCarousel({
+  matches,
+  matchPlayerNames,
+}: {
+  matches: ScheduledMatch[]
+  matchPlayerNames: Map<string | number, string[]>
+}) {
+  const [idx, setIdx] = useState(0)
+
+  if (matches.length === 0) {
+    return (
+      <section className="rounded-2xl border border-primary/15 bg-white p-5 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-primary/60">Scheduled Matches</h2>
+          <Link href="/matches/create" className="text-sm font-medium text-primary underline-offset-4 hover:underline">New match</Link>
+        </div>
+        <p className="text-sm text-primary/70">No matches scheduled. Create one to get started.</p>
+      </section>
+    )
+  }
+
+  const m = matches[idx]
+  const leagueName = m.leagues?.name || (m.match_type === "casual" ? "Casual" : "Match")
+  const names = matchPlayerNames.get(m.id)
+  const playersLabel = names && names.length > 0 ? names.join(" vs ") : null
+
+  return (
+    <section className="rounded-2xl border border-primary/15 bg-white p-4 shadow-sm">
+      {/* Header with arrows */}
+      <div className="flex items-center justify-between gap-2">
+        {matches.length > 1 && (
+          <button type="button" onClick={() => setIdx((i) => (i - 1 + matches.length) % matches.length)}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
+            aria-label="Previous match">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+          </button>
+        )}
+        <div className="min-w-0 flex-1 text-center">
+          <h2 className="text-lg font-bold text-primary">{leagueName}</h2>
+          <p className="text-xs uppercase tracking-[0.2em] text-primary/50">
+            {m.course_name || "Course TBA"}
+          </p>
+        </div>
+        {matches.length > 1 && (
+          <button type="button" onClick={() => setIdx((i) => (i + 1) % matches.length)}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
+            aria-label="Next match">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+          </button>
+        )}
+      </div>
+
+      {/* Dots */}
+      {matches.length > 1 && (
+        <div className="mt-2 flex items-center justify-center gap-1.5">
+          {matches.map((_, i) => (
+            <button key={i} type="button" onClick={() => setIdx(i)}
+              className={`h-1.5 rounded-full transition-all ${i === idx ? "w-5 bg-primary" : "w-1.5 bg-primary/20 hover:bg-primary/40"}`}
+              aria-label={`Match ${i + 1}`} />
+          ))}
+        </div>
+      )}
+
+      {/* Match details */}
+      <div className="mt-3 space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs text-primary/60">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary/40">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            {formatDate(m.match_date)}{m.match_time ? ` · ${m.match_time.slice(0, 5)}` : ""}
+          </div>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+            m.match_type === "casual" ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
+          }`}>
+            {m.match_type === "casual" ? "Casual" : "League"}
+          </span>
+        </div>
+        {playersLabel && (
+          <div className="flex items-center gap-2 text-xs text-primary/60">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary/40">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            {playersLabel}
+          </div>
+        )}
+      </div>
+
+      {/* View link */}
+      <div className="mt-3 border-t border-primary/8 pt-3 text-center">
+        <Link href={`/matches/${m.id}`} className="text-xs font-medium text-primary/50 hover:text-primary">
+          View match →
+        </Link>
+      </div>
+    </section>
+  )
+}
+
+/* ── League Carousel ─────────────────────────────────────────── */
+
+function LeagueCarousel({ memberships }: { memberships: LeagueMember[] }) {
+  const [idx, setIdx] = useState(0)
+  const validMemberships = memberships.filter((m) => m.leagues != null)
+
+  if (validMemberships.length === 0) {
+    return (
+      <section className="rounded-2xl border border-primary/15 bg-white p-5 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-primary/60">My Leagues</h2>
+        <p className="mb-3 text-sm text-primary/70">No leagues joined yet.</p>
+        <div className="flex gap-2">
+          <Link href="/leagues/create" className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-cream hover:bg-primary/90">Create League</Link>
+          <Link href="/leagues/join" className="rounded-lg border border-primary/20 bg-cream px-3 py-2 text-xs font-medium text-primary hover:bg-primary/5">Join League</Link>
+        </div>
+      </section>
+    )
+  }
+
+  const membership = validMemberships[idx]
+  const league = membership.leagues!
+
+  return (
+    <section className="rounded-2xl border border-primary/15 bg-white p-4 shadow-sm">
+      {/* Header with arrows */}
+      <div className="flex items-center justify-between gap-2">
+        {validMemberships.length > 1 && (
+          <button type="button" onClick={() => setIdx((i) => (i - 1 + validMemberships.length) % validMemberships.length)}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
+            aria-label="Previous league">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+          </button>
+        )}
+        <div className="min-w-0 flex-1 text-center">
+          <h2 className="text-lg font-bold text-primary">{league.name}</h2>
+          <p className="text-xs uppercase tracking-wide text-primary/50">
+            {league.status || "active"}
+          </p>
+        </div>
+        {validMemberships.length > 1 && (
+          <button type="button" onClick={() => setIdx((i) => (i + 1) % validMemberships.length)}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
+            aria-label="Next league">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+          </button>
+        )}
+      </div>
+
+      {/* Dots */}
+      {validMemberships.length > 1 && (
+        <div className="mt-2 flex items-center justify-center gap-1.5">
+          {validMemberships.map((_, i) => (
+            <button key={i} type="button" onClick={() => setIdx(i)}
+              className={`h-1.5 rounded-full transition-all ${i === idx ? "w-5 bg-primary" : "w-1.5 bg-primary/20 hover:bg-primary/40"}`}
+              aria-label={`League ${i + 1}`} />
+          ))}
+        </div>
+      )}
+
+      {/* View link */}
+      <div className="mt-3 border-t border-primary/8 pt-3 text-center">
+        <Link href={`/leagues/${league.id}`} className="text-xs font-medium text-primary/50 hover:text-primary">
+          View league →
+        </Link>
+      </div>
+    </section>
+  )
 }
