@@ -360,7 +360,7 @@ export default function LeagueListPage() {
                     </div>
                   </div>
 
-                  {/* Season / Period */}
+                  {/* Duration */}
                   <div className="col-span-2 flex items-center gap-2">
                     <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/5">
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary/50">
@@ -368,16 +368,11 @@ export default function LeagueListPage() {
                       </svg>
                     </div>
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Season</p>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Duration</p>
                       <p className="text-xs font-semibold text-primary">
                         {league.activePeriod
                           ? `${formatDateShort(league.activePeriod.start_date)} – ${formatDateShort(league.activePeriod.end_date)}`
                           : "No season set"}
-                        {league.activePeriod?.name && (
-                          <span className="ml-1.5 text-[10px] font-normal text-primary/50">
-                            ({league.activePeriod.name})
-                          </span>
-                        )}
                       </p>
                     </div>
                   </div>
@@ -389,41 +384,37 @@ export default function LeagueListPage() {
               {/* Players preview + View link */}
               <Link
                 href={`/leagues/${league.id}`}
-                className="flex items-center justify-between px-5 py-4 transition-colors hover:bg-cream/50"
+                className="flex flex-col items-center gap-2 px-5 py-4 transition-colors hover:bg-cream/50"
               >
-                <div className="flex items-center gap-3">
-                  {/* Stacked avatars */}
-                  <div className="flex -space-x-2">
-                    {league.members.slice(0, 5).map((m, i) => (
-                      <div
-                        key={m.user_id}
-                        className="relative rounded-full ring-2 ring-white"
-                        style={{ zIndex: 5 - i }}
-                      >
-                        <Avatar
-                          src={m.profiles?.avatar_url}
-                          size={28}
-                          fallback={m.profiles?.username || m.profiles?.first_name || "P"}
-                        />
-                      </div>
-                    ))}
-                    {league.memberCount > 5 && (
-                      <div
-                        className="relative flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary/60 ring-2 ring-white"
-                        style={{ zIndex: 0 }}
-                      >
-                        +{league.memberCount - 5}
-                      </div>
-                    )}
-                  </div>
-                  <span className="text-xs text-primary/60">
-                    {league.max_players != null
-                      ? `${league.memberCount}/${league.max_players} players`
-                      : `${league.memberCount} player${league.memberCount !== 1 ? "s" : ""}`}
-                  </span>
+                {/* Stacked avatars */}
+                <div className="flex -space-x-2">
+                  {league.members.slice(0, 5).map((m, i) => (
+                    <div
+                      key={m.user_id}
+                      className="relative rounded-full ring-2 ring-white"
+                      style={{ zIndex: 5 - i }}
+                    >
+                      <Avatar
+                        src={m.profiles?.avatar_url}
+                        size={28}
+                        fallback={m.profiles?.username || m.profiles?.first_name || "P"}
+                      />
+                    </div>
+                  ))}
+                  {league.memberCount > 5 && (
+                    <div
+                      className="relative flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary/60 ring-2 ring-white"
+                      style={{ zIndex: 0 }}
+                    >
+                      +{league.memberCount - 5}
+                    </div>
+                  )}
                 </div>
-                <span className="text-xs font-medium text-primary/50 hover:text-primary">
-                  View →
+                <span className="text-xs text-primary/60">
+                  {league.max_players != null
+                    ? `${league.memberCount}/${league.max_players} players`
+                    : `${league.memberCount} player${league.memberCount !== 1 ? "s" : ""}`}
+                  <span className="ml-2 font-medium text-primary/50">View →</span>
                 </span>
               </Link>
             </div>
