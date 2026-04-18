@@ -297,47 +297,48 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   const isDraft = league.status !== "active" && league.status !== "completed"
 
   return (
-    <main className="min-h-screen bg-cream px-4 pb-6 pt-6">
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-8">
+    <main className="min-h-screen bg-cream px-4 pb-6 pt-4">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-5">
         {/* Header */}
-        <header className="flex flex-col gap-4 text-center">
-          <div className="flex flex-col items-center gap-3">
-            <div>
-              <div className="flex items-center justify-center gap-3">
-                {prevLeague ? (
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/leagues/${prevLeague.id}`)}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/20 bg-white text-primary hover:bg-primary/5"
-                    title={prevLeague.name}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
-                  </button>
-                ) : userLeagues.length > 1 ? (
-                  <div className="h-8 w-8" />
-                ) : null}
-                <h1 className="text-2xl font-bold text-primary">{league.name}</h1>
-                {nextLeague ? (
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/leagues/${nextLeague.id}`)}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/20 bg-white text-primary hover:bg-primary/5"
-                    title={nextLeague.name}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>
-                  </button>
-                ) : userLeagues.length > 1 ? (
-                  <div className="h-8 w-8" />
-                ) : null}
-              </div>
-              <p className="mt-1 text-sm text-primary/70">
-                {league.course_name || "Course TBA"}
-                {league.league_type ? ` · ${league.league_type.replace(/_/g, " ")}` : null}
-                {league.scoring_cards_count ? ` · ${league.scoring_cards_count} best cards counted` : null}
-              </p>
-            </div>
+        <header className="text-center">
+          <div className="flex items-center justify-center gap-3">
+            {prevLeague ? (
+              <button
+                type="button"
+                onClick={() => router.push(`/leagues/${prevLeague.id}`)}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/20 bg-white text-primary hover:bg-primary/5"
+                title={prevLeague.name}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+              </button>
+            ) : userLeagues.length > 1 ? (
+              <div className="h-8 w-8" />
+            ) : null}
+            <h1 className="text-2xl font-bold text-primary">{league.name}</h1>
+            {nextLeague ? (
+              <button
+                type="button"
+                onClick={() => router.push(`/leagues/${nextLeague.id}`)}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/20 bg-white text-primary hover:bg-primary/5"
+                title={nextLeague.name}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>
+              </button>
+            ) : userLeagues.length > 1 ? (
+              <div className="h-8 w-8" />
+            ) : null}
           </div>
-
+          <p className="mt-1 text-sm text-primary/70">
+            {league.course_name || "Course TBA"}
+            {" · "}
+            {league.league_type ? league.league_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Standard"}
+            {league.scoring_cards_count != null
+              ? ` · Best ${league.scoring_cards_count}${league.total_cards_count ? ` of ${league.total_cards_count}` : ""} cards`
+              : ""}
+            {currentPeriod?.start_date && currentPeriod?.end_date
+              ? ` · ${new Date(currentPeriod.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(currentPeriod.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+              : ""}
+          </p>
         </header>
 
         {/* Draft guide for admins */}
