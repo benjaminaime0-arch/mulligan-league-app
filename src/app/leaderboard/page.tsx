@@ -205,7 +205,10 @@ export default function LeaderboardPage() {
                   </svg>
                 </button>
               )}
-              <div className="min-w-0 flex-1 text-center">
+              <div
+                className="min-w-0 flex-1 cursor-pointer text-center"
+                onClick={() => router.push(`/leagues/${currentLeague.id}`)}
+              >
                 <h2 className="text-lg font-bold text-primary">
                   {currentLeague.name}
                 </h2>
