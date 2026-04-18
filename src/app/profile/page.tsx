@@ -812,7 +812,7 @@ function LeagueCarousel({ leagues }: { leagues: EnrichedLeague[] }) {
 
       {/* Players preview */}
       <div className="flex flex-col items-center gap-2 px-5 py-4">
-        <div className="flex -space-x-2">
+        <div className="flex -space-x-1">
           {league.members.slice(0, 5).map((m, i) => (
             <div
               key={m.user_id}
