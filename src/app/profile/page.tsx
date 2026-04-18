@@ -497,8 +497,7 @@ export default function ProfilePage() {
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Profile</p>
-                      <h1 className="mt-1 text-2xl font-bold text-primary">{displayName}</h1>
+                      <h1 className="text-2xl font-bold text-primary">{displayName}</h1>
                       {profile?.username && profile?.first_name && (
                         <p className="text-sm text-primary/60">{[profile.first_name, profile.last_name].filter(Boolean).join(" ")}</p>
                       )}
