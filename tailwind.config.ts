@@ -9,7 +9,7 @@ const config: Config = {
     extend: {
       colors: {
         primary: "#0F3D2E",
-        cream: "#F6F3EE",
+        cream: "#E8F0E6",
       },
     },
   },

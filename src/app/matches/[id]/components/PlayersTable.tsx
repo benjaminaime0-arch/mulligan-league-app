@@ -1,3 +1,6 @@
+"use client"
+
+import { useRouter } from "next/navigation"
 import { Avatar } from "@/components/Avatar"
 import type { MatchPlayerWithProfile, Score, MatchApproval } from "../types"
 
@@ -16,6 +19,7 @@ export function PlayersTable({
   currentUserId,
   memberDisplayName,
 }: PlayersTableProps) {
+  const router = useRouter()
   const hasAnyScores = scoresByUserId.size > 0
   const allPlayersHaveScores = players.length > 0 && players.every((p) => scoresByUserId.has(p.user_id))
   const allApproved = allPlayersHaveScores && players.every((p) => {
@@ -82,7 +86,10 @@ export function PlayersTable({
                     className="border-b border-primary/5 last:border-0"
                   >
                     <td className="py-2 pr-4 text-primary">
-                      <div className="flex items-center gap-2">
+                      <div
+                        className="flex cursor-pointer items-center gap-2 hover:underline"
+                        onClick={() => router.push(`/players/${player.user_id}`)}
+                      >
                         <Avatar src={player.profiles?.avatar_url} size={24} fallback={memberDisplayName(player)} />
                         <span>{memberDisplayName(player)}</span>
                       </div>

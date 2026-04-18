@@ -1,3 +1,6 @@
+"use client"
+
+import { useRouter } from "next/navigation"
 import { Avatar } from "@/components/Avatar"
 import type { LeaderboardRow } from "../types"
 
@@ -7,6 +10,8 @@ interface LeaderboardTableProps {
 }
 
 export function LeaderboardTable({ leaderboard, subtitle }: LeaderboardTableProps) {
+  const router = useRouter()
+
   return (
     <div className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-baseline justify-between">
@@ -38,7 +43,10 @@ export function LeaderboardTable({ leaderboard, subtitle }: LeaderboardTableProp
                     {row.position ?? idx + 1}
                   </td>
                   <td className="py-3 pr-3 text-primary">
-                    <div className="flex items-center gap-2">
+                    <div
+                      className={`flex items-center gap-2 ${row.user_id ? "cursor-pointer hover:underline" : ""}`}
+                      onClick={() => row.user_id && router.push(`/players/${row.user_id}`)}
+                    >
                       <Avatar src={row.avatar_url} size={24} fallback={row.player_name || "P"} />
                       <span>{row.player_name || "Player"}</span>
                     </div>

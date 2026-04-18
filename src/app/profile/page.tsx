@@ -6,7 +6,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
-import { fetchMatchPlayers, type MatchPlayerInfo } from "@/lib/matchPlayers"
+import { fetchMatchPlayers, fetchMatchPlayersWithScores, type MatchPlayerInfo, type MatchPlayerWithScore } from "@/lib/matchPlayers"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 import { Avatar } from "@/components/Avatar"
 import AvatarCropModal from "@/components/AvatarCropModal"
@@ -76,6 +76,29 @@ type ScheduledMatch = {
   leagues?: { name: string } | null
 }
 
+type PastMatch = {
+  round_date: string
+  course_name: string | null
+  score: number
+  holes: number
+  match_type: string | null
+  league_name: string | null
+  match_id: string
+  score_status: string | null
+}
+
+type ActivityEvent = {
+  id: string
+  event_type: string
+  league_id: string | null
+  actor_id: string
+  match_id: string | null
+  metadata: Record<string, string | number | null>
+  created_at: string
+  actor_name: string
+  actor_avatar_url: string | null
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
@@ -84,7 +107,10 @@ export default function ProfilePage() {
   const [memberships, setMemberships] = useState<LeagueMember[]>([])
   const [enrichedLeagues, setEnrichedLeagues] = useState<EnrichedLeague[]>([])
   const [scheduledMatches, setScheduledMatches] = useState<ScheduledMatch[]>([])
+  const [pastMatches, setPastMatches] = useState<PastMatch[]>([])
   const [matchPlayersMap, setMatchPlayersMap] = useState<Map<string | number, MatchPlayerInfo[]>>(new Map())
+  const [pastMatchPlayersMap, setPastMatchPlayersMap] = useState<Map<string | number, MatchPlayerWithScore[]>>(new Map())
+  const [activityFeed, setActivityFeed] = useState<ActivityEvent[]>([])
   const [matchesPlayed, setMatchesPlayed] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -229,6 +255,43 @@ export default function ProfilePage() {
           const matchIds = upcoming.map((m) => m.id)
           const players = await fetchMatchPlayers(supabase, matchIds)
           setMatchPlayersMap(players)
+        }
+
+        // Fetch past matches (completed rounds)
+        const { data: pastData } = await supabase.rpc("get_player_round_history", {
+          p_user_id: userId,
+        })
+        if (pastData) {
+          const approved = (pastData as PastMatch[]).filter((r) => r.score_status === "approved")
+          setPastMatches(approved)
+
+          // Fetch player info + scores for past matches
+          if (approved.length > 0) {
+            const pastIds = approved.map((r) => r.match_id)
+            const pastPlayers = await fetchMatchPlayersWithScores(supabase, pastIds)
+            setPastMatchPlayersMap(pastPlayers)
+          }
+        }
+
+        // Fetch activity feed
+        const { data: activityData } = await supabase.rpc("get_activity_feed", {
+          p_user_id: userId,
+          p_limit: 20,
+        })
+        if (activityData) {
+          // Map out_ prefixed columns from RPC to clean names
+          const mapped = (activityData as Array<Record<string, unknown>>).map((r) => ({
+            id: r.out_id as string,
+            event_type: r.out_event_type as string,
+            league_id: (r.out_league_id as string) || null,
+            actor_id: r.out_actor_id as string,
+            match_id: (r.out_match_id as string) || null,
+            metadata: (r.out_metadata as Record<string, string | number | null>) || {},
+            created_at: r.out_created_at as string,
+            actor_name: r.out_actor_name as string,
+            actor_avatar_url: (r.out_actor_avatar_url as string) || null,
+          }))
+          setActivityFeed(mapped)
         }
 
         if (scoresCountRes.error) throw scoresCountRes.error
@@ -539,26 +602,35 @@ export default function ProfilePage() {
           )}
         </section>
 
-        {/* 2. Scheduled Matches — Carousel */}
+        {/* 2. Activity Feed — Carousel */}
+        <ActivityFeedCarousel events={activityFeed} />
+
+        {/* 3. Scheduled Matches — Carousel */}
         <MatchCarousel
           matches={scheduledMatches}
           matchPlayersMap={matchPlayersMap}
         />
 
-        {/* 3. My Leagues — Carousel */}
+        {/* 4. Past Matches — Carousel */}
+        <PastMatchCarousel
+          matches={pastMatches}
+          matchPlayersMap={pastMatchPlayersMap}
+        />
+
+        {/* 5. My Leagues — Carousel */}
         <LeagueCarousel leagues={enrichedLeagues} />
 
         {/* Log Out */}
-        <section>
+        <div className="flex justify-center py-2">
           <button
             type="button"
             onClick={handleLogout}
             disabled={logoutLoading}
-            className="w-full rounded-lg border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="text-xs text-red-400 underline-offset-4 hover:text-red-600 hover:underline disabled:opacity-60"
           >
             {logoutLoading ? "Logging out\u2026" : "Log Out"}
           </button>
-        </section>
+        </div>
       </div>
 
       {/* Avatar crop modal */}
@@ -570,6 +642,163 @@ export default function ProfilePage() {
         />
       )}
     </main>
+  )
+}
+
+/* ── Activity Feed Carousel ─────────────────────────────────── */
+
+function activityIcon(eventType: string) {
+  switch (eventType) {
+    case "player_joined_league":
+      return (
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" />
+          </svg>
+        </div>
+      )
+    case "match_created":
+      return (
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-50">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-600">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+        </div>
+      )
+    case "score_approved":
+      return (
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+      )
+    default:
+      return (
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/5">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary/50">
+            <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+        </div>
+      )
+  }
+}
+
+function activityMessage(event: ActivityEvent): { primary: string; secondary: string } {
+  const meta = event.metadata || {}
+  const name = event.actor_name || "Someone"
+
+  switch (event.event_type) {
+    case "player_joined_league":
+      return {
+        primary: `${name} joined`,
+        secondary: String(meta.league_name || "a league"),
+      }
+    case "match_created":
+      return {
+        primary: `${name} created a match`,
+        secondary: [meta.league_name, meta.course_name, meta.match_date ? formatDateShort(String(meta.match_date)) : null]
+          .filter(Boolean)
+          .join(" · "),
+      }
+    case "score_approved":
+      return {
+        primary: `${name} scored ${meta.score ?? "—"}`,
+        secondary: [meta.league_name, meta.course_name]
+          .filter(Boolean)
+          .join(" · "),
+      }
+    default:
+      return { primary: name, secondary: event.event_type }
+  }
+}
+
+function timeAgo(iso: string): string {
+  const now = Date.now()
+  const then = new Date(iso).getTime()
+  const diffSec = Math.floor((now - then) / 1000)
+  if (diffSec < 60) return "just now"
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `${diffHr}h ago`
+  const diffDay = Math.floor(diffHr / 24)
+  if (diffDay < 7) return `${diffDay}d ago`
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+}
+
+function ActivityFeedCarousel({ events }: { events: ActivityEvent[] }) {
+  const [idx, setIdx] = useState(0)
+  const router = useRouter()
+
+  if (events.length === 0) {
+    return (
+      <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
+        <h2 className="mb-3 text-center text-sm font-semibold text-primary">Activity</h2>
+        <p className="text-center text-sm text-primary/70">No recent activity in your leagues.</p>
+      </section>
+    )
+  }
+
+  const event = events[idx]
+  const msg = activityMessage(event)
+  const hasPrev = idx > 0
+  const hasNext = idx < events.length - 1
+
+  const handleCardClick = () => {
+    if (event.event_type === "match_created" || event.event_type === "score_approved") {
+      if (event.match_id) router.push(`/matches/${event.match_id}`)
+    } else if (event.event_type === "player_joined_league") {
+      if (event.actor_id) router.push(`/players/${event.actor_id}`)
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
+      <h2 className="mb-4 text-center text-sm font-semibold text-primary">Activity</h2>
+
+      <div className="flex items-center gap-2">
+        {/* Left arrow */}
+        <button
+          type="button"
+          onClick={() => setIdx((i) => i - 1)}
+          disabled={!hasPrev}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary transition-opacity ${
+            hasPrev ? "hover:bg-primary/5" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+        </button>
+
+        {/* Card */}
+        <div
+          onClick={handleCardClick}
+          className="min-w-0 flex-1 cursor-pointer rounded-lg bg-white px-4 py-4 text-center text-primary"
+        >
+          <div className="flex items-center justify-center gap-3">
+            {activityIcon(event.event_type)}
+            <Avatar src={event.actor_avatar_url} size={32} fallback={event.actor_name} />
+          </div>
+          <p className="mt-2 text-base font-semibold">{msg.primary}</p>
+          {msg.secondary && (
+            <p className="mt-0.5 text-xs text-primary/60">{msg.secondary}</p>
+          )}
+          <p className="mt-1 text-[10px] text-primary/40">{timeAgo(event.created_at)}</p>
+        </div>
+
+        {/* Right arrow */}
+        <button
+          type="button"
+          onClick={() => setIdx((i) => i + 1)}
+          disabled={!hasNext}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary transition-opacity ${
+            hasNext ? "hover:bg-primary/5" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+        </button>
+      </div>
+    </section>
   )
 }
 
@@ -586,12 +815,9 @@ function MatchCarousel({
 
   if (matches.length === 0) {
     return (
-      <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-primary">Scheduled Matches</h2>
-          <Link href="/matches/create" className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-cream hover:bg-primary/90">Create Match</Link>
-        </div>
-        <p className="text-center text-sm text-primary/70">No matches scheduled yet. Create one to get the week rolling.</p>
+      <section className="rounded-xl border border-primary/15 bg-white px-4 py-3 shadow-sm">
+        <h2 className="mb-2 text-center text-sm font-semibold text-primary">Scheduled Matches</h2>
+        <p className="text-center text-xs text-primary/70">No matches scheduled yet.</p>
       </section>
     )
   }
@@ -609,43 +835,39 @@ function MatchCarousel({
     : "Date TBA"
 
   return (
-    <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-primary">Scheduled Matches</h2>
-        <Link href="/matches/create" className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-cream hover:bg-primary/90">Create Match</Link>
-      </div>
+    <section className="rounded-xl border border-primary/15 bg-white px-4 py-3 shadow-sm">
+      <h2 className="mb-2 text-center text-sm font-semibold text-primary">Scheduled Matches</h2>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         {/* Left arrow */}
         <button
           type="button"
           onClick={() => setIdx((i) => i - 1)}
           disabled={!hasPrev}
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary transition-opacity ${
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary transition-opacity ${
             hasPrev ? "hover:bg-primary/5" : "opacity-0 pointer-events-none"
           }`}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
         </button>
 
         {/* Card */}
-        <Link href={`/matches/${m.id}`} className="block min-w-0 flex-1 rounded-lg bg-cream px-4 py-4 text-center text-primary hover:bg-primary/5">
-          <div className="flex flex-wrap items-center justify-center gap-x-2.5">
-            {players && players.length > 0 ? (
-              players.map((p, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5">
-                  {i > 0 && <span className="text-xs font-normal text-primary/40">&amp;</span>}
-                  <Avatar src={p.avatar_url} size={32} fallback={p.name} />
-                  <span className="text-base font-semibold">{p.name}</span>
-                </span>
-              ))
-            ) : (
-              <span className="text-base font-semibold">
-                {m.course_name || "Course TBA"}
-              </span>
-            )}
-          </div>
-          <p className="mt-1.5 text-xs text-primary/60">
+        <Link href={`/matches/${m.id}`} className="block min-w-0 flex-1 rounded-lg bg-white px-3 py-2 text-center text-primary">
+          {players && players.length > 0 ? (
+            <div className="flex items-center justify-center gap-3">
+              {players.map((p, i) => (
+                <div key={i} className="flex flex-col items-center gap-0.5">
+                  <Avatar src={p.avatar_url} size={28} fallback={p.name} />
+                  <span className="text-[11px] font-semibold">{p.name}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm font-semibold">
+              {m.course_name || "Course TBA"}
+            </p>
+          )}
+          <p className="mt-1 text-[11px] text-primary/60">
             {m.leagues?.name || "Match"}
             {m.course_name ? ` · ${m.course_name}` : ""}
             {` · ${dateLabel}`}
@@ -658,11 +880,126 @@ function MatchCarousel({
           type="button"
           onClick={() => setIdx((i) => i + 1)}
           disabled={!hasNext}
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary transition-opacity ${
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary transition-opacity ${
             hasNext ? "hover:bg-primary/5" : "opacity-0 pointer-events-none"
           }`}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+        </button>
+      </div>
+    </section>
+  )
+}
+
+/* ── Past Match Carousel ────────────────────────────────────── */
+
+function PastMatchCarousel({
+  matches,
+  matchPlayersMap,
+}: {
+  matches: PastMatch[]
+  matchPlayersMap: Map<string | number, MatchPlayerWithScore[]>
+}) {
+  const [idx, setIdx] = useState(0)
+  const router = useRouter()
+
+  if (matches.length === 0) {
+    return (
+      <section className="rounded-xl border border-primary/15 bg-white px-4 py-3 shadow-sm">
+        <h2 className="mb-2 text-center text-sm font-semibold text-primary">Past Matches</h2>
+        <p className="text-center text-xs text-primary/70">No completed matches yet.</p>
+      </section>
+    )
+  }
+
+  const m = matches[idx]
+  const players = matchPlayersMap.get(m.match_id)
+  const hasPrev = idx > 0
+  const hasNext = idx < matches.length - 1
+
+  const dateLabel = m.round_date
+    ? new Date(m.round_date + "T00:00:00").toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      })
+    : ""
+
+  // Sort players by score (lowest first, nulls last)
+  const sorted = players
+    ? [...players].sort((a, b) => {
+        if (a.score == null && b.score == null) return 0
+        if (a.score == null) return 1
+        if (b.score == null) return -1
+        return a.score - b.score
+      })
+    : []
+
+  const bestScore = sorted.length > 0 && sorted[0].score != null ? sorted[0].score : null
+
+  return (
+    <section className="rounded-xl border border-primary/15 bg-white px-4 py-3 shadow-sm">
+      <h2 className="mb-2 text-center text-sm font-semibold text-primary">Past Matches</h2>
+
+      <div className="flex items-center gap-1">
+        {/* Left arrow */}
+        <button
+          type="button"
+          onClick={() => setIdx((i) => i - 1)}
+          disabled={!hasPrev}
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary transition-opacity ${
+            hasPrev ? "hover:bg-primary/5" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+        </button>
+
+        {/* Card */}
+        <div
+          onClick={() => router.push(`/matches/${m.match_id}`)}
+          className="min-w-0 flex-1 cursor-pointer rounded-lg bg-white px-3 py-2 text-primary"
+        >
+          {/* Players with individual scores */}
+          {sorted.length > 0 ? (
+            <div className="flex items-center justify-center gap-3">
+              {sorted.map((p, i) => (
+                <div key={i} className="flex flex-col items-center gap-0.5">
+                  <Avatar src={p.avatar_url} size={28} fallback={p.name} />
+                  <span className="text-[11px] font-semibold">
+                    {p.name}{" "}
+                    <span
+                      className={`font-bold ${
+                        p.score != null && p.score === bestScore
+                          ? "text-emerald-600"
+                          : "text-primary/70"
+                      }`}
+                    >
+                      {p.score ?? "–"}
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-sm font-bold">{m.score}</p>
+          )}
+          {/* Details */}
+          <p className="mt-1 text-center text-[11px] text-primary/60">
+            {m.league_name || "Casual"}
+            {m.course_name ? ` · ${m.course_name}` : ""}
+            {dateLabel ? ` · ${dateLabel}` : ""}
+          </p>
+        </div>
+
+        {/* Right arrow */}
+        <button
+          type="button"
+          onClick={() => setIdx((i) => i + 1)}
+          disabled={!hasNext}
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary transition-opacity ${
+            hasNext ? "hover:bg-primary/5" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
         </button>
       </div>
     </section>
@@ -703,11 +1040,11 @@ function LeagueCarousel({ leagues }: { leagues: EnrichedLeague[] }) {
 
   return (
     <section
-      className="cursor-pointer rounded-2xl border border-primary/15 bg-white shadow-sm transition-colors hover:bg-cream/30"
+      className="cursor-pointer rounded-xl border border-primary/15 bg-white p-5 shadow-sm"
       onClick={() => router.push(`/leagues/${league.id}`)}
     >
       {/* League switcher header */}
-      <div className="flex items-center justify-between gap-2 px-4 pt-4">
+      <div className="flex items-center justify-between gap-2">
         {leagues.length > 1 && (
           <button type="button" onClick={(e) => { e.stopPropagation(); setIdx((i) => (i - 1 + leagues.length) % leagues.length) }}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
@@ -742,7 +1079,7 @@ function LeagueCarousel({ leagues }: { leagues: EnrichedLeague[] }) {
       )}
 
       {/* Status badge */}
-      <div className="mt-3 px-5">
+      <div className="mt-3">
         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
           (league.status || "draft") === "active"
             ? "bg-emerald-50 text-emerald-700"
@@ -755,7 +1092,7 @@ function LeagueCarousel({ leagues }: { leagues: EnrichedLeague[] }) {
       </div>
 
       {/* Info grid */}
-      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 px-5">
+      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
         {/* Format */}
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/5">
@@ -805,7 +1142,7 @@ function LeagueCarousel({ leagues }: { leagues: EnrichedLeague[] }) {
       </div>
 
       {/* Players preview */}
-      <div className="flex flex-col items-center gap-2 px-5 py-4">
+      <div className="mt-4 flex flex-col items-center gap-2">
         <div className="flex gap-2">
           {league.members.slice(0, 5).map((m) => (
             <Avatar

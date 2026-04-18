@@ -286,7 +286,10 @@ export default function LeaderboardPage() {
                             {row.position ?? idx + 1}
                           </td>
                           <td className="py-2 pr-3 text-primary">
-                            <div className="flex items-center gap-2">
+                            <div
+                              className={`flex items-center gap-2 ${row.user_id ? "cursor-pointer hover:underline" : ""}`}
+                              onClick={() => row.user_id && router.push(`/players/${row.user_id}`)}
+                            >
                               <Avatar src={row.avatar_url} size={24} fallback={row.player_name || "P"} />
                               <span>
                                 {row.player_name || "Player"}

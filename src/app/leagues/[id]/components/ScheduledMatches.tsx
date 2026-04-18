@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Avatar } from "@/components/Avatar"
 import type { Match, League, MatchPlayer } from "../types"
 
@@ -44,6 +45,7 @@ function MatchCard({
   league: League
   matchPlayers?: MatchPlayer[]
 }) {
+  const router = useRouter()
   const dateLabel = match.match_date
     ? new Date(match.match_date).toLocaleDateString(undefined, {
         month: "short",
@@ -54,16 +56,26 @@ function MatchCard({
   return (
     <Link
       href={`/matches/${match.id}`}
-      className="block rounded-lg bg-cream px-4 py-4 text-center text-primary hover:bg-primary/5"
+      className="block rounded-lg bg-white px-4 py-4 text-center text-primary"
     >
       <div className="flex flex-wrap items-center justify-center gap-x-2.5">
         {matchPlayers && matchPlayers.length > 0 ? (
           matchPlayers.map((p, i) => (
-            <span key={i} className="inline-flex items-center gap-1.5">
+            <span
+              key={i}
+              className={`inline-flex items-center gap-1.5 ${p.user_id ? "cursor-pointer" : ""}`}
+              onClick={(e) => {
+                if (p.user_id) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  router.push(`/players/${p.user_id}`)
+                }
+              }}
+            >
               {i > 0 && <span className="text-xs font-normal text-primary/40">&amp;</span>}
               <Avatar src={p.avatar_url} size={32} fallback={p.name} />
               <span className="flex flex-col items-center">
-                <span className="text-base font-semibold">{p.name}</span>
+                <span className={`text-base font-semibold ${p.user_id ? "hover:underline" : ""}`}>{p.name}</span>
                 {p.score != null && (
                   <span
                     className={`text-xs font-semibold ${
