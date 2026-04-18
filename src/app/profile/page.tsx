@@ -653,10 +653,10 @@ function MatchCarousel({
             )}
           </div>
           <p className="mt-1.5 text-xs text-primary/60">
-            {dateLabel}
-            {m.match_time ? ` · ${m.match_time.slice(0, 5)}` : ""}
+            {m.leagues?.name || "Match"}
             {m.course_name ? ` · ${m.course_name}` : ""}
-            {m.leagues?.name ? ` · ${m.leagues.name}` : ""}
+            {` · ${dateLabel}`}
+            {m.match_time ? ` · ${m.match_time.slice(0, 5)}` : ""}
           </p>
         </Link>
 
