@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { Avatar } from "@/components/Avatar"
@@ -177,67 +176,120 @@ export default function PlayerProfilePage() {
         <StatCard label="Avg Score" value={avgScore || "—"} />
       </div>
 
-      {/* Shared leagues */}
+      {/* Shared leagues — carousel */}
       {sharedLeagues.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-primary/50">
-            Leagues in common
-          </h2>
-          <ul className="space-y-2">
-            {sharedLeagues.map((league) => (
-              <li key={league.id}>
-                <Link
-                  href={`/leagues/${league.id}`}
-                  className="flex items-center justify-between rounded-xl border border-primary/10 px-4 py-3 transition-colors hover:bg-cream"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-primary">{league.name}</p>
-                    {league.course_name && (
-                      <p className="text-xs text-primary/50">{league.course_name}</p>
-                    )}
-                  </div>
-                  <svg className="h-4 w-4 text-primary/30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                  </svg>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <SharedLeaguesCarousel leagues={sharedLeagues} />
       )}
 
-      {/* Recent rounds */}
+      {/* Recent rounds — carousel */}
       {approvedRounds.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-primary/50">
-            Recent rounds
-          </h2>
-          <ul className="divide-y divide-primary/5">
-            {approvedRounds.slice(0, 10).map((round) => (
-              <li key={round.match_id} className="flex items-center justify-between py-3">
-                <div>
-                  <p className="text-sm font-medium text-primary">
-                    {round.course_name || "Unknown course"}
-                  </p>
-                  <p className="text-xs text-primary/50">
-                    {new Date(round.round_date).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                    {round.league_name ? ` · ${round.league_name}` : ""}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-primary">{round.score}</p>
-                  <p className="text-xs text-primary/50">{round.holes}h</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <RecentRoundsCarousel rounds={approvedRounds.slice(0, 10)} />
       )}
     </main>
+  )
+}
+
+/* ── Shared Leagues Carousel ────────────────────────────── */
+
+function SharedLeaguesCarousel({ leagues }: { leagues: SharedLeague[] }) {
+  const [idx, setIdx] = useState(0)
+  const router = useRouter()
+  const league = leagues[idx]
+  const hasPrev = idx > 0
+  const hasNext = idx < leagues.length - 1
+
+  return (
+    <section className="mt-6 rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
+      <h2 className="mb-4 text-sm font-semibold text-primary">Leagues in Common</h2>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setIdx((i) => i - 1)}
+          disabled={!hasPrev}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary transition-opacity ${
+            hasPrev ? "hover:bg-primary/5" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+        </button>
+
+        <div
+          onClick={() => router.push(`/leagues/${league.id}`)}
+          className="min-w-0 flex-1 cursor-pointer rounded-lg bg-cream px-4 py-4 text-center text-primary hover:bg-primary/5"
+        >
+          <p className="text-base font-semibold">{league.name}</p>
+          <p className="mt-1 text-xs text-primary/60">
+            {league.course_name || "Course TBA"}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIdx((i) => i + 1)}
+          disabled={!hasNext}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary transition-opacity ${
+            hasNext ? "hover:bg-primary/5" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+        </button>
+      </div>
+    </section>
+  )
+}
+
+/* ── Recent Rounds Carousel ────────────────────────────── */
+
+function RecentRoundsCarousel({ rounds }: { rounds: RoundHistory[] }) {
+  const [idx, setIdx] = useState(0)
+  const router = useRouter()
+  const round = rounds[idx]
+  const hasPrev = idx > 0
+  const hasNext = idx < rounds.length - 1
+
+  return (
+    <section className="mt-6 rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-baseline justify-between">
+        <h2 className="text-sm font-semibold text-primary">Recent Rounds</h2>
+        <p className="text-[10px] text-primary/40">{rounds.length} round{rounds.length !== 1 ? "s" : ""}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setIdx((i) => i - 1)}
+          disabled={!hasPrev}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary transition-opacity ${
+            hasPrev ? "hover:bg-primary/5" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+        </button>
+
+        <div
+          onClick={() => router.push(`/matches/${round.match_id}`)}
+          className="min-w-0 flex-1 cursor-pointer rounded-lg bg-cream px-4 py-4 text-center text-primary hover:bg-primary/5"
+        >
+          <p className="text-2xl font-bold">{round.score}</p>
+          <p className="mt-1 text-xs text-primary/60">
+            {round.league_name || "Casual"}
+            {round.course_name ? ` · ${round.course_name}` : ""}
+            {` · ${new Date(round.round_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+          </p>
+          <p className="mt-0.5 text-[10px] text-primary/40">{round.holes} holes</p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIdx((i) => i + 1)}
+          disabled={!hasNext}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary transition-opacity ${
+            hasNext ? "hover:bg-primary/5" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+        </button>
+      </div>
+    </section>
   )
 }
 
