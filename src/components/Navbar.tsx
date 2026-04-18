@@ -63,7 +63,7 @@ export function Navbar() {
             <span className="hidden sm:inline">Mulligan League</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm font-medium">
-            <DesktopLink href="/leagues/list" label="Leagues" pathname={pathname} />
+            <DesktopLink href="/leagues" label="Leagues" pathname={pathname} />
             <DesktopLink href="/leaderboard" label="Leaderboard" pathname={pathname} />
             <DesktopLink href="/players" label="Players" pathname={pathname} />
             <Link
@@ -102,7 +102,7 @@ export function Navbar() {
         <div className="mx-auto flex max-w-md items-end justify-between px-2 pt-1.5">
           {/* Leagues */}
           <MobileNavTab
-            href="/leagues/list"
+            href="/leagues"
             label="Leagues"
             active={isActive("/leagues")}
             icon={<TrophyIcon />}

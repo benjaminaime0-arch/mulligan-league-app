@@ -46,6 +46,7 @@ function MatchCard({
   matchPlayers?: MatchPlayer[]
 }) {
   const router = useRouter()
+  const isCompleted = match.status === "completed"
   const dateLabel = match.match_date
     ? new Date(match.match_date).toLocaleDateString(undefined, {
         month: "short",
@@ -53,17 +54,29 @@ function MatchCard({
       })
     : "Date TBA"
 
+  // Sort completed matches by score (lowest first, nulls last)
+  const sorted = matchPlayers
+    ? isCompleted
+      ? [...matchPlayers].sort((a, b) => {
+          if (a.score == null && b.score == null) return 0
+          if (a.score == null) return 1
+          if (b.score == null) return -1
+          return a.score - b.score
+        })
+      : matchPlayers
+    : []
+
   return (
     <Link
       href={`/matches/${match.id}`}
       className="block rounded-lg bg-white px-4 py-4 text-center text-primary"
     >
-      <div className="flex flex-wrap items-center justify-center gap-x-2.5">
-        {matchPlayers && matchPlayers.length > 0 ? (
-          matchPlayers.map((p, i) => (
-            <span
+      <div className="flex items-center justify-center gap-3">
+        {sorted.length > 0 ? (
+          sorted.map((p, i) => (
+            <div
               key={i}
-              className={`inline-flex items-center gap-1.5 ${p.user_id ? "cursor-pointer" : ""}`}
+              className="flex flex-col items-center gap-0.5"
               onClick={(e) => {
                 if (p.user_id) {
                   e.preventDefault()
@@ -72,23 +85,22 @@ function MatchCard({
                 }
               }}
             >
-              {i > 0 && <span className="text-xs font-normal text-primary/40">&amp;</span>}
-              <Avatar src={p.avatar_url} size={32} fallback={p.name} />
-              <span className="flex flex-col items-center">
-                <span className={`text-base font-semibold ${p.user_id ? "hover:underline" : ""}`}>{p.name}</span>
-                {p.score != null && (
-                  <span
-                    className={`text-xs font-semibold ${
-                      p.isBestScore
-                        ? "text-emerald-600"
-                        : "text-orange-500"
-                    }`}
-                  >
-                    {p.score}
-                  </span>
-                )}
+              <Avatar src={p.avatar_url} size={28} fallback={p.name} />
+              <span className={`text-[11px] font-semibold ${p.user_id ? "hover:underline cursor-pointer" : ""}`}>
+                {p.name}
               </span>
-            </span>
+              {p.score != null && (
+                <span
+                  className={`text-xs font-bold ${
+                    p.isBestScore
+                      ? "text-emerald-600"
+                      : "text-primary/70"
+                  }`}
+                >
+                  {p.score}
+                </span>
+              )}
+            </div>
           ))
         ) : (
           <span className="text-base font-semibold">
@@ -102,7 +114,7 @@ function MatchCard({
         {(match.course_name || league.course_name)
           ? ` · ${match.course_name || league.course_name}`
           : ""}
-        {match.status === "completed" && (
+        {isCompleted && (
           <span className="ml-1.5 inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary/60">
             Completed
           </span>
@@ -209,20 +221,26 @@ export function ScheduledMatches({ matches, league, matchPlayersMap }: Scheduled
       </div>
 
       {/* Past Matches */}
-      {past.length > 0 && (
-        <div className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-baseline justify-between">
-            <h2 className="text-sm font-semibold text-primary">Past Matches</h2>
+      <div className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold text-primary">Past Matches</h2>
+          {past.length > 0 && (
             <p className="text-[10px] text-primary/40">
               <span className="font-semibold text-emerald-600">Green</span> ={" "}
               {league.scoring_cards_count
                 ? `${league.scoring_cards_count} best cards counted`
                 : "counted toward leaderboard"}
             </p>
-          </div>
-          <MatchCarousel items={past} league={league} matchPlayersMap={matchPlayersMap} />
+          )}
         </div>
-      )}
+        {past.length === 0 ? (
+          <p className="text-center text-sm text-primary/70">
+            No completed matches yet.
+          </p>
+        ) : (
+          <MatchCarousel items={past} league={league} matchPlayersMap={matchPlayersMap} />
+        )}
+      </div>
     </>
   )
 }

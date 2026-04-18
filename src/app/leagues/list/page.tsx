@@ -16,6 +16,8 @@ type LeagueData = {
   league_type?: string | null
   scoring_cards_count?: number | null
   total_cards_count?: number | null
+  start_date?: string | null
+  end_date?: string | null
 }
 
 type MemberProfile = {
@@ -371,8 +373,8 @@ export default function LeagueListPage() {
                     <div>
                       <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Duration</p>
                       <p className="text-xs font-semibold text-primary">
-                        {league.activePeriod
-                          ? `${formatDateShort(league.activePeriod.start_date)} – ${formatDateShort(league.activePeriod.end_date)}`
+                        {league.start_date
+                          ? `${formatDateShort(league.start_date)} – ${formatDateShort(league.end_date)}`
                           : "No season set"}
                       </p>
                     </div>

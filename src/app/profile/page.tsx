@@ -38,6 +38,8 @@ type LeagueData = {
   league_type?: string | null
   scoring_cards_count?: number | null
   total_cards_count?: number | null
+  start_date?: string | null
+  end_date?: string | null
 }
 
 type LeagueMemberProfile = {
@@ -964,18 +966,18 @@ function PastMatchCarousel({
               {sorted.map((p, i) => (
                 <div key={i} className="flex flex-col items-center gap-0.5">
                   <Avatar src={p.avatar_url} size={28} fallback={p.name} />
-                  <span className="text-[11px] font-semibold">
-                    {p.name}{" "}
+                  <span className="text-[11px] font-semibold">{p.name}</span>
+                  {p.score != null && (
                     <span
-                      className={`font-bold ${
-                        p.score != null && p.score === bestScore
+                      className={`text-xs font-bold ${
+                        p.score === bestScore
                           ? "text-emerald-600"
                           : "text-primary/70"
                       }`}
                     >
-                      {p.score ?? "–"}
+                      {p.score}
                     </span>
-                  </span>
+                  )}
                 </div>
               ))}
             </div>
@@ -1132,8 +1134,8 @@ function LeagueCarousel({ leagues }: { leagues: EnrichedLeague[] }) {
           <div>
             <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Duration</p>
             <p className="text-xs font-semibold text-primary">
-              {league.activePeriod
-                ? `${formatDateShort(league.activePeriod.start_date)} – ${formatDateShort(league.activePeriod.end_date)}`
+              {league.start_date
+                ? `${formatDateShort(league.start_date)} – ${formatDateShort(league.end_date)}`
                 : "No season set"}
             </p>
           </div>

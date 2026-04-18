@@ -227,7 +227,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
         .delete()
         .eq("id", league.id)
       if (deleteError) throw deleteError
-      router.push("/leagues/list")
+      router.push("/leagues")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete league.")
     } finally {
@@ -247,7 +247,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
         .eq("league_id", league.id)
         .eq("user_id", user.id)
       if (leaveError) throw leaveError
-      router.push("/leagues/list")
+      router.push("/leagues")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to leave league.")
     } finally {
@@ -330,8 +330,8 @@ export default function LeaguePage({ params }: LeaguePageProps) {
           </div>
           <p className="mt-1 text-sm text-primary/70">
             {league.course_name || "Course TBA"}
-            {currentPeriod?.start_date && currentPeriod?.end_date
-              ? ` · ${new Date(currentPeriod.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(currentPeriod.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+            {league.start_date && league.end_date
+              ? ` · ${new Date(league.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(league.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
               : ""}
           </p>
         </header>
