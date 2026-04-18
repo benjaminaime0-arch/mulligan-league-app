@@ -381,25 +381,17 @@ export default function LeagueListPage() {
 
               {/* Players preview */}
               <div className="flex flex-col items-center gap-2 px-5 py-4">
-                <div className="flex -space-x-1">
-                  {league.members.slice(0, 5).map((m, i) => (
-                    <div
+                <div className="flex gap-2">
+                  {league.members.slice(0, 5).map((m) => (
+                    <Avatar
                       key={m.user_id}
-                      className="relative rounded-full ring-2 ring-white"
-                      style={{ zIndex: 5 - i }}
-                    >
-                      <Avatar
-                        src={m.profiles?.avatar_url}
-                        size={28}
-                        fallback={m.profiles?.username || m.profiles?.first_name || "P"}
-                      />
-                    </div>
+                      src={m.profiles?.avatar_url}
+                      size={28}
+                      fallback={m.profiles?.username || m.profiles?.first_name || "P"}
+                    />
                   ))}
                   {league.memberCount > 5 && (
-                    <div
-                      className="relative flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary/60 ring-2 ring-white"
-                      style={{ zIndex: 0 }}
-                    >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary/60">
                       +{league.memberCount - 5}
                     </div>
                   )}
