@@ -1020,6 +1020,7 @@ function formatDateShort(iso?: string | null): string {
 
 function LeagueCarousel({ leagues }: { leagues: EnrichedLeague[] }) {
   const [idx, setIdx] = useState(0)
+  const router = useRouter()
 
   if (leagues.length === 0) {
     return (
@@ -1035,8 +1036,6 @@ function LeagueCarousel({ leagues }: { leagues: EnrichedLeague[] }) {
   }
 
   const league = leagues[idx]
-
-  const router = useRouter()
 
   return (
     <section
