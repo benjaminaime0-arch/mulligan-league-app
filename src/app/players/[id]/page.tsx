@@ -103,7 +103,6 @@ export default function PlayerProfilePage() {
   const [pastMatches, setPastMatches] = useState<PastMatch[]>([])
   const [matchPlayersMap, setMatchPlayersMap] = useState<Map<string | number, MatchPlayerInfo[]>>(new Map())
   const [pastMatchPlayersMap, setPastMatchPlayersMap] = useState<Map<string | number, MatchPlayerWithScore[]>>(new Map())
-  const [activityFeed, setActivityFeed] = useState<ActivityEvent[]>([])
   const [matchesPlayed, setMatchesPlayed] = useState(0)
   const [leagueCount, setLeagueCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -256,26 +255,6 @@ export default function PlayerProfilePage() {
         }
       }
 
-      // Activity feed for this player's leagues
-      const { data: activityData } = await supabase.rpc("get_activity_feed", {
-        p_user_id: id,
-        p_limit: 20,
-      })
-      if (activityData) {
-        const mapped = (activityData as Array<Record<string, unknown>>).map((r) => ({
-          id: r.out_id as string,
-          event_type: r.out_event_type as string,
-          league_id: (r.out_league_id as string) || null,
-          actor_id: r.out_actor_id as string,
-          match_id: (r.out_match_id as string) || null,
-          metadata: (r.out_metadata as Record<string, string | number | null>) || {},
-          created_at: r.out_created_at as string,
-          actor_name: r.out_actor_name as string,
-          actor_avatar_url: (r.out_actor_avatar_url as string) || null,
-        }))
-        setActivityFeed(mapped)
-      }
-
       setMatchesPlayed(scoresCountRes.count || 0)
       setLoading(false)
     }
@@ -367,8 +346,7 @@ export default function PlayerProfilePage() {
           </dl>
         </section>
 
-        {/* 2. Activity Feed — Carousel */}
-        <ActivityFeedCarousel events={activityFeed} />
+        {/* Activity Feed is only shown on the user's own profile */}
 
         {/* 3. Scheduled Matches — Carousel */}
         <ScheduledMatchCarousel
