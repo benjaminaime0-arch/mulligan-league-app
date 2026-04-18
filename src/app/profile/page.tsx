@@ -705,12 +705,17 @@ function LeagueCarousel({ leagues }: { leagues: EnrichedLeague[] }) {
 
   const league = leagues[idx]
 
+  const router = useRouter()
+
   return (
-    <section className="rounded-2xl border border-primary/15 bg-white shadow-sm">
+    <section
+      className="cursor-pointer rounded-2xl border border-primary/15 bg-white shadow-sm transition-colors hover:bg-cream/30"
+      onClick={() => router.push(`/leagues/${league.id}`)}
+    >
       {/* League switcher header */}
       <div className="flex items-center justify-between gap-2 px-4 pt-4">
         {leagues.length > 1 && (
-          <button type="button" onClick={() => setIdx((i) => (i - 1 + leagues.length) % leagues.length)}
+          <button type="button" onClick={(e) => { e.stopPropagation(); setIdx((i) => (i - 1 + leagues.length) % leagues.length) }}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
             aria-label="Previous league">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
@@ -723,7 +728,7 @@ function LeagueCarousel({ leagues }: { leagues: EnrichedLeague[] }) {
           </p>
         </div>
         {leagues.length > 1 && (
-          <button type="button" onClick={() => setIdx((i) => (i + 1) % leagues.length)}
+          <button type="button" onClick={(e) => { e.stopPropagation(); setIdx((i) => (i + 1) % leagues.length) }}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
             aria-label="Next league">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
@@ -735,7 +740,7 @@ function LeagueCarousel({ leagues }: { leagues: EnrichedLeague[] }) {
       {leagues.length > 1 && (
         <div className="mt-2 flex items-center justify-center gap-1.5">
           {leagues.map((l, i) => (
-            <button key={l.id} type="button" onClick={() => setIdx(i)}
+            <button key={l.id} type="button" onClick={(e) => { e.stopPropagation(); setIdx(i) }}
               className={`h-1.5 rounded-full transition-all ${i === idx ? "w-5 bg-primary" : "w-1.5 bg-primary/20 hover:bg-primary/40"}`}
               aria-label={`View ${l.name}`} />
           ))}
@@ -805,15 +810,8 @@ function LeagueCarousel({ leagues }: { leagues: EnrichedLeague[] }) {
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="mx-5 mt-4 border-t border-primary/8" />
-
-      {/* Players preview + View link */}
-      <Link
-        href={`/leagues/${league.id}`}
-        className="flex flex-col items-center gap-2 px-5 py-4 transition-colors hover:bg-cream/50"
-      >
-        {/* Stacked avatars */}
+      {/* Players preview */}
+      <div className="flex flex-col items-center gap-2 px-5 py-4">
         <div className="flex -space-x-2">
           {league.members.slice(0, 5).map((m, i) => (
             <div
@@ -841,9 +839,8 @@ function LeagueCarousel({ leagues }: { leagues: EnrichedLeague[] }) {
           {league.max_players != null
             ? `${league.memberCount}/${league.max_players} players`
             : `${league.memberCount} player${league.memberCount !== 1 ? "s" : ""}`}
-          <span className="ml-2 font-medium text-primary/50">View →</span>
         </span>
-      </Link>
+      </div>
     </section>
   )
 }

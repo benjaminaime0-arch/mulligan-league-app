@@ -254,16 +254,17 @@ export default function LeagueListPage() {
           <section>
             {/* League card */}
             <div
-              className="rounded-2xl border border-primary/15 bg-white shadow-sm"
+              className="cursor-pointer rounded-2xl border border-primary/15 bg-white shadow-sm transition-colors hover:bg-cream/30"
               onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}
+              onClick={() => router.push(`/leagues/${league.id}`)}
             >
               {/* League switcher header */}
               <div className="flex items-center justify-between gap-2 px-4 pt-4">
                 {leagues.length > 1 && (
                   <button
                     type="button"
-                    onClick={(e) => { e.preventDefault(); goPrev() }}
+                    onClick={(e) => { e.stopPropagation(); goPrev() }}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
                     aria-label="Previous league"
                   >
@@ -283,7 +284,7 @@ export default function LeagueListPage() {
                 {leagues.length > 1 && (
                   <button
                     type="button"
-                    onClick={(e) => { e.preventDefault(); goNext() }}
+                    onClick={(e) => { e.stopPropagation(); goNext() }}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
                     aria-label="Next league"
                   >
@@ -301,7 +302,7 @@ export default function LeagueListPage() {
                     <button
                       key={l.id}
                       type="button"
-                      onClick={() => setCurrentIndex(idx)}
+                      onClick={(e) => { e.stopPropagation(); setCurrentIndex(idx) }}
                       className={`h-1.5 rounded-full transition-all ${
                         idx === currentIndex
                           ? "w-5 bg-primary"
@@ -378,15 +379,8 @@ export default function LeagueListPage() {
                   </div>
               </div>
 
-              {/* Divider */}
-              <div className="mx-5 mt-4 border-t border-primary/8" />
-
-              {/* Players preview + View link */}
-              <Link
-                href={`/leagues/${league.id}`}
-                className="flex flex-col items-center gap-2 px-5 py-4 transition-colors hover:bg-cream/50"
-              >
-                {/* Stacked avatars */}
+              {/* Players preview */}
+              <div className="flex flex-col items-center gap-2 px-5 py-4">
                 <div className="flex -space-x-2">
                   {league.members.slice(0, 5).map((m, i) => (
                     <div
@@ -414,9 +408,8 @@ export default function LeagueListPage() {
                   {league.max_players != null
                     ? `${league.memberCount}/${league.max_players} players`
                     : `${league.memberCount} player${league.memberCount !== 1 ? "s" : ""}`}
-                  <span className="ml-2 font-medium text-primary/50">View →</span>
                 </span>
-              </Link>
+              </div>
             </div>
           </section>
         )}
