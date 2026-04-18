@@ -330,11 +330,6 @@ export default function LeaguePage({ params }: LeaguePageProps) {
           </div>
           <p className="mt-1 text-sm text-primary/70">
             {league.course_name || "Course TBA"}
-            {" · "}
-            {league.league_type ? league.league_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Standard"}
-            {league.scoring_cards_count != null
-              ? ` · Best ${league.scoring_cards_count}${league.total_cards_count ? ` of ${league.total_cards_count}` : ""} cards`
-              : ""}
             {currentPeriod?.start_date && currentPeriod?.end_date
               ? ` · ${new Date(currentPeriod.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(currentPeriod.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
               : ""}
@@ -394,7 +389,15 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
         {/* Leaderboard + Matches */}
         <section className="flex flex-col gap-6">
-          <LeaderboardTable leaderboard={leaderboard} />
+          <LeaderboardTable
+            leaderboard={leaderboard}
+            subtitle={[
+              league.league_type ? league.league_type.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : null,
+              league.scoring_cards_count != null
+                ? `Best ${league.scoring_cards_count}${league.total_cards_count ? ` of ${league.total_cards_count}` : ""} cards`
+                : null,
+            ].filter(Boolean).join(" · ") || null}
+          />
 
           {currentPeriod && (
             <ScheduledMatches

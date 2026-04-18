@@ -549,12 +549,6 @@ export default function ProfilePage() {
         {/* 3. My Leagues — Carousel */}
         <LeagueCarousel leagues={enrichedLeagues} />
 
-        {/* Settings */}
-        <section className="rounded-2xl border border-primary/15 bg-white p-5 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-primary/60">Settings</h2>
-          <PushNotificationToggle />
-        </section>
-
         {/* Log Out */}
         <section>
           <button

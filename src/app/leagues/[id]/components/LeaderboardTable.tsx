@@ -3,12 +3,18 @@ import type { LeaderboardRow } from "../types"
 
 interface LeaderboardTableProps {
   leaderboard: LeaderboardRow[]
+  subtitle?: string | null
 }
 
-export function LeaderboardTable({ leaderboard }: LeaderboardTableProps) {
+export function LeaderboardTable({ leaderboard, subtitle }: LeaderboardTableProps) {
   return (
     <div className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-sm font-semibold text-primary">Leaderboard</h2>
+      <div className="mb-4 flex items-baseline justify-between">
+        <h2 className="text-sm font-semibold text-primary">Leaderboard</h2>
+        {subtitle && (
+          <p className="text-[10px] text-primary/40">{subtitle}</p>
+        )}
+      </div>
       {leaderboard.length === 0 ? (
         <p className="text-sm text-primary/70">
           The board is empty — be the first to post a score and claim the top spot.
