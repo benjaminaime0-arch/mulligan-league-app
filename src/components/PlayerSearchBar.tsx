@@ -26,7 +26,7 @@ interface PlayerSearchBarProps {
 
 export function PlayerSearchBar({
   onSelect,
-  placeholder = "Search players by name\u2026",
+  placeholder = "Search players by username\u2026",
   autoFocus = false,
 }: PlayerSearchBarProps) {
   const [query, setQuery] = useState("")
@@ -119,13 +119,13 @@ export function PlayerSearchBar({
               >
                 <Avatar
                   src={player.avatar_url}
-                  alt={player.username || player.first_name}
+                  alt={player.username || "Player"}
                   size={36}
-                  fallback={player.username || player.first_name}
+                  fallback={player.username || "Player"}
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-primary">
-                    {player.username || `${player.first_name} ${player.last_name || ""}`.trim()}
+                    {player.username || "Player"}
                   </p>
                   <p className="truncate text-xs text-primary/50">
                     {[player.club, player.town, player.handicap != null ? `Hcp ${player.handicap}` : null]

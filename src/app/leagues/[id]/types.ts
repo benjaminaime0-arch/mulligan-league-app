@@ -17,6 +17,8 @@ export type League = {
   league_type?: string | null
   scoring_cards_count?: number | null
   total_cards_count?: number | null
+  start_date?: string | null
+  end_date?: string | null
 }
 
 export type UserLeague = {

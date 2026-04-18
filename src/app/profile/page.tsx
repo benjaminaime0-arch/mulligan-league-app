@@ -814,6 +814,7 @@ function MatchCarousel({
   matchPlayersMap: Map<string | number, MatchPlayerInfo[]>
 }) {
   const [idx, setIdx] = useState(0)
+  const router = useRouter()
 
   if (matches.length === 0) {
     return (
@@ -854,13 +855,25 @@ function MatchCarousel({
         </button>
 
         {/* Card */}
-        <Link href={`/matches/${m.id}`} className="block min-w-0 flex-1 rounded-lg bg-white px-3 py-2 text-center text-primary">
+        <div
+          onClick={() => router.push(`/matches/${m.id}`)}
+          className="min-w-0 flex-1 cursor-pointer rounded-lg bg-white px-3 py-2 text-center text-primary"
+        >
           {players && players.length > 0 ? (
             <div className="flex items-center justify-center gap-3">
               {players.map((p, i) => (
-                <div key={i} className="flex flex-col items-center gap-0.5">
+                <div
+                  key={i}
+                  className="flex flex-col items-center gap-0.5"
+                  onClick={(e) => {
+                    if (p.user_id) {
+                      e.stopPropagation()
+                      router.push(`/players/${p.user_id}`)
+                    }
+                  }}
+                >
                   <Avatar src={p.avatar_url} size={28} fallback={p.name} />
-                  <span className="text-[11px] font-semibold">{p.name}</span>
+                  <span className={`text-[11px] font-semibold ${p.user_id ? "cursor-pointer hover:underline" : ""}`}>{p.name}</span>
                 </div>
               ))}
             </div>
@@ -875,7 +888,7 @@ function MatchCarousel({
             {` · ${dateLabel}`}
             {m.match_time ? ` · ${m.match_time.slice(0, 5)}` : ""}
           </p>
-        </Link>
+        </div>
 
         {/* Right arrow */}
         <button
@@ -964,9 +977,18 @@ function PastMatchCarousel({
           {sorted.length > 0 ? (
             <div className="flex items-center justify-center gap-3">
               {sorted.map((p, i) => (
-                <div key={i} className="flex flex-col items-center gap-0.5">
+                <div
+                  key={i}
+                  className="flex flex-col items-center gap-0.5"
+                  onClick={(e) => {
+                    if (p.user_id) {
+                      e.stopPropagation()
+                      router.push(`/players/${p.user_id}`)
+                    }
+                  }}
+                >
                   <Avatar src={p.avatar_url} size={28} fallback={p.name} />
-                  <span className="text-[11px] font-semibold">{p.name}</span>
+                  <span className={`text-[11px] font-semibold ${p.user_id ? "cursor-pointer hover:underline" : ""}`}>{p.name}</span>
                   {p.score != null && (
                     <span
                       className={`text-xs font-bold ${

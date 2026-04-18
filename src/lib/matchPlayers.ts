@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 export type MatchPlayerInfo = {
   name: string
   avatar_url?: string | null
+  user_id: string
 }
 
 export type MatchPlayerWithScore = {
@@ -95,7 +96,7 @@ export async function fetchMatchPlayers(
       "Player"
 
     const existing = result.get(row.match_id) || []
-    existing.push({ name, avatar_url: profile?.avatar_url || null })
+    existing.push({ name, avatar_url: profile?.avatar_url || null, user_id: row.user_id })
     result.set(row.match_id, existing)
   }
 

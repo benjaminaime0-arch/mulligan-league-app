@@ -305,10 +305,7 @@ export default function PlayerProfilePage() {
     )
   }
 
-  const displayName =
-    profile.username ||
-    [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
-    "Player"
+  const displayName = profile.username || "Player"
 
   return (
     <main className="min-h-screen bg-cream px-4 pb-6 pt-4">
@@ -343,9 +340,6 @@ export default function PlayerProfilePage() {
             )}
             <div className="flex-1">
               <h1 className="text-2xl font-bold text-primary">{displayName}</h1>
-              {profile.username && profile.first_name && (
-                <p className="text-sm text-primary/60">{[profile.first_name, profile.last_name].filter(Boolean).join(" ")}</p>
-              )}
             </div>
           </div>
 
@@ -405,6 +399,7 @@ function ScheduledMatchCarousel({
   matchPlayersMap: Map<string | number, MatchPlayerInfo[]>
 }) {
   const [idx, setIdx] = useState(0)
+  const router = useRouter()
 
   if (matches.length === 0) {
     return (
@@ -443,13 +438,25 @@ function ScheduledMatchCarousel({
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
         </button>
 
-        <Link href={`/matches/${m.id}`} className="block min-w-0 flex-1 rounded-lg bg-white px-3 py-2 text-center text-primary">
+        <div
+          onClick={() => router.push(`/matches/${m.id}`)}
+          className="min-w-0 flex-1 cursor-pointer rounded-lg bg-white px-3 py-2 text-center text-primary"
+        >
           {players && players.length > 0 ? (
             <div className="flex items-center justify-center gap-3">
               {players.map((p, i) => (
-                <div key={i} className="flex flex-col items-center gap-0.5">
+                <div
+                  key={i}
+                  className="flex flex-col items-center gap-0.5"
+                  onClick={(e) => {
+                    if (p.user_id) {
+                      e.stopPropagation()
+                      router.push(`/players/${p.user_id}`)
+                    }
+                  }}
+                >
                   <Avatar src={p.avatar_url} size={28} fallback={p.name} />
-                  <span className="text-[11px] font-semibold">{p.name}</span>
+                  <span className={`text-[11px] font-semibold ${p.user_id ? "cursor-pointer hover:underline" : ""}`}>{p.name}</span>
                 </div>
               ))}
             </div>
@@ -464,7 +471,7 @@ function ScheduledMatchCarousel({
             {` · ${dateLabel}`}
             {m.match_time ? ` · ${m.match_time.slice(0, 5)}` : ""}
           </p>
-        </Link>
+        </div>
 
         <button
           type="button"
@@ -702,9 +709,18 @@ function PastMatchCarousel({
           {sorted.length > 0 ? (
             <div className="flex items-center justify-center gap-3">
               {sorted.map((p, i) => (
-                <div key={i} className="flex flex-col items-center gap-0.5">
+                <div
+                  key={i}
+                  className="flex flex-col items-center gap-0.5"
+                  onClick={(e) => {
+                    if (p.user_id) {
+                      e.stopPropagation()
+                      router.push(`/players/${p.user_id}`)
+                    }
+                  }}
+                >
                   <Avatar src={p.avatar_url} size={28} fallback={p.name} />
-                  <span className="text-[11px] font-semibold">{p.name}</span>
+                  <span className={`text-[11px] font-semibold ${p.user_id ? "cursor-pointer hover:underline" : ""}`}>{p.name}</span>
                   {p.score != null && (
                     <span
                       className={`text-xs font-bold ${

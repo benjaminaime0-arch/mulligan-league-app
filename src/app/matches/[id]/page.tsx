@@ -139,11 +139,7 @@ export default function MatchPage({ params }: MatchPageProps) {
   // ── Derived state ─────────────────────────────────────────────
   const memberDisplayName = (player: MatchPlayer) => {
     const profile = player.profiles
-    return (
-      profile?.username ||
-      [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
-      "Player"
-    )
+    return profile?.username || "Player"
   }
 
   const scoresByUserId = useMemo(() => {
@@ -569,7 +565,10 @@ export default function MatchPage({ params }: MatchPageProps) {
                         className="border-b border-primary/5 last:border-0"
                       >
                         <td className="py-2.5 pr-4 text-primary">
-                          <div className="flex items-center gap-2">
+                          <div
+                            className="flex items-center gap-2 cursor-pointer hover:underline"
+                            onClick={() => router.push(`/players/${player.user_id}`)}
+                          >
                             {player.profiles?.avatar_url ? (
                               <img
                                 src={player.profiles.avatar_url}
