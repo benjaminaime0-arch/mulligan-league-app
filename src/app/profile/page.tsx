@@ -11,6 +11,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner"
 import { Avatar } from "@/components/Avatar"
 import AvatarCropModal from "@/components/AvatarCropModal"
 import { PushNotificationToggle } from "@/components/PushNotificationToggle"
+import { ConfirmModal } from "@/components/ConfirmModal"
 
 type Profile = {
   id: string
@@ -117,6 +118,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [logoutLoading, setLogoutLoading] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   // Profile editing
   const [editing, setEditing] = useState(false)
@@ -626,13 +628,24 @@ export default function ProfilePage() {
         <div className="flex justify-center py-2">
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             disabled={logoutLoading}
             className="text-xs text-red-400 underline-offset-4 hover:text-red-600 hover:underline disabled:opacity-60"
           >
             {logoutLoading ? "Logging out\u2026" : "Log Out"}
           </button>
         </div>
+
+        <ConfirmModal
+          open={showLogoutConfirm}
+          title="Log out?"
+          message="Are you sure you want to log out of your account?"
+          confirmLabel="Log Out"
+          loading={logoutLoading}
+          destructive
+          onConfirm={handleLogout}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
       </div>
 
       {/* Avatar crop modal */}

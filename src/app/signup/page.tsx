@@ -18,6 +18,7 @@ export default function SignupPage() {
     lastName: "",
     email: "",
     password: "",
+    confirmPassword: "",
     club: "",
     handicap: "",
   })
@@ -37,6 +38,9 @@ export default function SignupPage() {
     if (!formData.password) errors.password = "Password is required"
     else if (formData.password.length < 6) {
       errors.password = "Password must be at least 6 characters"
+    }
+    if (formData.password && formData.confirmPassword !== formData.password) {
+      errors.confirmPassword = "Passwords do not match"
     }
     if (formData.handicap) {
       const h = parseFloat(formData.handicap)
@@ -92,10 +96,7 @@ export default function SignupPage() {
         <Link href="/" className="mb-6 flex justify-center" aria-label="Mulligan League home">
           <Logo size={140} priority />
         </Link>
-        <h1 className="mb-2 text-2xl font-bold text-primary">Create Account</h1>
-        <p className="mb-8 text-primary/70">
-          Set up your golfer profile in 30 seconds.
-        </p>
+        <h1 className="mb-2 text-2xl font-bold text-primary text-center">Create Account</h1>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
@@ -226,6 +227,30 @@ export default function SignupPage() {
             />
             {fieldErrors.password && (
               <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
+            )}
+          </div>
+
+          <div>
+            <label
+              htmlFor="confirmPassword"
+              className="mb-1 block text-sm font-medium text-primary"
+            >
+              Confirm password
+            </label>
+            <input
+              id="confirmPassword"
+              type="password"
+              value={formData.confirmPassword}
+              onChange={(e) =>
+                setFormData((p) => ({ ...p, confirmPassword: e.target.value }))
+              }
+              className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder="••••••••"
+              autoComplete="new-password"
+              disabled={loading}
+            />
+            {fieldErrors.confirmPassword && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors.confirmPassword}</p>
             )}
           </div>
 

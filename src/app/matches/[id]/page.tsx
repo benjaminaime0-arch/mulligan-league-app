@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { ConfirmModal } from "@/components/ConfirmModal"
 
 type Match = {
   id: string | number
@@ -75,9 +76,16 @@ export default function MatchPage({ params }: MatchPageProps) {
 
   const [approvingScores, setApprovingScores] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [inviteShared, setInviteShared] = useState(false)
 
   // Celebration state
   const [showCelebration, setShowCelebration] = useState(false)
+
+  // Leave match state
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
+  const [leavingMatch, setLeavingMatch] = useState(false)
+  const [showAdminTransfer, setShowAdminTransfer] = useState(false)
+  const [selectedNewAdmin, setSelectedNewAdmin] = useState<string | null>(null)
 
   // Delete match state
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -154,6 +162,9 @@ export default function MatchPage({ params }: MatchPageProps) {
     !!user && players.some((p) => p.user_id === user.id)
 
   const isMatchCreator = !!user && !!match && match.created_by === user.id
+  const MAX_MATCH_PLAYERS = 4
+  const isMatchFull = players.length >= MAX_MATCH_PLAYERS
+  const isScheduled = match?.status === "scheduled" || (!match?.status)
 
   // Approval counter: counts PLAYERS who have approved, not individual scores
   const approvalCount = useMemo(() => {
@@ -345,6 +356,78 @@ export default function MatchPage({ params }: MatchPageProps) {
     }
   }
 
+  // ── Leave match ─────────────────────────────────────────────────
+  const handleLeaveMatch = async () => {
+    if (!match || !user) return
+
+    // If admin and other players exist, need to transfer admin first
+    if (isMatchCreator && players.length > 1) {
+      setShowLeaveConfirm(false)
+      setShowAdminTransfer(true)
+      return
+    }
+
+    await performLeave()
+  }
+
+  const performLeave = async (newAdminId?: string) => {
+    if (!match || !user) return
+    setLeavingMatch(true)
+    try {
+      // If transferring admin role
+      if (newAdminId) {
+        const { error: transferError } = await supabase
+          .from("matches")
+          .update({ created_by: newAdminId })
+          .eq("id", match.id)
+        if (transferError) throw transferError
+      }
+
+      // Remove from match_players
+      const { error: leaveError } = await supabase
+        .from("match_players")
+        .delete()
+        .eq("match_id", match.id)
+        .eq("user_id", user.id)
+
+      if (leaveError) throw leaveError
+
+      router.push(match.league_id ? `/leagues/${match.league_id}` : "/dashboard")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to leave match.")
+      setLeavingMatch(false)
+      setShowAdminTransfer(false)
+      setShowLeaveConfirm(false)
+    }
+  }
+
+  // ── Share match invite link ────────────────────────────────────
+  const handleShareMatchInvite = async () => {
+    if (!match) return
+    const joinUrl = `${window.location.origin}/matches/${match.id}/join`
+    const courseName = match.course_name || "the course"
+    const leagueName = match.leagues?.name || ""
+    const message = leagueName
+      ? `Join my match at ${courseName} in "${leagueName}" on Mulligan League!\n${joinUrl}`
+      : `Join my match at ${courseName} on Mulligan League!\n${joinUrl}`
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ text: message, url: joinUrl })
+      } catch {
+        // user cancelled
+      }
+    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(message)
+        setInviteShared(true)
+        setTimeout(() => setInviteShared(false), 2000)
+      } catch {
+        // ignore
+      }
+    }
+  }
+
   // ── Copy invite code ──────────────────────────────────────────
   const handleCopyCode = async () => {
     if (!match?.invite_code) return
@@ -403,48 +486,44 @@ export default function MatchPage({ params }: MatchPageProps) {
     <main className="min-h-screen bg-cream px-4 py-6">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         {/* ── Header ─────────────────────────────────────────────── */}
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary/60">
-              {isCasual
-                ? "Casual Match"
-                : match.leagues?.name || "League match"}
-            </p>
-            <h1 className="mt-1 text-2xl font-bold text-primary">
-              {match.course_name || "Course TBA"}
-            </h1>
-            <p className="mt-1 text-sm text-primary/70">
-              {formatMatchDate(match.match_date || null)}
-              {timeLabel ? ` · ${timeLabel}` : ""}
-            </p>
+        <header className="flex flex-col items-center gap-3 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary/60">
+            {isCasual
+              ? "Casual Match"
+              : match.leagues?.name || "League match"}
+          </p>
+          <h1 className="text-2xl font-bold text-primary">
+            {match.course_name || "Course TBA"}
+          </h1>
+          <p className="text-sm text-primary/70">
+            {formatMatchDate(match.match_date || null)}
+            {timeLabel ? ` · ${timeLabel}` : ""}
+          </p>
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+            <span
+              className={`h-2 w-2 rounded-full ${
+                match.status === "completed"
+                  ? "bg-emerald-500"
+                  : match.status === "cancelled"
+                  ? "bg-red-500"
+                  : "bg-amber-400"
+              }`}
+            />
+            <span className="uppercase tracking-[0.2em]">
+              {(match.status || "scheduled").toString()}
+            </span>
           </div>
-          <div className="flex flex-col items-start gap-2 sm:items-end">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  match.status === "completed"
-                    ? "bg-emerald-500"
-                    : match.status === "cancelled"
-                    ? "bg-red-500"
-                    : "bg-amber-400"
-                }`}
-              />
-              <span className="uppercase tracking-[0.2em]">
-                {(match.status || "scheduled").toString()}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() =>
-                isCasual
-                  ? router.push("/dashboard")
-                  : router.push(`/leagues/${match.league_id}`)
-              }
-              className="text-xs font-medium text-primary/70 underline-offset-4 hover:text-primary hover:underline"
-            >
-              {isCasual ? "Back to Home" : "Back to League"}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() =>
+              isCasual
+                ? router.push("/dashboard")
+                : router.push(`/leagues/${match.league_id}`)
+            }
+            className="text-xs font-medium text-primary/70 underline-offset-4 hover:text-primary hover:underline"
+          >
+            {isCasual ? "Back to Home" : "Back to League"}
+          </button>
         </header>
 
         {/* ── Invite code (casual matches) ───────────────────────── */}
@@ -607,6 +686,38 @@ export default function MatchPage({ params }: MatchPageProps) {
               </table>
             </div>
           )}
+
+          {/* Action buttons row */}
+          {currentUserIsPlayer && (
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+              {/* Enter/Edit Scores */}
+              {!showCelebration && !editingAllScores && (
+                <button
+                  type="button"
+                  onClick={openEditAllScores}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98]"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                  </svg>
+                  {hasScores ? "Edit Scores" : "Enter Scores"}
+                </button>
+              )}
+              {/* Invite Player */}
+              {isScheduled && !isMatchFull && (
+                <button
+                  type="button"
+                  onClick={handleShareMatchInvite}
+                  className="inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-white px-4 py-2.5 text-sm font-medium text-primary transition-all hover:bg-primary/5 active:scale-[0.98]"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                  {inviteShared ? "Link Copied!" : `Invite Player (${players.length}/${MAX_MATCH_PLAYERS})`}
+                </button>
+              )}
+            </div>
+          )}
         </section>
 
         {/* ── Celebration after submitting ────────────────────────── */}
@@ -647,150 +758,128 @@ export default function MatchPage({ params }: MatchPageProps) {
           </section>
         )}
 
-        {/* ── Update scores (any player can submit/edit for all) ─── */}
-        {currentUserIsPlayer && !showCelebration && (
+        {/* ── Inline score editing (expands inside Players section) ── */}
+        {currentUserIsPlayer && !showCelebration && editingAllScores && (
           <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
-            {editingAllScores ? (
-              <div className="space-y-4">
-                <h2 className="text-sm font-semibold text-primary">
-                  {hasScores ? "Edit scores" : "Submit scores"}
-                </h2>
-                <p className="text-xs text-primary/60">
-                  {hasScores
-                    ? "Update scores for all players. Saving resets other players\u2019 approvals."
-                    : "Enter scores for all players in this match."}
-                </p>
-                {scoreError && (
+            <div className="space-y-4">
+              <h2 className="text-sm font-semibold text-primary">
+                {hasScores ? "Edit scores" : "Submit scores"}
+              </h2>
+              <p className="text-xs text-primary/60">
+                {hasScores
+                  ? "Update scores for all players. Saving resets other players\u2019 approvals."
+                  : "Enter scores for all players in this match."}
+              </p>
+              {scoreError && (
+                <div
+                  role="alert"
+                  className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700"
+                >
+                  {scoreError}
+                </div>
+              )}
+
+              {players.map((player) => {
+                const edit = allScoreEdits[player.user_id] || {
+                  score: "",
+                  holes: 18,
+                }
+                return (
                   <div
-                    role="alert"
-                    className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700"
+                    key={player.id}
+                    className="flex items-center gap-3 rounded-lg bg-cream p-3"
                   >
-                    {scoreError}
-                  </div>
-                )}
-
-                {players.map((player) => {
-                  const edit = allScoreEdits[player.user_id] || {
-                    score: "",
-                    holes: 18,
-                  }
-                  return (
-                    <div
-                      key={player.id}
-                      className="flex items-center gap-3 rounded-lg bg-cream p-3"
-                    >
-                      <div className="flex min-w-[120px] items-center gap-2">
-                        {player.profiles?.avatar_url ? (
-                          <img
-                            src={player.profiles.avatar_url}
-                            alt=""
-                            className="h-6 w-6 shrink-0 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary/60">
-                            {memberDisplayName(player)
-                              .charAt(0)
-                              .toUpperCase()}
-                          </div>
-                        )}
-                        <span className="text-sm font-medium text-primary">
-                          {memberDisplayName(player)}
-                        </span>
-                      </div>
-                      <input
-                        type="number"
-                        min={1}
-                        value={edit.score}
-                        onChange={(e) =>
-                          setAllScoreEdits((prev) => ({
-                            ...prev,
-                            [player.user_id]: {
-                              ...prev[player.user_id],
-                              score: e.target.value,
-                            },
-                          }))
-                        }
-                        className="w-20 rounded-lg border border-primary/20 bg-white px-2 py-1.5 text-center text-sm font-semibold text-primary focus:border-primary focus:outline-none"
-                        placeholder="Score"
-                        disabled={savingAllScores}
-                      />
-                      <div className="inline-flex rounded-full bg-white p-0.5">
-                        {[9, 18].map((value) => (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() =>
-                              setAllScoreEdits((prev) => ({
-                                ...prev,
-                                [player.user_id]: {
-                                  ...prev[player.user_id],
-                                  holes: value as 9 | 18,
-                                },
-                              }))
-                            }
-                            className={`min-w-[2.5rem] rounded-full px-2 py-1 text-[11px] font-medium ${
-                              edit.holes === value
-                                ? "bg-primary text-cream"
-                                : "text-primary/60 hover:bg-primary/10"
-                            }`}
-                            disabled={savingAllScores}
-                          >
-                            {value}
-                          </button>
-                        ))}
-                      </div>
+                    <div className="flex min-w-[120px] items-center gap-2">
+                      {player.profiles?.avatar_url ? (
+                        <img
+                          src={player.profiles.avatar_url}
+                          alt=""
+                          className="h-6 w-6 shrink-0 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary/60">
+                          {memberDisplayName(player)
+                            .charAt(0)
+                            .toUpperCase()}
+                        </div>
+                      )}
+                      <span className="text-sm font-medium text-primary">
+                        {memberDisplayName(player)}
+                      </span>
                     </div>
-                  )
-                })}
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSaveAllScores}
-                    disabled={savingAllScores}
-                    className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream hover:bg-primary/90 disabled:opacity-60"
-                  >
-                    {savingAllScores
-                      ? "Saving…"
-                      : hasScores
-                      ? "Save All Scores"
-                      : "Submit Scores"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!savingAllScores) {
-                        setEditingAllScores(false)
-                        setScoreError(null)
+                    <input
+                      type="number"
+                      min={1}
+                      value={edit.score}
+                      onChange={(e) =>
+                        setAllScoreEdits((prev) => ({
+                          ...prev,
+                          [player.user_id]: {
+                            ...prev[player.user_id],
+                            score: e.target.value,
+                          },
+                        }))
                       }
-                    }}
-                    className="rounded-lg border border-primary/20 bg-white px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-primary">
-                    {hasScores ? "Update scores" : "Submit scores"}
-                  </h2>
-                  <p className="mt-1 text-xs text-primary/60">
-                    {hasScores
-                      ? "You can update scores for all players. Editing resets approvals."
-                      : "Enter scores for all players in this match."}
-                  </p>
-                </div>
+                      className="w-20 rounded-lg border border-primary/20 bg-white px-2 py-1.5 text-center text-sm font-semibold text-primary focus:border-primary focus:outline-none"
+                      placeholder="Score"
+                      disabled={savingAllScores}
+                    />
+                    <div className="inline-flex rounded-full bg-white p-0.5">
+                      {[9, 18].map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() =>
+                            setAllScoreEdits((prev) => ({
+                              ...prev,
+                              [player.user_id]: {
+                                ...prev[player.user_id],
+                                holes: value as 9 | 18,
+                              },
+                            }))
+                          }
+                          className={`min-w-[2.5rem] rounded-full px-2 py-1 text-[11px] font-medium ${
+                            edit.holes === value
+                              ? "bg-primary text-cream"
+                              : "text-primary/60 hover:bg-primary/10"
+                          }`}
+                          disabled={savingAllScores}
+                        >
+                          {value}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={openEditAllScores}
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-cream hover:bg-primary/90"
+                  onClick={handleSaveAllScores}
+                  disabled={savingAllScores}
+                  className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream hover:bg-primary/90 disabled:opacity-60"
                 >
-                  {hasScores ? "Edit Scores" : "Enter Scores"}
+                  {savingAllScores
+                    ? "Saving…"
+                    : hasScores
+                    ? "Save All Scores"
+                    : "Submit Scores"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!savingAllScores) {
+                      setEditingAllScores(false)
+                      setScoreError(null)
+                    }
+                  }}
+                  className="rounded-lg border border-primary/20 bg-white px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
+                >
+                  Cancel
                 </button>
               </div>
-            )}
+            </div>
           </section>
         )}
 
@@ -819,39 +908,136 @@ export default function MatchPage({ params }: MatchPageProps) {
             </section>
           )}
 
-        {/* ── Delete match ────────────────────────────────────────── */}
-        {isMatchCreator && (
-          <div className="text-center">
-            {confirmingDelete ? (
-              <div className="inline-flex items-center gap-3">
-                <span className="text-sm text-red-600">Are you sure?</span>
-                <button
-                  type="button"
-                  onClick={handleDeleteMatch}
-                  disabled={deletingMatch}
-                  className="text-sm font-medium text-red-600 underline underline-offset-2 hover:text-red-700 disabled:opacity-60"
-                >
-                  {deletingMatch ? "Deleting…" : "Yes, delete"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmingDelete(false)}
-                  className="text-sm font-medium text-primary/60 underline underline-offset-2 hover:text-primary"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
+        {/* ── Leave / Delete match ─────────────────────────────────── */}
+        {currentUserIsPlayer && (
+          <div className="flex flex-col items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setShowLeaveConfirm(true)}
+              disabled={leavingMatch}
+              className="text-sm font-medium text-red-500 hover:text-red-600 disabled:opacity-60"
+            >
+              {leavingMatch ? "Leaving…" : "Leave this match"}
+            </button>
+            {isMatchCreator && (
               <button
                 type="button"
                 onClick={() => setConfirmingDelete(true)}
-                className="text-sm font-medium text-red-500 hover:text-red-600"
+                disabled={deletingMatch}
+                className="text-sm font-medium text-red-500 hover:text-red-600 disabled:opacity-60"
               >
-                Delete this match
+                {deletingMatch ? "Deleting…" : "Delete this match"}
               </button>
             )}
           </div>
         )}
+
+        {/* Leave match confirmation */}
+        <ConfirmModal
+          open={showLeaveConfirm}
+          title="Leave this match?"
+          message={
+            isMatchCreator && players.length > 1
+              ? "You created this match. You'll need to pick a new admin before leaving."
+              : "You will be removed from this match."
+          }
+          confirmLabel="Leave Match"
+          loading={leavingMatch}
+          destructive
+          onConfirm={handleLeaveMatch}
+          onCancel={() => setShowLeaveConfirm(false)}
+        />
+
+        {/* Admin transfer modal */}
+        {showAdminTransfer && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div
+              className="fixed inset-0 bg-black/40"
+              onClick={() => { if (!leavingMatch) { setShowAdminTransfer(false); setSelectedNewAdmin(null) } }}
+              aria-hidden="true"
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="relative w-full max-w-sm rounded-2xl border border-primary/15 bg-white p-6 shadow-lg"
+            >
+              <h2 className="text-lg font-bold text-primary">Choose a new admin</h2>
+              <p className="mt-1 text-sm text-primary/70">
+                Select a player to take over as match admin before you leave.
+              </p>
+              <div className="mt-4 space-y-2">
+                {players
+                  .filter((p) => p.user_id !== user?.id)
+                  .map((p) => {
+                    const name = p.profiles?.username || "Player"
+                    const isSelected = selectedNewAdmin === p.user_id
+                    return (
+                      <button
+                        key={p.user_id}
+                        type="button"
+                        onClick={() => setSelectedNewAdmin(p.user_id)}
+                        className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/5 ring-1 ring-primary"
+                            : "border-primary/15 bg-white hover:bg-primary/5"
+                        }`}
+                      >
+                        {p.profiles?.avatar_url ? (
+                          <img
+                            src={p.profiles.avatar_url}
+                            alt=""
+                            className="h-8 w-8 shrink-0 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary/60">
+                            {name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-sm font-medium text-primary">{name}</span>
+                        {isSelected && (
+                          <svg className="ml-auto h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                          </svg>
+                        )}
+                      </button>
+                    )
+                  })}
+              </div>
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedNewAdmin) performLeave(selectedNewAdmin)
+                  }}
+                  disabled={!selectedNewAdmin || leavingMatch}
+                  className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-red-700 active:scale-[0.98] disabled:opacity-60"
+                >
+                  {leavingMatch ? "Leaving…" : "Transfer & Leave"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowAdminTransfer(false); setSelectedNewAdmin(null) }}
+                  disabled={leavingMatch}
+                  className="flex-1 rounded-lg border border-primary/20 bg-white px-4 py-2.5 text-sm font-medium text-primary transition-all hover:bg-primary/5 active:scale-[0.98]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete match confirmation */}
+        <ConfirmModal
+          open={confirmingDelete}
+          title="Delete this match?"
+          message="This will permanently delete the match and all associated scores. This action cannot be undone."
+          confirmLabel="Delete Match"
+          loading={deletingMatch}
+          destructive
+          onConfirm={handleDeleteMatch}
+          onCancel={() => setConfirmingDelete(false)}
+        />
       </div>
     </main>
   )

@@ -2,12 +2,23 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 import { supabase } from "@/lib/supabase"
 import { Logo } from "@/components/Logo"
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
+  )
+}
+
+function LoginContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get("redirect")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -46,7 +57,7 @@ export default function LoginPage() {
       if (signInError) throw signInError
 
       router.refresh()
-      router.push("/profile")
+      router.push(redirectTo || "/profile")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid email or password")
     } finally {
@@ -60,8 +71,8 @@ export default function LoginPage() {
         <Link href="/" className="mb-6 flex justify-center" aria-label="Mulligan League home">
           <Logo size={140} priority />
         </Link>
-        <h1 className="mb-2 text-2xl font-bold text-primary">Log In</h1>
-        <p className="mb-8 text-primary/70">
+        <h1 className="mb-2 text-2xl font-bold text-primary text-center">Log In</h1>
+        <p className="mb-8 text-primary/70 text-center">
           Good to see you again.
         </p>
 
