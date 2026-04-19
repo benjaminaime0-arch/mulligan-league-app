@@ -44,6 +44,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
   // Whether the user needs to join the league first
   const [needsLeagueJoin, setNeedsLeagueJoin] = useState(false)
   const [alreadyInMatch, setAlreadyInMatch] = useState(false)
+  const [alreadyRequested, setAlreadyRequested] = useState(false)
 
   useEffect(() => {
     if (authLoading) return
@@ -100,6 +101,21 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
           return
         }
 
+        // Check if user already has a pending request
+        const { data: existingRequest } = await supabase
+          .from("join_requests")
+          .select("id")
+          .eq("requester_id", user.id)
+          .eq("target_type", "match")
+          .eq("target_id", matchId)
+          .eq("status", "pending")
+          .maybeSingle()
+
+        if (existingRequest) {
+          setAlreadyRequested(true)
+          return
+        }
+
         // If league match, check league membership
         if (m.league_id) {
           const { data: membership } = await supabase
@@ -144,37 +160,30 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
     setError(null)
 
     try {
-      // If user needs to join the league first
-      if (needsLeagueJoin && match.league_id) {
-        const { error: leagueError } = await supabase
-          .from("league_members")
-          .insert({ league_id: match.league_id, user_id: user.id })
+      // Send a join request (admin will approve/reject)
+      const { data, error: rpcError } = await supabase.rpc("request_join_match", {
+        p_match_id: match.id,
+      })
 
-        if (leagueError) {
-          if (leagueError.message?.includes("duplicate") || leagueError.message?.includes("already")) {
-            // Already a member, continue
-          } else {
-            throw leagueError
-          }
-        }
-      }
+      if (rpcError) throw rpcError
 
-      // Join the match
-      const { error: matchError } = await supabase
-        .from("match_players")
-        .insert({ match_id: match.id, user_id: user.id })
-
-      if (matchError) {
-        if (matchError.message?.includes("duplicate") || matchError.message?.includes("already")) {
+      const result = data as { success: boolean; error?: string }
+      if (!result.success) {
+        if (result.error?.includes("already in this match")) {
           setAlreadyInMatch(true)
           return
         }
-        throw matchError
+        if (result.error?.includes("pending request")) {
+          setAlreadyRequested(true)
+          return
+        }
+        setError(result.error || "Failed to send request.")
+        return
       }
 
       setSuccess(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to join. Please try again.")
+      setError(err instanceof Error ? err.message : "Failed to send request. Please try again.")
     } finally {
       setJoining(false)
     }
@@ -200,6 +209,37 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-cream">
         <p className="text-primary/70">Loading match details…</p>
+      </main>
+    )
+  }
+
+  // ── Already requested ──
+  if (alreadyRequested) {
+    return (
+      <main className="min-h-screen bg-cream px-4 py-8">
+        <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6">
+          <Link href="/" aria-label="Home">
+            <Logo size={100} priority />
+          </Link>
+          <div className="w-full rounded-2xl border border-primary/15 bg-white p-8 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
+              <svg className="h-7 w-7 text-amber-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-bold text-primary">Request already sent</h2>
+            <p className="mt-2 text-sm text-primary/60">
+              You&apos;ve already requested to join this match. The admin will review your request.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard")}
+              className="mt-6 w-full rounded-lg border border-primary/30 bg-white px-4 py-3 text-sm font-medium text-primary transition-all hover:bg-primary/5 active:scale-[0.98]"
+            >
+              Back to Home
+            </button>
+          </div>
+        </div>
       </main>
     )
   }
@@ -235,7 +275,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
     )
   }
 
-  // ── Success ──
+  // ── Success (request sent) ──
   if (success) {
     return (
       <main className="min-h-screen bg-cream px-4 py-8">
@@ -249,21 +289,19 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-primary">You&apos;re in!</h2>
+            <h2 className="text-xl font-bold text-primary">Request sent!</h2>
             <p className="mt-2 text-sm text-primary/60">
               {match?.course_name || "Course TBA"} · {formatDate(match?.match_date)}
             </p>
-            {needsLeagueJoin && match?.leagues?.name && (
-              <p className="mt-1 text-sm text-emerald-600">
-                You also joined the league &ldquo;{match.leagues.name}&rdquo;
-              </p>
-            )}
+            <p className="mt-1 text-sm text-primary/50">
+              The match admin will be notified. You&apos;ll get a notification once they approve.
+            </p>
             <button
               type="button"
-              onClick={() => router.push(`/matches/${matchId}`)}
+              onClick={() => router.push("/dashboard")}
               className="mt-6 w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98]"
             >
-              Go to Match
+              Back to Home
             </button>
           </div>
         </div>
@@ -342,7 +380,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
 
           {needsLeagueJoin && match?.leagues?.name && (
             <div className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              You&apos;ll also be joining the league &ldquo;{match.leagues.name}&rdquo; to participate in this match.
+              You&apos;ll also need to join the league &ldquo;{match.leagues.name}&rdquo; — the admin will be notified.
             </div>
           )}
 
@@ -360,10 +398,10 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
               className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {joining
-                ? "Joining…"
+                ? "Sending request…"
                 : needsLeagueJoin
-                ? "Join League & Match"
-                : "Join Match"}
+                ? "Request to Join League & Match"
+                : "Request to Join"}
             </button>
             <button
               type="button"

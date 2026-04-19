@@ -47,6 +47,11 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
   const [leavingLeague, setLeavingLeague] = useState(false)
 
+  // Join request state
+  const [requestingJoin, setRequestingJoin] = useState(false)
+  const [joinRequestSent, setJoinRequestSent] = useState(false)
+  const [joinRequestError, setJoinRequestError] = useState<string | null>(null)
+
   useEffect(() => {
     if (authLoading || !user) return
 
@@ -78,6 +83,17 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
         if (membersRes.error) throw membersRes.error
         setMembers((membersRes.data || []) as MemberWithProfile[])
+
+        // Check for existing pending join request
+        const { data: existingRequest } = await supabase
+          .from("join_requests")
+          .select("id")
+          .eq("requester_id", user.id)
+          .eq("target_type", "league")
+          .eq("target_id", leagueId)
+          .eq("status", "pending")
+          .maybeSingle()
+        if (existingRequest) setJoinRequestSent(true)
 
         // Build user league list for navigation
         if (!userLeaguesRes.error && userLeaguesRes.data) {
@@ -192,6 +208,33 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   }, [leagueId, authLoading, user])
 
   const isAdmin = league && user && league.admin_id === user.id
+  const isMember = user && members.some((m) => {
+    const profile = m.profiles as { id?: string } | null
+    return profile?.id === user.id
+  })
+  const isLeagueFull = league && league.max_players ? members.length >= league.max_players : false
+
+  const handleRequestJoinLeague = async () => {
+    if (!league || !user) return
+    setRequestingJoin(true)
+    setJoinRequestError(null)
+    try {
+      const { data, error: rpcError } = await supabase.rpc("request_join_league", {
+        p_league_id: league.id,
+      })
+      if (rpcError) throw rpcError
+      const result = data as { success: boolean; error?: string }
+      if (!result.success) {
+        setJoinRequestError(result.error || "Failed to send request.")
+        return
+      }
+      setJoinRequestSent(true)
+    } catch (err) {
+      setJoinRequestError(err instanceof Error ? err.message : "Failed to send request.")
+    } finally {
+      setRequestingJoin(false)
+    }
+  }
 
   // League navigation
   const currentLeagueIndex = userLeagues.findIndex((l) => String(l.id) === String(leagueId))
@@ -407,6 +450,40 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             />
           )}
         </section>
+
+        {/* Request to Join (non-member) */}
+        {!isMember && !isAdmin && (
+          <section className="rounded-xl border border-primary/15 bg-white p-5 text-center shadow-sm">
+            {joinRequestSent ? (
+              <div className="inline-flex items-center gap-2 rounded-lg bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-700">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Request pending — waiting for admin approval
+              </div>
+            ) : isLeagueFull ? (
+              <p className="text-sm text-primary/50">This league is full ({members.length}/{league.max_players} players)</p>
+            ) : (
+              <>
+                <p className="mb-3 text-sm text-primary/60">Want to join this league?</p>
+                <button
+                  type="button"
+                  onClick={handleRequestJoinLeague}
+                  disabled={requestingJoin}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-60"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                  {requestingJoin ? "Sending request…" : "Request to Join League"}
+                </button>
+                {joinRequestError && (
+                  <p className="mt-2 text-xs text-red-600">{joinRequestError}</p>
+                )}
+              </>
+            )}
+          </section>
+        )}
 
         {/* Invite code */}
         {league.invite_code && (

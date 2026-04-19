@@ -91,6 +91,19 @@ export default function MatchPage({ params }: MatchPageProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deletingMatch, setDeletingMatch] = useState(false)
 
+  // Join request state
+  const [requestingJoin, setRequestingJoin] = useState(false)
+  const [joinRequestSent, setJoinRequestSent] = useState(false)
+  const [joinRequestError, setJoinRequestError] = useState<string | null>(null)
+  const [isLeagueMember, setIsLeagueMember] = useState(false)
+
+  // Pending join requests (admin view)
+  const [pendingRequests, setPendingRequests] = useState<
+    { id: string; requester_id: string; requester_name: string; requester_avatar?: string | null; created_at: string }[]
+  >([])
+  const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null)
+  const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null)
+
   // ── Data fetching ─────────────────────────────────────────────
   useEffect(() => {
     const init = async () => {
@@ -132,6 +145,65 @@ export default function MatchPage({ params }: MatchPageProps) {
 
         if (scoresRes.error) throw scoresRes.error
         setScores((scoresRes.data || []) as Score[])
+
+        // Check if user is a league member (for showing Join Match button)
+        const matchData = matchRes.data as Match
+        if (matchData.league_id) {
+          const { data: membership } = await supabase
+            .from("league_members")
+            .select("id")
+            .eq("league_id", matchData.league_id)
+            .eq("user_id", session.user.id)
+            .maybeSingle()
+          setIsLeagueMember(!!membership)
+        }
+
+        // Check if user already has a pending join request
+        const { data: existingRequest } = await supabase
+          .from("join_requests")
+          .select("id")
+          .eq("requester_id", session.user.id)
+          .eq("target_type", "match")
+          .eq("target_id", matchId)
+          .eq("status", "pending")
+          .maybeSingle()
+        if (existingRequest) setJoinRequestSent(true)
+
+        // If user is the match creator, fetch pending join requests
+        if ((matchRes.data as Match).created_by === session.user.id) {
+          const { data: pendingReqs } = await supabase
+            .from("join_requests")
+            .select("id, requester_id, created_at")
+            .eq("target_type", "match")
+            .eq("target_id", matchId)
+            .eq("status", "pending")
+            .order("created_at", { ascending: true })
+
+          if (pendingReqs && pendingReqs.length > 0) {
+            const requesterIds = pendingReqs.map((r: { requester_id: string }) => r.requester_id)
+            const { data: profiles } = await supabase
+              .from("profiles")
+              .select("id, username, first_name, avatar_url")
+              .in("id", requesterIds)
+
+            const profileMap = new Map(
+              (profiles || []).map((p: { id: string; username?: string | null; first_name?: string | null; avatar_url?: string | null }) => [p.id, p])
+            )
+
+            setPendingRequests(
+              pendingReqs.map((r: { id: string; requester_id: string; created_at: string }) => {
+                const prof = profileMap.get(r.requester_id) as { username?: string | null; first_name?: string | null; avatar_url?: string | null } | undefined
+                return {
+                  id: r.id,
+                  requester_id: r.requester_id,
+                  requester_name: prof?.username || prof?.first_name || "Someone",
+                  requester_avatar: prof?.avatar_url || null,
+                  created_at: r.created_at,
+                }
+              })
+            )
+          }
+        }
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to load match details.",
@@ -400,6 +472,74 @@ export default function MatchPage({ params }: MatchPageProps) {
       setShowLeaveConfirm(false)
     }
   }
+
+  // ── Request to join match ──────────────────────────────────────
+  const handleRequestJoinMatch = async () => {
+    if (!match || !user) return
+    setRequestingJoin(true)
+    setJoinRequestError(null)
+    try {
+      const { data, error: rpcError } = await supabase.rpc("request_join_match", {
+        p_match_id: match.id,
+      })
+      if (rpcError) throw rpcError
+      const result = data as { success: boolean; error?: string }
+      if (!result.success) {
+        setJoinRequestError(result.error || "Failed to send request.")
+        return
+      }
+      setJoinRequestSent(true)
+    } catch (err) {
+      setJoinRequestError(err instanceof Error ? err.message : "Failed to send request.")
+    } finally {
+      setRequestingJoin(false)
+    }
+  }
+
+  // ── Approve / reject join request (admin) ───────────────────
+  const handleApproveRequest = async (requestId: string) => {
+    setApprovingRequestId(requestId)
+    try {
+      const { data, error: rpcError } = await supabase.rpc("approve_join_request", {
+        p_request_id: requestId,
+      })
+      if (rpcError) throw rpcError
+      const result = data as { success: boolean; error?: string }
+      if (!result.success) {
+        setError(result.error || "Failed to approve request.")
+        return
+      }
+      setPendingRequests((prev) => prev.filter((r) => r.id !== requestId))
+      await refreshData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve request.")
+    } finally {
+      setApprovingRequestId(null)
+    }
+  }
+
+  const handleRejectRequest = async (requestId: string) => {
+    setRejectingRequestId(requestId)
+    try {
+      const { data, error: rpcError } = await supabase.rpc("reject_join_request", {
+        p_request_id: requestId,
+      })
+      if (rpcError) throw rpcError
+      const result = data as { success: boolean; error?: string }
+      if (!result.success) {
+        setError(result.error || "Failed to reject request.")
+        return
+      }
+      setPendingRequests((prev) => prev.filter((r) => r.id !== requestId))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reject request.")
+    } finally {
+      setRejectingRequestId(null)
+    }
+  }
+
+  // Can show "Request to Join" if: user is league member, not in match, match not full, match is scheduled
+  const canRequestJoin = !currentUserIsPlayer && isLeagueMember && !isMatchFull && isScheduled && !joinRequestSent
 
   // ── Share match invite link ────────────────────────────────────
   const handleShareMatchInvite = async () => {
@@ -687,6 +827,39 @@ export default function MatchPage({ params }: MatchPageProps) {
             </div>
           )}
 
+          {/* Request to join (non-player, league member) */}
+          {!currentUserIsPlayer && isLeagueMember && isScheduled && (
+            <div className="mt-3 flex flex-col items-center gap-2">
+              {joinRequestSent ? (
+                <div className="inline-flex items-center gap-2 rounded-lg bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-700">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Request pending — waiting for admin approval
+                </div>
+              ) : isMatchFull ? (
+                <p className="text-xs text-primary/50">This match is full (4/4 players)</p>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleRequestJoinMatch}
+                    disabled={requestingJoin}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-60"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                    {requestingJoin ? "Sending request…" : "Request to Join"}
+                  </button>
+                  {joinRequestError && (
+                    <p className="text-xs text-red-600">{joinRequestError}</p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {/* Action buttons row */}
           {currentUserIsPlayer && (
             <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
@@ -719,6 +892,58 @@ export default function MatchPage({ params }: MatchPageProps) {
             </div>
           )}
         </section>
+
+        {/* ── Pending join requests (admin only) ─────────────────── */}
+        {isMatchCreator && pendingRequests.length > 0 && (
+          <section className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 shadow-sm">
+            <h2 className="mb-3 text-sm font-semibold text-primary">
+              Pending Requests ({pendingRequests.length})
+            </h2>
+            <div className="space-y-2">
+              {pendingRequests.map((req) => (
+                <div
+                  key={req.id}
+                  className="flex items-center justify-between rounded-lg bg-white px-4 py-3 border border-primary/10"
+                >
+                  <div className="flex items-center gap-3">
+                    {req.requester_avatar ? (
+                      <img
+                        src={req.requester_avatar}
+                        alt=""
+                        className="h-8 w-8 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary/60">
+                        {req.requester_name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span className="text-sm font-medium text-primary">
+                      {req.requester_name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleApproveRequest(req.id)}
+                      disabled={approvingRequestId === req.id || rejectingRequestId === req.id}
+                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+                    >
+                      {approvingRequestId === req.id ? "…" : "Approve"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRejectRequest(req.id)}
+                      disabled={approvingRequestId === req.id || rejectingRequestId === req.id}
+                      className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+                    >
+                      {rejectingRequestId === req.id ? "…" : "Reject"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── Celebration after submitting ────────────────────────── */}
         {showCelebration && (
