@@ -97,10 +97,14 @@ CREATE TABLE IF NOT EXISTS league_periods (
 -- ------------------------------------------------------------
 -- matches
 -- ------------------------------------------------------------
--- Both league matches (league_id + period_id) and casual matches
--- (league_id IS NULL AND match_type='casual').
+-- Every match lives inside a league (league_id + period_id set).
 -- last_edit_at is added by add_match_auto_complete_24h.sql and is
 -- included here for snapshot parity.
+--
+-- Historical: this table used to have `match_type` ('league' | 'casual')
+-- and `invite_code` columns to support a casual-match feature. That
+-- feature was retired; columns + related RLS were removed by
+-- purge_casual_match_legacy.sql. Not recreated here.
 
 CREATE TABLE IF NOT EXISTS matches (
   id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -112,8 +116,6 @@ CREATE TABLE IF NOT EXISTS matches (
   created_by   uuid NOT NULL,
   status       text NOT NULL DEFAULT 'scheduled'::text,
   created_at   timestamp with time zone DEFAULT now(),
-  match_type   text NOT NULL DEFAULT 'league'::text,
-  invite_code  text,
   last_edit_at timestamp with time zone
 );
 

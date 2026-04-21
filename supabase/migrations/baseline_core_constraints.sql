@@ -114,9 +114,10 @@ CREATE INDEX IF NOT EXISTS idx_leagues_invite ON public.leagues USING btree (inv
 CREATE INDEX IF NOT EXISTS idx_match_players_match ON public.match_players USING btree (match_id);
 CREATE INDEX IF NOT EXISTS idx_match_players_user ON public.match_players USING btree (user_id);
 CREATE INDEX IF NOT EXISTS idx_matches_date ON public.matches USING btree (match_date);
-CREATE INDEX IF NOT EXISTS idx_matches_invite_code ON public.matches USING btree (invite_code) WHERE (invite_code IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_matches_league ON public.matches USING btree (league_id);
-CREATE INDEX IF NOT EXISTS idx_matches_match_type ON public.matches USING btree (match_type);
+-- Historical: idx_matches_invite_code and idx_matches_match_type existed
+-- on the legacy match_type/invite_code columns. Both dropped by
+-- purge_casual_match_legacy.sql and not recreated.
 CREATE INDEX IF NOT EXISTS idx_matches_period ON public.matches USING btree (period_id);
 -- Trigram index on profile names for search — requires pg_trgm extension
 CREATE INDEX IF NOT EXISTS idx_profiles_name_trgm

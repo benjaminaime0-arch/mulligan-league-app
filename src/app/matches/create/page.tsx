@@ -213,7 +213,6 @@ function CreateMatchContent() {
           match_time: time || null,
           created_by: user.id,
           status: "scheduled",
-          match_type: "league",
         })
         .select("id")
         .single()

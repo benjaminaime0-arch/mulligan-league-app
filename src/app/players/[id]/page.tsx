@@ -64,7 +64,6 @@ type ScheduledMatch = {
   match_date: string | null
   match_time: string | null
   course_name: string | null
-  match_type: string
   league_id: string | null
   leagues?: { name: string } | null
 }
@@ -74,7 +73,6 @@ type PastMatch = {
   course_name: string | null
   score: number
   holes: number
-  match_type: string | null
   league_name: string | null
   match_id: string
   score_status: string | null
@@ -135,7 +133,7 @@ export default function PlayerProfilePage() {
         supabase
           .from("match_players")
           .select(
-            "match_id, matches!inner(id, match_date, match_time, course_name, match_type, league_id, status, leagues(name))",
+            "match_id, matches!inner(id, match_date, match_time, course_name, league_id, status, leagues(name))",
           )
           .eq("user_id", id)
           .gte("matches.match_date", todayIso)
@@ -216,7 +214,6 @@ export default function PlayerProfilePage() {
           match_date: string | null
           match_time: string | null
           course_name: string | null
-          match_type: string
           league_id: string | null
           status: string | null
           leagues: { name: string } | null
@@ -230,7 +227,6 @@ export default function PlayerProfilePage() {
           match_date: r.matches!.match_date,
           match_time: r.matches!.match_time,
           course_name: r.matches!.course_name,
-          match_type: r.matches!.match_type,
           league_id: r.matches!.league_id,
           leagues: r.matches!.leagues,
         }))

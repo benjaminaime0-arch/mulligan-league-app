@@ -65,7 +65,7 @@ export async function GET(
   const [matchRes, playersRes, scoresRes] = await Promise.all([
     supabase
       .from("matches")
-      .select("id, course_name, match_date, match_type, league_id")
+      .select("id, course_name, match_date, league_id")
       .eq("id", matchId)
       .maybeSingle(),
     supabase
@@ -91,7 +91,6 @@ export async function GET(
     id: string
     course_name: string | null
     match_date: string | null
-    match_type: string | null
     league_id: string | null
   }
 
@@ -142,8 +141,7 @@ export async function GET(
   })
 
   const courseName = match.course_name || league?.course_name || "Course"
-  const leagueName =
-    league?.name || (match.match_type === "casual" ? "Casual Match" : "Match")
+  const leagueName = league?.name || "Match"
   const dateStr = match.match_date
     ? new Date(match.match_date).toLocaleDateString("en-US", {
         month: "long",

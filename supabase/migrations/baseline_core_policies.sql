@@ -131,14 +131,9 @@ CREATE POLICY "Users can view matches they participate in"
     OR created_by = auth.uid()
   );
 
-DROP POLICY IF EXISTS "Users can create casual matches" ON matches;
-CREATE POLICY "Users can create casual matches"
-  ON matches FOR INSERT
-  WITH CHECK (
-    auth.uid() = created_by
-    AND match_type = 'casual'
-    AND league_id IS NULL
-  );
+-- Historical: "Users can create casual matches" and "Creators can
+-- update their casual matches" policies were dropped by
+-- purge_casual_match_legacy.sql. Not recreated here.
 
 DROP POLICY IF EXISTS matches_insert_member ON matches;
 CREATE POLICY matches_insert_member
@@ -151,11 +146,6 @@ CREATE POLICY matches_insert_member
         AND lm.user_id = auth.uid()
     )
   );
-
-DROP POLICY IF EXISTS "Creators can update their casual matches" ON matches;
-CREATE POLICY "Creators can update their casual matches"
-  ON matches FOR UPDATE
-  USING (auth.uid() = created_by AND match_type = 'casual');
 
 DROP POLICY IF EXISTS matches_update_creator ON matches;
 CREATE POLICY matches_update_creator
@@ -179,17 +169,8 @@ CREATE POLICY match_players_select_all
   ON match_players FOR SELECT
   USING (true);
 
-DROP POLICY IF EXISTS "Users can join casual matches" ON match_players;
-CREATE POLICY "Users can join casual matches"
-  ON match_players FOR INSERT
-  WITH CHECK (
-    auth.uid() = user_id
-    AND EXISTS (
-      SELECT 1 FROM matches
-      WHERE matches.id = match_players.match_id
-        AND matches.match_type = 'casual'
-    )
-  );
+-- Historical: "Users can join casual matches" policy was dropped by
+-- purge_casual_match_legacy.sql. Not recreated here.
 
 DROP POLICY IF EXISTS match_players_insert_member ON match_players;
 CREATE POLICY match_players_insert_member

@@ -21,8 +21,6 @@ type Match = {
   match_time?: string | null
   created_by?: string | null
   status?: string | null
-  match_type?: string | null
-  invite_code?: string | null
   leagues?: {
     id: string | number
     name: string
@@ -81,7 +79,6 @@ export default function MatchPage({ params }: MatchPageProps) {
   const [scoreError, setScoreError] = useState<string | null>(null)
 
   const [approvingScores, setApprovingScores] = useState(false)
-  const [copied, setCopied] = useState(false)
   const [inviteShared, setInviteShared] = useState(false)
 
   // Celebration state
@@ -588,19 +585,6 @@ export default function MatchPage({ params }: MatchPageProps) {
     }
   }
 
-  // ── Copy invite code ──────────────────────────────────────────
-  const handleCopyCode = async () => {
-    if (!match?.invite_code) return
-    if (typeof navigator === "undefined" || !navigator.clipboard) return
-    try {
-      await navigator.clipboard.writeText(match.invite_code)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch {
-      // ignore
-    }
-  }
-
   // ── Loading / error states ────────────────────────────────────
   if (authLoading) {
     return (
@@ -640,7 +624,6 @@ export default function MatchPage({ params }: MatchPageProps) {
   }
 
   const timeLabel = formatMatchTime(match.match_time || null)
-  const isCasual = match.match_type === "casual" || !match.league_id
 
   return (
     <main className="min-h-screen bg-cream px-4 py-6">
@@ -648,9 +631,7 @@ export default function MatchPage({ params }: MatchPageProps) {
         {/* ── Header ─────────────────────────────────────────────── */}
         <header className="flex flex-col items-center gap-3 text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary/60">
-            {isCasual
-              ? "Casual Match"
-              : match.leagues?.name || "League match"}
+            {match.leagues?.name || "League match"}
           </p>
           <h1 className="text-2xl font-bold text-primary">
             {match.course_name || "Course TBA"}
@@ -673,72 +654,16 @@ export default function MatchPage({ params }: MatchPageProps) {
               {(match.status || "scheduled").toString()}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() =>
-              isCasual
-                ? router.push("/dashboard")
-                : router.push(`/leagues/${match.league_id}`)
-            }
-            className="text-xs font-medium text-primary/70 underline-offset-4 hover:text-primary hover:underline"
-          >
-            {isCasual ? "Back to Home" : "Back to League"}
-          </button>
+          {match.league_id && (
+            <button
+              type="button"
+              onClick={() => router.push(`/leagues/${match.league_id}`)}
+              className="text-xs font-medium text-primary/70 underline-offset-4 hover:text-primary hover:underline"
+            >
+              Back to League
+            </button>
+          )}
         </header>
-
-        {/* ── Invite code (casual matches) ───────────────────────── */}
-        {isCasual && match.invite_code && (
-          <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary/60">
-                  Invite Code
-                </p>
-                <p className="mt-1 font-mono text-xl tracking-[0.2em] text-primary">
-                  {match.invite_code}
-                </p>
-                <p className="mt-1 text-xs text-primary/60">
-                  Send this to your playing partners so they can join.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleCopyCode}
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-cream hover:bg-primary/90"
-                >
-                  {copied ? "Copied!" : "Copy Code"}
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!match.invite_code) return
-                    const message = `Join my match at ${match.course_name || "the course"} on Mulligan League! Code: ${match.invite_code}`
-                    if (typeof navigator !== "undefined" && navigator.share) {
-                      try {
-                        await navigator.share({ text: message })
-                      } catch {
-                        /* user cancelled */
-                      }
-                    } else if (
-                      typeof navigator !== "undefined" &&
-                      navigator.clipboard
-                    ) {
-                      try {
-                        await navigator.clipboard.writeText(message)
-                      } catch {
-                        /* ignore */
-                      }
-                    }
-                  }}
-                  className="rounded-lg border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5"
-                >
-                  Share Invite
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
 
         {/* ── Players table ──────────────────────────────────────── */}
         <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">

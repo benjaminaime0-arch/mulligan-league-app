@@ -7,8 +7,6 @@ export type Match = {
   match_time?: string | null
   created_by?: string | null
   status?: string | null
-  match_type?: string | null
-  invite_code?: string | null
   leagues?: {
     id: string | number
     name: string

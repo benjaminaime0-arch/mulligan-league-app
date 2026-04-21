@@ -44,6 +44,20 @@ export function NotificationBell() {
     return () => document.removeEventListener("keydown", handleKey)
   }, [open])
 
+  // Auto-mark every unread notification as read when the dropdown opens.
+  // The user sees the list, so by that moment they've effectively "read"
+  // them — a separate "Mark all read" button is redundant UX.
+  useEffect(() => {
+    if (open && unreadCount > 0) {
+      markAllAsRead()
+    }
+    // We intentionally only depend on `open` — we don't want to re-fire
+    // every time unreadCount changes while the panel is already open
+    // (new notifications arriving via realtime should stay unread and
+    // prominent until the user opens the panel again).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
   const handleTap = (notif: Notification) => {
     if (!notif.read_at) markAsRead(notif.id)
 
@@ -103,15 +117,8 @@ export function NotificationBell() {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-primary/5 px-4 py-3">
             <h3 className="text-sm font-semibold text-primary">Notifications</h3>
-            {unreadCount > 0 && (
-              <button
-                type="button"
-                onClick={() => markAllAsRead()}
-                className="text-xs font-medium text-primary/50 hover:text-primary"
-              >
-                Mark all read
-              </button>
-            )}
+            {/* No "Mark all read" button — opening the panel does it
+                automatically (see useEffect on `open` above). */}
           </div>
 
           {/* Notification list */}
