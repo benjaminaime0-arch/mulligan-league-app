@@ -16,6 +16,7 @@ import { ConfirmModal } from "@/components/ConfirmModal"
 import { RecordsCard, type RecordsData } from "@/components/profile/RecordsCard"
 import { WeekCalendarCard, type WeekStatsData } from "@/components/profile/WeekCalendarCard"
 import { CoursesCard, type CoursePlay } from "@/components/profile/CoursesCard"
+import { ScoreTrendCard, type ScoreTrendData } from "@/components/profile/ScoreTrendCard"
 
 type Profile = {
   id: string
@@ -122,6 +123,7 @@ export default function ProfilePage() {
   const [records, setRecords] = useState<RecordsData | null>(null)
   const [weekStats, setWeekStats] = useState<WeekStatsData | null>(null)
   const [courses, setCourses] = useState<CoursePlay[] | null>(null)
+  const [scoreTrend, setScoreTrend] = useState<ScoreTrendData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [logoutLoading, setLogoutLoading] = useState(false)
@@ -311,11 +313,12 @@ export default function ProfilePage() {
           setActivityFeed(mapped)
         }
 
-        // Fetch dashboard stats in parallel: records, week, courses
-        const [recordsRes, weekRes, coursesRes] = await Promise.all([
+        // Fetch dashboard stats in parallel: records, week, courses, trend
+        const [recordsRes, weekRes, coursesRes, trendRes] = await Promise.all([
           supabase.rpc("get_profile_records", { p_user_id: userId }),
           supabase.rpc("get_profile_week", { p_user_id: userId }),
           supabase.rpc("get_profile_courses", { p_user_id: userId }),
+          supabase.rpc("get_profile_score_trend", { p_user_id: userId }),
         ])
         if (!recordsRes.error && recordsRes.data) {
           setRecords(recordsRes.data as RecordsData)
@@ -325,6 +328,9 @@ export default function ProfilePage() {
         }
         if (!coursesRes.error && coursesRes.data) {
           setCourses(coursesRes.data as CoursePlay[])
+        }
+        if (!trendRes.error && trendRes.data) {
+          setScoreTrend(trendRes.data as ScoreTrendData)
         }
 
         if (scoresCountRes.error) throw scoresCountRes.error
@@ -635,7 +641,10 @@ export default function ProfilePage() {
           )}
         </section>
 
-        {/* 2. This week — streak + 7-day calendar + next match CTA */}
+        {/* 2. Score trajectory — sparkline + trend arrow */}
+        <ScoreTrendCard trend={scoreTrend} handicap={profile?.handicap ?? null} />
+
+        {/* 3. This week — streak + 7-day calendar + next match CTA */}
         <WeekCalendarCard week={weekStats} />
 
         {/* 3. Records — best round, top rival, longest streak */}
