@@ -29,7 +29,13 @@ export const metadata: Metadata = {
     "golf competition",
     "organize golf",
   ],
-  metadataBase: new URL("https://app.mulliganleague.com"),
+  // Reads NEXT_PUBLIC_SITE_URL from env (set in Vercel project settings)
+  // with a fallback to the current vercel.app URL. Swap the env var to
+  // https://app.mulliganleague.com the moment that domain is live in
+  // Vercel — no code change needed.
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "https://mulligan-league-app.vercel.app",
+  ),
   icons: {
     icon: [
       { url: "/logo-mark.png", type: "image/png" },
