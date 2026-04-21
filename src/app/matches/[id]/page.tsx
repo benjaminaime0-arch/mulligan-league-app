@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { Avatar } from "@/components/Avatar"
 import { ConfirmModal } from "@/components/ConfirmModal"
 
 type Match = {
@@ -302,18 +304,32 @@ export default function MatchPage({ params }: MatchPageProps) {
   const handleSaveAllScores = async () => {
     if (!user || !match) return
 
-    // Validate all scores
+    // Validate all scores. DB constraint: score > 0 AND score <= 200 AND holes IN (9, 18).
+    // Client guards are tighter (realistic floor per hole count) for better UX;
+    // the DB is the final authority either way.
+    let validationError: string | null = null
     const scoreEntries = players.map((player) => {
       const edit = allScoreEdits[player.user_id]
       if (!edit || !edit.score.trim()) return null
       const numericScore = Number(edit.score)
-      if (Number.isNaN(numericScore) || numericScore <= 0) return null
+      if (!Number.isFinite(numericScore) || !Number.isInteger(numericScore)) return null
+      const minScore = edit.holes === 9 ? 9 : 18
+      const maxScore = 200 // matches DB constraint scores_score_check
+      if (numericScore < minScore || numericScore > maxScore) {
+        validationError = `Score for ${memberDisplayName(player)} must be between ${minScore} and ${maxScore}.`
+        return null
+      }
       return {
         user_id: player.user_id,
         score: numericScore,
         holes: edit.holes,
       }
     })
+
+    if (validationError) {
+      setScoreError(validationError)
+      return
+    }
 
     if (scoreEntries.some((e) => e === null)) {
       setScoreError("Enter a valid score for all players.")
@@ -497,6 +513,8 @@ export default function MatchPage({ params }: MatchPageProps) {
   }
 
   // ── Approve / reject join request (admin) ───────────────────
+  // Note: the RPCs mark any matching join_request notifications as read
+  // server-side, so no client-side cleanup is needed.
   const handleApproveRequest = async (requestId: string) => {
     setApprovingRequestId(requestId)
     try {
@@ -784,27 +802,20 @@ export default function MatchPage({ params }: MatchPageProps) {
                         className="border-b border-primary/5 last:border-0"
                       >
                         <td className="py-2.5 pr-4 text-primary">
-                          <div
-                            className="flex items-center gap-2 cursor-pointer hover:underline"
-                            onClick={() => router.push(`/players/${player.user_id}`)}
+                          <Link
+                            href={`/players/${player.user_id}`}
+                            className="flex items-center gap-2 rounded hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                           >
-                            {player.profiles?.avatar_url ? (
-                              <img
-                                src={player.profiles.avatar_url}
-                                alt=""
-                                className="h-7 w-7 shrink-0 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary/60">
-                                {memberDisplayName(player)
-                                  .charAt(0)
-                                  .toUpperCase()}
-                              </div>
-                            )}
+                            <Avatar
+                              src={player.profiles?.avatar_url}
+                              alt={`${memberDisplayName(player)}'s avatar`}
+                              size={28}
+                              fallback={memberDisplayName(player)}
+                            />
                             <span className="font-medium">
                               {memberDisplayName(player)}
                             </span>
-                          </div>
+                          </Link>
                         </td>
                         <td className="py-2.5 pr-4 text-primary">
                           {playerScore ? playerScore.score : "–"}
@@ -814,8 +825,41 @@ export default function MatchPage({ params }: MatchPageProps) {
                         </td>
                         <td className="py-2.5">
                           <span
-                            className={`text-xs font-medium ${statusClass}`}
+                            className={`inline-flex items-center gap-1 text-xs font-medium ${statusClass}`}
                           >
+                            {statusLabel === "Approved" && (
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            )}
+                            {statusLabel === "Pending" && (
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
+                              </svg>
+                            )}
                             {statusLabel}
                           </span>
                         </td>
@@ -906,17 +950,12 @@ export default function MatchPage({ params }: MatchPageProps) {
                   className="flex items-center justify-between rounded-lg bg-white px-4 py-3 border border-primary/10"
                 >
                   <div className="flex items-center gap-3">
-                    {req.requester_avatar ? (
-                      <img
-                        src={req.requester_avatar}
-                        alt=""
-                        className="h-8 w-8 shrink-0 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary/60">
-                        {req.requester_name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    <Avatar
+                      src={req.requester_avatar}
+                      alt={`${req.requester_name}'s avatar`}
+                      size={32}
+                      fallback={req.requester_name}
+                    />
                     <span className="text-sm font-medium text-primary">
                       {req.requester_name}
                     </span>
@@ -1015,26 +1054,22 @@ export default function MatchPage({ params }: MatchPageProps) {
                     className="flex items-center gap-3 rounded-lg bg-cream p-3"
                   >
                     <div className="flex min-w-[120px] items-center gap-2">
-                      {player.profiles?.avatar_url ? (
-                        <img
-                          src={player.profiles.avatar_url}
-                          alt=""
-                          className="h-6 w-6 shrink-0 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary/60">
-                          {memberDisplayName(player)
-                            .charAt(0)
-                            .toUpperCase()}
-                        </div>
-                      )}
+                      <Avatar
+                        src={player.profiles?.avatar_url}
+                        alt={`${memberDisplayName(player)}'s avatar`}
+                        size={24}
+                        fallback={memberDisplayName(player)}
+                      />
                       <span className="text-sm font-medium text-primary">
                         {memberDisplayName(player)}
                       </span>
                     </div>
                     <input
                       type="number"
-                      min={1}
+                      inputMode="numeric"
+                      min={edit.holes === 9 ? 9 : 18}
+                      max={200}
+                      step={1}
                       value={edit.score}
                       onChange={(e) =>
                         setAllScoreEdits((prev) => ({
@@ -1047,6 +1082,7 @@ export default function MatchPage({ params }: MatchPageProps) {
                       }
                       className="w-20 rounded-lg border border-primary/20 bg-white px-2 py-1.5 text-center text-sm font-semibold text-primary focus:border-primary focus:outline-none"
                       placeholder="Score"
+                      aria-label={`Score for ${memberDisplayName(player)}`}
                       disabled={savingAllScores}
                     />
                     <div className="inline-flex rounded-full bg-white p-0.5">
@@ -1184,9 +1220,10 @@ export default function MatchPage({ params }: MatchPageProps) {
             <div
               role="dialog"
               aria-modal="true"
+              aria-labelledby="admin-transfer-title"
               className="relative w-full max-w-sm rounded-2xl border border-primary/15 bg-white p-6 shadow-lg"
             >
-              <h2 className="text-lg font-bold text-primary">Choose a new admin</h2>
+              <h2 id="admin-transfer-title" className="text-lg font-bold text-primary">Choose a new admin</h2>
               <p className="mt-1 text-sm text-primary/70">
                 Select a player to take over as match admin before you leave.
               </p>
@@ -1207,17 +1244,12 @@ export default function MatchPage({ params }: MatchPageProps) {
                             : "border-primary/15 bg-white hover:bg-primary/5"
                         }`}
                       >
-                        {p.profiles?.avatar_url ? (
-                          <img
-                            src={p.profiles.avatar_url}
-                            alt=""
-                            className="h-8 w-8 shrink-0 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary/60">
-                            {name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                        <Avatar
+                          src={p.profiles?.avatar_url}
+                          alt={`${name}'s avatar`}
+                          size={32}
+                          fallback={name}
+                        />
                         <span className="text-sm font-medium text-primary">{name}</span>
                         {isSelected && (
                           <svg className="ml-auto h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
