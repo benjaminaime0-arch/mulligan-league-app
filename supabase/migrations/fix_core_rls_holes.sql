@@ -91,7 +91,13 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- Creator (or any other non-admin path) → enforce immutable columns
+  -- Casual match creator → allow all (they're effectively the admin
+  -- for a casual match; otherwise they couldn't edit their own match)
+  IF NEW.league_id IS NULL AND NEW.created_by = auth.uid() THEN
+    RETURN NEW;
+  END IF;
+
+  -- Everyone else → enforce immutable columns
   IF OLD.status IS DISTINCT FROM NEW.status THEN
     RAISE EXCEPTION 'Match status can only change via the score-approval flow'
       USING ERRCODE = 'check_violation';
