@@ -571,7 +571,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             )}
 
             {(isAdmin || isMember) && (
-              <div className={`${league.invite_code ? "mt-4 border-t border-primary/10 pt-4" : ""}`}>
+              <div className={league.invite_code ? "mt-4" : ""}>
                 {isAdmin ? (
                   <button
                     type="button"

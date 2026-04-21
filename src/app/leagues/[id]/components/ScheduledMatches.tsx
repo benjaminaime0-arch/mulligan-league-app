@@ -306,15 +306,7 @@ export function ScheduledMatches({ matches, league, matchPlayersMap }: Scheduled
             </p>
           </div>
         ) : (
-          <>
-            {league.scoring_cards_count && (
-              <div className="mb-3 flex items-center justify-center gap-1.5 text-[11px] text-primary/50">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                <span>Best {league.scoring_cards_count} cards count toward leaderboard</span>
-              </div>
-            )}
-            <MatchCarousel items={past} league={league} matchPlayersMap={matchPlayersMap} />
-          </>
+          <MatchCarousel items={past} league={league} matchPlayersMap={matchPlayersMap} />
         )}
       </div>
     </>
