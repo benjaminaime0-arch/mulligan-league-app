@@ -43,7 +43,10 @@ ALTER TABLE matches DROP COLUMN IF EXISTS invite_code;
 
 -- 5. get_player_round_history currently selects match_type — rewrite
 -- without it. Callers treat everything as a league match now.
-CREATE OR REPLACE FUNCTION get_player_round_history(p_user_id UUID)
+-- DROP + CREATE instead of CREATE OR REPLACE because Postgres doesn't
+-- allow changing the TABLE return shape (we removed match_type).
+DROP FUNCTION IF EXISTS get_player_round_history(UUID);
+CREATE FUNCTION get_player_round_history(p_user_id UUID)
 RETURNS TABLE (
   round_date DATE,
   course_name TEXT,
