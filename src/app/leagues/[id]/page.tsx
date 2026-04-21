@@ -23,16 +23,42 @@ interface LeaguePageProps {
   params: { id: string }
 }
 
-function StatusChip({ status }: { status: string | null | undefined }) {
-  const s = (status || "").toLowerCase()
-  if (s === "active") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        Active
-      </span>
+/**
+ * Builds the "Stroke Play · Best 3 of 5 cards" tagline shown below
+ * the league name on the detail page. Returns null when there's
+ * nothing meaningful to show.
+ */
+function formatSubtitle(league: {
+  league_type?: string | null
+  scoring_cards_count?: number | null
+  total_cards_count?: number | null
+}): string | null {
+  const parts: string[] = []
+  if (league.league_type) {
+    parts.push(
+      league.league_type
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase()),
     )
   }
+  if (league.scoring_cards_count != null) {
+    parts.push(
+      `Best ${league.scoring_cards_count}${
+        league.total_cards_count ? ` of ${league.total_cards_count}` : ""
+      } cards`,
+    )
+  }
+  return parts.length > 0 ? parts.join(" · ") : null
+}
+
+function StatusChip({ status }: { status: string | null | undefined }) {
+  const s = (status || "").toLowerCase()
+
+  // Active is the default/expected state — showing a chip for it is noise.
+  // Only surface a chip when the league is in a non-standard state (Draft
+  // or Completed) that the user would want to notice at a glance.
+  if (s === "active") return null
+
   if (s === "completed") {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary/50">
@@ -409,7 +435,14 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             ) : null}
           </div>
 
-          {/* Meta line */}
+          {/* Format line: sits right under the title — e.g. "Stroke Play · Best 3 of 5 cards" */}
+          {formatSubtitle(league) && (
+            <p className="mt-1 text-center text-[10px] font-semibold uppercase tracking-[0.15em] text-primary/50">
+              {formatSubtitle(league)}
+            </p>
+          )}
+
+          {/* Meta line: course + dates */}
           <div className="mt-1.5 flex items-center justify-center gap-1.5 text-xs text-primary/70">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
             <span>{league.course_name || "Course TBA"}</span>
@@ -478,15 +511,9 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
         {/* Leaderboard + Matches */}
         <section className="flex flex-col gap-6">
-          <LeaderboardTable
-            leaderboard={leaderboard}
-            subtitle={[
-              league.league_type ? league.league_type.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : null,
-              league.scoring_cards_count != null
-                ? `Best ${league.scoring_cards_count}${league.total_cards_count ? ` of ${league.total_cards_count}` : ""} cards`
-                : null,
-            ].filter(Boolean).join(" · ") || null}
-          />
+          {/* Format info (Stroke Play · Best 3 of 5 cards) moved to the
+              page header, so the Leaderboard card doesn't duplicate it. */}
+          <LeaderboardTable leaderboard={leaderboard} />
 
           {currentPeriod && (
             <ScheduledMatches

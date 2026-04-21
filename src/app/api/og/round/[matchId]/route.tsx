@@ -49,19 +49,22 @@ export async function GET(
 ) {
   const matchId = params.matchId
 
-  // Fallback card if the match can't be loaded
-  const errorCard = renderErrorCard("Match not found")
-
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !serviceKey) return errorCard
+  if (!supabaseUrl || !serviceKey) {
+    console.error("[og/round] missing env vars", {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!serviceKey,
+    })
+    return renderErrorCard("Server not configured")
+  }
 
   const supabase = createClient(supabaseUrl, serviceKey)
 
   const [matchRes, playersRes, scoresRes] = await Promise.all([
     supabase
       .from("matches")
-      .select("id, course_name, match_date, match_type, leagues(name, course_name)")
+      .select("id, course_name, match_date, match_type, league_id")
       .eq("id", matchId)
       .maybeSingle(),
     supabase
@@ -74,16 +77,37 @@ export async function GET(
       .eq("match_id", matchId),
   ])
 
-  if (matchRes.error || !matchRes.data) return errorCard
+  if (matchRes.error) {
+    console.error("[og/round] match fetch error", matchRes.error)
+    return renderErrorCard(`Error: ${matchRes.error.message.slice(0, 40)}`)
+  }
+  if (!matchRes.data) {
+    console.error("[og/round] match not found", { matchId })
+    return renderErrorCard(`Match ${matchId.slice(0, 8)} not found`)
+  }
 
   const match = matchRes.data as {
     id: string
     course_name: string | null
     match_date: string | null
     match_type: string | null
-    leagues?: { name: string; course_name: string | null } | { name: string; course_name: string | null }[] | null
+    league_id: string | null
   }
-  const league = Array.isArray(match.leagues) ? match.leagues[0] : match.leagues
+
+  // Fetch league name separately (simpler than embedded select, and
+  // avoids edge cases where embedded selects return shapes we didn't expect).
+  let league: { name: string; course_name: string | null } | null = null
+  if (match.league_id) {
+    const { data: leagueData } = await supabase
+      .from("leagues")
+      .select("name, course_name")
+      .eq("id", match.league_id)
+      .maybeSingle()
+    if (leagueData) {
+      league = leagueData as { name: string; course_name: string | null }
+    }
+  }
+
   const players = (playersRes.data || []) as PlayerRow[]
   const scores = (scoresRes.data || []) as ScoreRow[]
 
