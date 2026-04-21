@@ -143,7 +143,28 @@ export function WeekCalendarCard({
   return (
     <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-primary">This week</h2>
+        <Link
+          href="/profile/matches"
+          className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary/70"
+          aria-label="My calendar — see all matches"
+        >
+          My calendar
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-primary/40"
+            aria-hidden="true"
+          >
+            <polyline points="9 6 15 12 9 18" />
+          </svg>
+        </Link>
         {week && week.current_streak_weeks > 0 && (
           <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-600">
             <FlameIcon />
@@ -259,30 +280,7 @@ export function WeekCalendarCard({
               {dateJumpMessage}
             </p>
           )}
-
-          {/* "See all matches" — routes to /profile/matches (Scheduled + Past tabs) */}
-          <div className="mt-3 flex justify-center">
-            <Link
-              href="/profile/matches"
-              className="inline-flex items-center gap-1 text-[11px] font-medium text-primary/60 underline-offset-4 hover:text-primary hover:underline"
-            >
-              See all matches
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="10"
-                height="10"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <polyline points="9 6 15 12 9 18" />
-              </svg>
-            </Link>
-          </div>
+          {/* "See all" now lives in the section title ("My calendar →") */}
 
 
           {/* Tile reflects the selected day */}

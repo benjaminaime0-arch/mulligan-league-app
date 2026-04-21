@@ -133,7 +133,7 @@ export default function AllMatchesPage() {
             <ChevronLeft />
             Back
           </Link>
-          <h1 className="text-sm font-semibold text-primary">My matches</h1>
+          <h1 className="text-sm font-semibold text-primary">My calendar</h1>
           <span className="w-[50px]" />
         </header>
 
