@@ -7,6 +7,10 @@ import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
 import { Avatar } from "@/components/Avatar"
 import { ConfirmModal } from "@/components/ConfirmModal"
+import { JoinRequestsList, type JoinRequest } from "./components/JoinRequestsList"
+import { AdminTransferModal } from "./components/AdminTransferModal"
+import { ScoreEditForm } from "./components/ScoreEditForm"
+import { ScoreTable } from "./components/ScoreTable"
 
 type Match = {
   id: string | number
@@ -100,9 +104,7 @@ export default function MatchPage({ params }: MatchPageProps) {
   const [isLeagueMember, setIsLeagueMember] = useState(false)
 
   // Pending join requests (admin view)
-  const [pendingRequests, setPendingRequests] = useState<
-    { id: string; requester_id: string; requester_name: string; requester_avatar?: string | null; created_at: string }[]
-  >([])
+  const [pendingRequests, setPendingRequests] = useState<JoinRequest[]>([])
   const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null)
   const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null)
 
@@ -764,112 +766,11 @@ export default function MatchPage({ params }: MatchPageProps) {
             )}
           </div>
 
-          {players.length === 0 ? (
-            <p className="text-sm text-primary/70">
-              No players in this match.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-primary/10 text-xs uppercase tracking-wide text-primary/60">
-                    <th className="py-2 pr-4">Player</th>
-                    <th className="py-2 pr-4">Score</th>
-                    <th className="py-2 pr-4">Holes</th>
-                    <th className="py-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {players.map((player) => {
-                    const playerScore = scoresByUserId.get(player.user_id)
-
-                    let statusLabel = "No score"
-                    let statusClass = "text-primary/40"
-                    if (playerScore) {
-                      // Score status comes from whether ALL players have approved
-                      if (match.status === "completed" || playerScore.status === "approved") {
-                        statusLabel = "Approved"
-                        statusClass = "text-emerald-600"
-                      } else {
-                        statusLabel = "Pending"
-                        statusClass = "text-amber-600"
-                      }
-                    }
-
-                    return (
-                      <tr
-                        key={player.id}
-                        className="border-b border-primary/5 last:border-0"
-                      >
-                        <td className="py-2.5 pr-4 text-primary">
-                          <Link
-                            href={`/players/${player.user_id}`}
-                            className="flex items-center gap-2 rounded hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                          >
-                            <Avatar
-                              src={player.profiles?.avatar_url}
-                              alt={`${memberDisplayName(player)}'s avatar`}
-                              size={28}
-                              fallback={memberDisplayName(player)}
-                            />
-                            <span className="font-medium">
-                              {memberDisplayName(player)}
-                            </span>
-                          </Link>
-                        </td>
-                        <td className="py-2.5 pr-4 text-primary">
-                          {playerScore ? playerScore.score : "–"}
-                        </td>
-                        <td className="py-2.5 pr-4 text-primary">
-                          {playerScore ? playerScore.holes : "–"}
-                        </td>
-                        <td className="py-2.5">
-                          <span
-                            className={`inline-flex items-center gap-1 text-xs font-medium ${statusClass}`}
-                          >
-                            {statusLabel === "Approved" && (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="12"
-                                height="12"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="3"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                aria-hidden="true"
-                              >
-                                <polyline points="20 6 9 17 4 12" />
-                              </svg>
-                            )}
-                            {statusLabel === "Pending" && (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="12"
-                                height="12"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                aria-hidden="true"
-                              >
-                                <circle cx="12" cy="12" r="10" />
-                                <polyline points="12 6 12 12 16 14" />
-                              </svg>
-                            )}
-                            {statusLabel}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ScoreTable
+            players={players}
+            scoresByUserId={scoresByUserId}
+            matchStatus={match.status}
+          />
 
           {/* Request to join (non-player, league member) */}
           {!currentUserIsPlayer && isLeagueMember && isScheduled && (
@@ -938,50 +839,14 @@ export default function MatchPage({ params }: MatchPageProps) {
         </section>
 
         {/* ── Pending join requests (admin only) ─────────────────── */}
-        {isMatchCreator && pendingRequests.length > 0 && (
-          <section className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 shadow-sm">
-            <h2 className="mb-3 text-sm font-semibold text-primary">
-              Pending Requests ({pendingRequests.length})
-            </h2>
-            <div className="space-y-2">
-              {pendingRequests.map((req) => (
-                <div
-                  key={req.id}
-                  className="flex items-center justify-between rounded-lg bg-white px-4 py-3 border border-primary/10"
-                >
-                  <div className="flex items-center gap-3">
-                    <Avatar
-                      src={req.requester_avatar}
-                      alt={`${req.requester_name}'s avatar`}
-                      size={32}
-                      fallback={req.requester_name}
-                    />
-                    <span className="text-sm font-medium text-primary">
-                      {req.requester_name}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleApproveRequest(req.id)}
-                      disabled={approvingRequestId === req.id || rejectingRequestId === req.id}
-                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
-                    >
-                      {approvingRequestId === req.id ? "…" : "Approve"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRejectRequest(req.id)}
-                      disabled={approvingRequestId === req.id || rejectingRequestId === req.id}
-                      className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
-                    >
-                      {rejectingRequestId === req.id ? "…" : "Reject"}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
+        {isMatchCreator && (
+          <JoinRequestsList
+            requests={pendingRequests}
+            approvingId={approvingRequestId}
+            rejectingId={rejectingRequestId}
+            onApprove={handleApproveRequest}
+            onReject={handleRejectRequest}
+          />
         )}
 
         {/* ── Celebration after submitting ────────────────────────── */}
@@ -1024,124 +889,26 @@ export default function MatchPage({ params }: MatchPageProps) {
 
         {/* ── Inline score editing (expands inside Players section) ── */}
         {currentUserIsPlayer && !showCelebration && editingAllScores && (
-          <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
-            <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-primary">
-                {hasScores ? "Edit scores" : "Submit scores"}
-              </h2>
-              <p className="text-xs text-primary/60">
-                {hasScores
-                  ? "Update scores for all players. Saving resets other players\u2019 approvals."
-                  : "Enter scores for all players in this match."}
-              </p>
-              {scoreError && (
-                <div
-                  role="alert"
-                  className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700"
-                >
-                  {scoreError}
-                </div>
-              )}
-
-              {players.map((player) => {
-                const edit = allScoreEdits[player.user_id] || {
-                  score: "",
-                  holes: 18,
-                }
-                return (
-                  <div
-                    key={player.id}
-                    className="flex items-center gap-3 rounded-lg bg-cream p-3"
-                  >
-                    <div className="flex min-w-[120px] items-center gap-2">
-                      <Avatar
-                        src={player.profiles?.avatar_url}
-                        alt={`${memberDisplayName(player)}'s avatar`}
-                        size={24}
-                        fallback={memberDisplayName(player)}
-                      />
-                      <span className="text-sm font-medium text-primary">
-                        {memberDisplayName(player)}
-                      </span>
-                    </div>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min={edit.holes === 9 ? 9 : 18}
-                      max={200}
-                      step={1}
-                      value={edit.score}
-                      onChange={(e) =>
-                        setAllScoreEdits((prev) => ({
-                          ...prev,
-                          [player.user_id]: {
-                            ...prev[player.user_id],
-                            score: e.target.value,
-                          },
-                        }))
-                      }
-                      className="w-20 rounded-lg border border-primary/20 bg-white px-2 py-1.5 text-center text-sm font-semibold text-primary focus:border-primary focus:outline-none"
-                      placeholder="Score"
-                      aria-label={`Score for ${memberDisplayName(player)}`}
-                      disabled={savingAllScores}
-                    />
-                    <div className="inline-flex rounded-full bg-white p-0.5">
-                      {[9, 18].map((value) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() =>
-                            setAllScoreEdits((prev) => ({
-                              ...prev,
-                              [player.user_id]: {
-                                ...prev[player.user_id],
-                                holes: value as 9 | 18,
-                              },
-                            }))
-                          }
-                          className={`min-w-[2.5rem] rounded-full px-2 py-1 text-[11px] font-medium ${
-                            edit.holes === value
-                              ? "bg-primary text-cream"
-                              : "text-primary/60 hover:bg-primary/10"
-                          }`}
-                          disabled={savingAllScores}
-                        >
-                          {value}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleSaveAllScores}
-                  disabled={savingAllScores}
-                  className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream hover:bg-primary/90 disabled:opacity-60"
-                >
-                  {savingAllScores
-                    ? "Saving…"
-                    : hasScores
-                    ? "Save All Scores"
-                    : "Submit Scores"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!savingAllScores) {
-                      setEditingAllScores(false)
-                      setScoreError(null)
-                    }
-                  }}
-                  className="rounded-lg border border-primary/20 bg-white px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </section>
+          <ScoreEditForm
+            players={players}
+            edits={allScoreEdits}
+            hasScores={hasScores}
+            saving={savingAllScores}
+            error={scoreError}
+            onChange={(userId, patch) =>
+              setAllScoreEdits((prev) => ({
+                ...prev,
+                [userId]: { ...prev[userId], ...patch },
+              }))
+            }
+            onSave={handleSaveAllScores}
+            onCancel={() => {
+              if (!savingAllScores) {
+                setEditingAllScores(false)
+                setScoreError(null)
+              }
+            }}
+          />
         )}
 
         {/* ── Approve scores ─────────────────────────────────────── */}
@@ -1210,79 +977,15 @@ export default function MatchPage({ params }: MatchPageProps) {
         />
 
         {/* Admin transfer modal */}
-        {showAdminTransfer && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div
-              className="fixed inset-0 bg-black/40"
-              onClick={() => { if (!leavingMatch) { setShowAdminTransfer(false); setSelectedNewAdmin(null) } }}
-              aria-hidden="true"
-            />
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="admin-transfer-title"
-              className="relative w-full max-w-sm rounded-2xl border border-primary/15 bg-white p-6 shadow-lg"
-            >
-              <h2 id="admin-transfer-title" className="text-lg font-bold text-primary">Choose a new admin</h2>
-              <p className="mt-1 text-sm text-primary/70">
-                Select a player to take over as match admin before you leave.
-              </p>
-              <div className="mt-4 space-y-2">
-                {players
-                  .filter((p) => p.user_id !== user?.id)
-                  .map((p) => {
-                    const name = p.profiles?.username || "Player"
-                    const isSelected = selectedNewAdmin === p.user_id
-                    return (
-                      <button
-                        key={p.user_id}
-                        type="button"
-                        onClick={() => setSelectedNewAdmin(p.user_id)}
-                        className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
-                          isSelected
-                            ? "border-primary bg-primary/5 ring-1 ring-primary"
-                            : "border-primary/15 bg-white hover:bg-primary/5"
-                        }`}
-                      >
-                        <Avatar
-                          src={p.profiles?.avatar_url}
-                          alt={`${name}'s avatar`}
-                          size={32}
-                          fallback={name}
-                        />
-                        <span className="text-sm font-medium text-primary">{name}</span>
-                        {isSelected && (
-                          <svg className="ml-auto h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                          </svg>
-                        )}
-                      </button>
-                    )
-                  })}
-              </div>
-              <div className="mt-5 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (selectedNewAdmin) performLeave(selectedNewAdmin)
-                  }}
-                  disabled={!selectedNewAdmin || leavingMatch}
-                  className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-red-700 active:scale-[0.98] disabled:opacity-60"
-                >
-                  {leavingMatch ? "Leaving…" : "Transfer & Leave"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setShowAdminTransfer(false); setSelectedNewAdmin(null) }}
-                  disabled={leavingMatch}
-                  className="flex-1 rounded-lg border border-primary/20 bg-white px-4 py-2.5 text-sm font-medium text-primary transition-all hover:bg-primary/5 active:scale-[0.98]"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <AdminTransferModal
+          open={showAdminTransfer}
+          candidates={players.filter((p) => p.user_id !== user?.id)}
+          selected={selectedNewAdmin}
+          onSelect={setSelectedNewAdmin}
+          onConfirm={performLeave}
+          onCancel={() => { setShowAdminTransfer(false); setSelectedNewAdmin(null) }}
+          loading={leavingMatch}
+        />
 
         {/* Delete match confirmation */}
         <ConfirmModal
