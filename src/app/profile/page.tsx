@@ -112,10 +112,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [memberships, setMemberships] = useState<LeagueMember[]>([])
   const [enrichedLeagues, setEnrichedLeagues] = useState<EnrichedLeague[]>([])
-  const [scheduledMatches, setScheduledMatches] = useState<ScheduledMatch[]>([])
-  const [pastMatches, setPastMatches] = useState<PastMatch[]>([])
-  const [matchPlayersMap, setMatchPlayersMap] = useState<Map<string | number, MatchPlayerInfo[]>>(new Map())
-  const [pastMatchPlayersMap, setPastMatchPlayersMap] = useState<Map<string | number, MatchPlayerWithScore[]>>(new Map())
+  // Scheduled + past matches moved to /profile/matches page
   const [activityFeed, setActivityFeed] = useState<ActivityEvent[]>([])
   const [matchesPlayed, setMatchesPlayed] = useState(0)
   const [records, setRecords] = useState<RecordsData | null>(null)
@@ -147,24 +144,14 @@ export default function ProfilePage() {
         setError(null)
 
         const userId = user.id
-        const todayIso = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
 
-        // Pull memberships, scheduled matches, and count of played matches in parallel
-        const [profileRes, membershipsRes, playerMatchesRes, scoresCountRes] = await Promise.all([
+        // Pull profile, memberships, and count of played matches in parallel
+        const [profileRes, membershipsRes, scoresCountRes] = await Promise.all([
           supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
           supabase
             .from("league_members")
             .select("id, league_id, leagues(*)")
             .eq("user_id", userId),
-          // match_players joined with matches, filtered to future scheduled matches
-          supabase
-            .from("match_players")
-            .select(
-              "match_id, matches!inner(id, match_date, match_time, course_name, league_id, status, leagues(name))",
-            )
-            .eq("user_id", userId)
-            .gte("matches.match_date", todayIso)
-            .neq("matches.status", "completed"),
           supabase
             .from("scores")
             .select("id", { count: "exact", head: true })
@@ -230,57 +217,9 @@ export default function ProfilePage() {
           setEnrichedLeagues(enriched)
         }
 
-        if (playerMatchesRes.error) throw playerMatchesRes.error
-        type PlayerMatchRow = {
-          match_id: string
-          matches:
-            | {
-                id: string
-                match_date: string | null
-                match_time: string | null
-                course_name: string | null
-                league_id: string | null
-                status: string | null
-                leagues: { name: string } | null
-              }
-            | null
-        }
-        const rows = (playerMatchesRes.data as unknown as PlayerMatchRow[]) || []
-        const upcoming: ScheduledMatch[] = rows
-          .filter((r) => r.matches != null)
-          .map((r) => ({
-            id: r.matches!.id,
-            match_date: r.matches!.match_date,
-            match_time: r.matches!.match_time,
-            course_name: r.matches!.course_name,
-            league_id: r.matches!.league_id,
-            leagues: r.matches!.leagues,
-          }))
-          .sort((a, b) => (a.match_date || "").localeCompare(b.match_date || ""))
-        setScheduledMatches(upcoming)
-
-        // Fetch player info (names + avatars) for scheduled matches
-        if (upcoming.length > 0) {
-          const matchIds = upcoming.map((m) => m.id)
-          const players = await fetchMatchPlayers(supabase, matchIds)
-          setMatchPlayersMap(players)
-        }
-
-        // Fetch past matches (completed rounds)
-        const { data: pastData } = await supabase.rpc("get_player_round_history", {
-          p_user_id: userId,
-        })
-        if (pastData) {
-          const approved = (pastData as PastMatch[]).filter((r) => r.score_status === "approved")
-          setPastMatches(approved)
-
-          // Fetch player info + scores for past matches
-          if (approved.length > 0) {
-            const pastIds = approved.map((r) => r.match_id)
-            const pastPlayers = await fetchMatchPlayersWithScores(supabase, pastIds)
-            setPastMatchPlayersMap(pastPlayers)
-          }
-        }
+        // Scheduled + past match lists moved to /profile/matches — see the
+        // "See all matches" link inside WeekCalendarCard. We no longer fetch
+        // or render those here on /profile.
 
         // Fetch activity feed. Pull 30 so that after filtering out the
         // viewer's own actions we still have a healthy carousel. (On your
@@ -653,19 +592,10 @@ export default function ProfilePage() {
         {/* 4. Activity Feed — Carousel */}
         <ActivityFeedCarousel events={activityFeed} />
 
-        {/* 5. Scheduled Matches — Carousel */}
-        <MatchCarousel
-          matches={scheduledMatches}
-          matchPlayersMap={matchPlayersMap}
-        />
+        {/* Scheduled + Past matches lists moved to /profile/matches
+            (reached via the "See all matches" link inside WeekCalendarCard) */}
 
-        {/* 6. Past Matches — Carousel */}
-        <PastMatchCarousel
-          matches={pastMatches}
-          matchPlayersMap={pastMatchPlayersMap}
-        />
-
-        {/* 7. Courses played — collection */}
+        {/* 5. Courses played — collection */}
         <CoursesCard courses={courses} />
 
         {/* 8. My Leagues — Carousel */}

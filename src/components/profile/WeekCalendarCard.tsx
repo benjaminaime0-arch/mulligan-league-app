@@ -260,6 +260,30 @@ export function WeekCalendarCard({
             </p>
           )}
 
+          {/* "See all matches" — routes to /profile/matches (Scheduled + Past tabs) */}
+          <div className="mt-3 flex justify-center">
+            <Link
+              href="/profile/matches"
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-primary/60 underline-offset-4 hover:text-primary hover:underline"
+            >
+              See all matches
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="9 6 15 12 9 18" />
+              </svg>
+            </Link>
+          </div>
+
 
           {/* Tile reflects the selected day */}
           <div className="mt-4">
