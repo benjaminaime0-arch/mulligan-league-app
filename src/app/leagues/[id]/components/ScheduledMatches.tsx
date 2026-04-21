@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Avatar } from "@/components/Avatar"
 import type { Match, League, MatchPlayer } from "../types"
 
@@ -45,7 +44,6 @@ function MatchCard({
   league: League
   matchPlayers?: MatchPlayer[]
 }) {
-  const router = useRouter()
   const isCompleted = match.status === "completed"
   const dateLabel = match.match_date
     ? new Date(match.match_date).toLocaleDateString(undefined, {
@@ -53,6 +51,7 @@ function MatchCard({
         day: "numeric",
       })
     : "Date TBA"
+  const courseLabel = match.course_name || league.course_name
 
   // Sort completed matches by score (lowest first, nulls last)
   const sorted = matchPlayers
@@ -69,32 +68,67 @@ function MatchCard({
   return (
     <Link
       href={`/matches/${match.id}`}
-      className="block rounded-lg bg-white px-4 py-4 text-center text-primary"
+      className="block rounded-lg bg-white px-4 py-4 text-center text-primary transition-colors hover:bg-cream/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
     >
-      <div className="flex items-center justify-center gap-3">
+      {/* Completed badge sits above the avatar stack so it doesn't collide
+          with the metadata line below. */}
+      {isCompleted && (
+        <div className="mb-2 flex justify-center">
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Completed
+          </span>
+        </div>
+      )}
+
+      <div className="flex items-start justify-center gap-3">
         {sorted.length > 0 ? (
           sorted.map((p, i) => (
-            <div
-              key={i}
-              className="flex flex-col items-center gap-0.5"
-              onClick={(e) => {
-                if (p.user_id) {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  router.push(`/players/${p.user_id}`)
-                }
-              }}
-            >
-              <Avatar src={p.avatar_url} size={28} fallback={p.name} />
-              <span className={`text-[11px] font-semibold ${p.user_id ? "hover:underline cursor-pointer" : ""}`}>
+            <div key={i} className="flex flex-col items-center gap-1">
+              <div className="relative">
+                <Avatar src={p.avatar_url} size={32} fallback={p.name} />
+                {p.isBestScore && (
+                  <span
+                    className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-white"
+                    aria-label="Best score"
+                    title="Counts toward leaderboard"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="8"
+                      height="8"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </span>
+                )}
+              </div>
+              <span className="max-w-[64px] truncate text-[11px] font-semibold text-primary/80">
                 {p.name}
               </span>
               {p.score != null && (
                 <span
-                  className={`text-xs font-bold ${
-                    p.isBestScore
-                      ? "text-emerald-600"
-                      : "text-primary/70"
+                  className={`text-sm font-bold tabular-nums ${
+                    p.isBestScore ? "text-emerald-600" : "text-primary/70"
                   }`}
                 >
                   {p.score}
@@ -104,21 +138,15 @@ function MatchCard({
           ))
         ) : (
           <span className="text-base font-semibold">
-            {match.course_name || league.course_name || "Course TBA"}
+            {courseLabel || "Course TBA"}
           </span>
         )}
       </div>
-      <p className="mt-1.5 text-xs text-primary/60">
+
+      <p className="mt-2 text-xs text-primary/60">
         {dateLabel}
         {match.match_time ? ` · ${match.match_time.slice(0, 5)}` : ""}
-        {(match.course_name || league.course_name)
-          ? ` · ${match.course_name || league.course_name}`
-          : ""}
-        {isCompleted && (
-          <span className="ml-1.5 inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary/60">
-            Completed
-          </span>
-        )}
+        {courseLabel ? ` · ${courseLabel}` : ""}
       </p>
     </Link>
   )
