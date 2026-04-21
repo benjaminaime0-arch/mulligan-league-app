@@ -111,22 +111,33 @@ export function WeekCalendarCard({
     (selectedDate && week?.calendar.find((d) => d.date === selectedDate)) || null
 
   // Auto-center today's dot in the horizontal scroll strip whenever
-  // the week data loads/updates. Using scrollIntoView with inline:'center'
-  // is more reliable than manual offsetLeft math (which breaks when the
-  // scroll container isn't a positioned ancestor of the day cells).
+  // the week data loads. Using getBoundingClientRect for positioning
+  // is the most reliable approach — scrollIntoView and offsetLeft
+  // both have edge cases (offsetParent semantics, page-level scroll
+  // bleed) that broke this in previous attempts. We defer two
+  // requestAnimationFrames so layout is fully settled.
   const scrollRef = useRef<HTMLDivElement>(null)
   const todayRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (!todayRef.current) return
-    // Defer one frame so the layout is fully settled before we scroll
-    const rafId = requestAnimationFrame(() => {
-      todayRef.current?.scrollIntoView({
-        block: "nearest",
-        inline: "center",
-        behavior: "auto",
+    if (!week) return
+    let raf2 = 0
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const container = scrollRef.current
+        const today = todayRef.current
+        if (!container || !today) return
+        const cRect = container.getBoundingClientRect()
+        const tRect = today.getBoundingClientRect()
+        const todayOffset =
+          tRect.left - cRect.left + container.scrollLeft
+        const target = todayOffset - cRect.width / 2 + tRect.width / 2
+        container.scrollLeft = Math.max(0, target)
       })
     })
-    return () => cancelAnimationFrame(rafId)
+    return () => {
+      cancelAnimationFrame(raf1)
+      if (raf2) cancelAnimationFrame(raf2)
+    }
   }, [week])
 
   return (
@@ -152,7 +163,7 @@ export function WeekCalendarCard({
           <div className="flex items-end gap-2">
             <div
               ref={scrollRef}
-              className="no-scrollbar -ml-5 flex-1 overflow-x-auto pl-5 pb-1"
+              className="no-scrollbar -ml-5 min-w-0 flex-1 overflow-x-auto pl-5 pb-1"
             >
             <div className="flex gap-2">
               {(week?.calendar ?? []).map((day) => {
