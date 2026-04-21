@@ -148,22 +148,22 @@ DECLARE
   v_week_cursor DATE;
   v_has_match BOOLEAN;
 BEGIN
-  -- 7-day calendar starting TODAY and looking forward 6 days.
-  -- Each day carries the first match's full details so the UI can
-  -- treat the calendar as a day-selector.
+  -- Calendar spans 14 days back + today + 21 days forward (36 days).
+  -- Client renders as a horizontal scrollable strip centered on today.
   WITH day_matches AS (
     SELECT DISTINCT ON (m.match_date)
       m.match_date,
       m.id AS match_id,
       m.match_time,
+      m.status,
       COALESCE(m.course_name, l.course_name) AS course_name,
       l.name AS league_name
     FROM match_players mp
     JOIN matches m ON m.id = mp.match_id
     LEFT JOIN leagues l ON l.id = m.league_id
     WHERE mp.user_id = p_user_id
-      AND m.match_date >= current_date
-      AND m.match_date <= (current_date + interval '6 days')::date
+      AND m.match_date >= (current_date - interval '14 days')::date
+      AND m.match_date <= (current_date + interval '21 days')::date
     ORDER BY m.match_date, m.match_time NULLS LAST
   )
   SELECT jsonb_agg(
@@ -172,13 +172,14 @@ BEGIN
       'has_match', dm.match_id IS NOT NULL,
       'match_id', dm.match_id,
       'match_time', dm.match_time,
+      'match_status', dm.status,
       'course_name', dm.course_name,
       'league_name', dm.league_name
     ) ORDER BY d.day
   ) INTO v_calendar
   FROM generate_series(
-    current_date,
-    (current_date + interval '6 days')::date,
+    (current_date - interval '14 days')::date,
+    (current_date + interval '21 days')::date,
     '1 day'::interval
   ) AS d(day)
   LEFT JOIN day_matches dm ON dm.match_date = d.day;

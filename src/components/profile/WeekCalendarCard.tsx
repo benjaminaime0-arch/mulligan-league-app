@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 
 export interface CalendarDay {
@@ -10,6 +10,8 @@ export interface CalendarDay {
   match_id?: string | null
   /** HH:MM:SS time string or null. */
   match_time?: string | null
+  /** 'scheduled' | 'in_progress' | 'completed' — for past vs future styling. */
+  match_status?: string | null
   course_name?: string | null
   league_name?: string | null
 }
@@ -55,6 +57,20 @@ export function WeekCalendarCard({
   const selectedDay =
     (selectedDate && week?.calendar.find((d) => d.date === selectedDate)) || null
 
+  // Auto-center today's dot in the horizontal scroll strip on mount
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const todayRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!scrollRef.current || !todayRef.current) return
+    const container = scrollRef.current
+    const today = todayRef.current
+    // Center today within the scroll container (instant so user doesn't see a jump)
+    const containerWidth = container.clientWidth
+    const targetLeft =
+      today.offsetLeft - containerWidth / 2 + today.clientWidth / 2
+    container.scrollLeft = Math.max(0, targetLeft)
+  }, [week])
+
   return (
     <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
@@ -73,56 +89,73 @@ export function WeekCalendarCard({
         </div>
       ) : (
         <>
-          {/* 7-day calendar — selectable */}
-          <div className="flex justify-between gap-1">
-            {(week?.calendar ?? []).map((day) => {
-              const dateObj = new Date(day.date)
-              const letter = WEEKDAY_LETTERS[dateObj.getDay()]
-              const dayNum = dateObj.getDate()
-              const isToday = day.date === todayIso
-              const isSelected = day.date === selectedDate
-              const dateLabel = dateObj.toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "short",
-                day: "numeric",
-              })
+          {/* Horizontal scrollable calendar strip.
+              overflow-x-auto + negative horizontal margins so the strip can
+              bleed to the card edges (nicer thumb scroll). Tap a day to
+              select; swipe/scroll left or right to see past/future. */}
+          <div
+            ref={scrollRef}
+            className="no-scrollbar -mx-5 overflow-x-auto px-5 pb-1"
+          >
+            <div className="flex gap-2">
+              {(week?.calendar ?? []).map((day) => {
+                const dateObj = new Date(day.date)
+                const letter = WEEKDAY_LETTERS[dateObj.getDay()]
+                const dayNum = dateObj.getDate()
+                const isToday = day.date === todayIso
+                const isSelected = day.date === selectedDate
+                const isPast = day.date < todayIso
+                const dateLabel = dateObj.toLocaleDateString("en-US", {
+                  weekday: "long",
+                  month: "short",
+                  day: "numeric",
+                })
 
-              const circleClass = [
-                "flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-all",
-                day.has_match
-                  ? isSelected
-                    ? "bg-emerald-500 text-white ring-2 ring-emerald-500/40 ring-offset-2"
-                    : "bg-emerald-500 text-white hover:bg-emerald-600"
-                  : isSelected
-                  ? "border border-primary/40 bg-white text-primary ring-2 ring-primary/20 ring-offset-2"
-                  : isToday
-                  ? "border border-primary/30 bg-white text-primary"
-                  : "bg-primary/5 text-primary/40",
-              ].join(" ")
+                // Dot styling differs for match-on-that-day vs empty,
+                // and for past (already played/completed) vs future.
+                const circleClass = [
+                  "flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-all",
+                  day.has_match
+                    ? isSelected
+                      ? "bg-emerald-500 text-white ring-2 ring-emerald-500/40 ring-offset-2"
+                      : isPast
+                      ? "bg-emerald-500/70 text-white hover:bg-emerald-500"
+                      : "bg-emerald-500 text-white hover:bg-emerald-600"
+                    : isSelected
+                    ? "border border-primary/40 bg-white text-primary ring-2 ring-primary/20 ring-offset-2"
+                    : isToday
+                    ? "border border-primary/30 bg-white text-primary"
+                    : isPast
+                    ? "bg-primary/[0.03] text-primary/30"
+                    : "bg-primary/5 text-primary/40",
+                ].join(" ")
 
-              const labelClass = `text-[10px] font-medium uppercase tracking-wide ${
-                isToday ? "text-primary" : "text-primary/40"
-              }`
+                const labelClass = `text-[10px] font-medium uppercase tracking-wide ${
+                  isToday ? "text-primary" : "text-primary/40"
+                }`
 
-              return (
-                <div
-                  key={day.date}
-                  className="flex min-w-0 flex-1 flex-col items-center gap-1"
-                >
-                  <span className={labelClass}>{letter}</span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDate(day.date)}
-                    className={`${circleClass} focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}
-                    aria-label={`${dateLabel}${day.has_match ? " — match scheduled" : ""}`}
-                    aria-pressed={isSelected}
+                return (
+                  <div
+                    key={day.date}
+                    ref={isToday ? todayRef : undefined}
+                    className="flex min-w-[42px] shrink-0 flex-col items-center gap-1"
                   >
-                    {dayNum}
-                  </button>
-                </div>
-              )
-            })}
+                    <span className={labelClass}>{letter}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDate(day.date)}
+                      className={`${circleClass} focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}
+                      aria-label={`${dateLabel}${day.has_match ? " — match" : ""}`}
+                      aria-pressed={isSelected}
+                    >
+                      {dayNum}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
           </div>
+
 
           {/* Tile reflects the selected day */}
           <div className="mt-4">
