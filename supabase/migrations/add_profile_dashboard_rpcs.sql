@@ -149,23 +149,39 @@ DECLARE
   v_has_match BOOLEAN;
 BEGIN
   -- 7-day calendar starting TODAY and looking forward 6 days.
-  -- Each day: does the user have a match on that day (usually
-  -- scheduled, since we're looking at today + future)?
+  -- Each day carries the first match's full details so the UI can
+  -- treat the calendar as a day-selector.
+  WITH day_matches AS (
+    SELECT DISTINCT ON (m.match_date)
+      m.match_date,
+      m.id AS match_id,
+      m.match_time,
+      COALESCE(m.course_name, l.course_name) AS course_name,
+      l.name AS league_name
+    FROM match_players mp
+    JOIN matches m ON m.id = mp.match_id
+    LEFT JOIN leagues l ON l.id = m.league_id
+    WHERE mp.user_id = p_user_id
+      AND m.match_date >= current_date
+      AND m.match_date <= (current_date + interval '6 days')::date
+    ORDER BY m.match_date, m.match_time NULLS LAST
+  )
   SELECT jsonb_agg(
     jsonb_build_object(
       'date', d.day,
-      'has_match', EXISTS (
-        SELECT 1 FROM match_players mp
-        JOIN matches m ON m.id = mp.match_id
-        WHERE mp.user_id = p_user_id AND m.match_date = d.day
-      )
+      'has_match', dm.match_id IS NOT NULL,
+      'match_id', dm.match_id,
+      'match_time', dm.match_time,
+      'course_name', dm.course_name,
+      'league_name', dm.league_name
     ) ORDER BY d.day
   ) INTO v_calendar
   FROM generate_series(
     current_date,
     (current_date + interval '6 days')::date,
     '1 day'::interval
-  ) AS d(day);
+  ) AS d(day)
+  LEFT JOIN day_matches dm ON dm.match_date = d.day;
 
   -- Current streak: consecutive weeks (back from this week) with >=1 match
   v_week_cursor := date_trunc('week', current_date)::date;
