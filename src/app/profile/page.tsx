@@ -13,6 +13,9 @@ import AvatarCropModal from "@/components/AvatarCropModal"
 import { PushNotificationToggle } from "@/components/PushNotificationToggle"
 import { NotificationPreferences } from "@/components/NotificationPreferences"
 import { ConfirmModal } from "@/components/ConfirmModal"
+import { RecordsCard, type RecordsData } from "@/components/profile/RecordsCard"
+import { WeekCalendarCard, type WeekStatsData } from "@/components/profile/WeekCalendarCard"
+import { CoursesCard, type CoursePlay } from "@/components/profile/CoursesCard"
 
 type Profile = {
   id: string
@@ -116,6 +119,9 @@ export default function ProfilePage() {
   const [pastMatchPlayersMap, setPastMatchPlayersMap] = useState<Map<string | number, MatchPlayerWithScore[]>>(new Map())
   const [activityFeed, setActivityFeed] = useState<ActivityEvent[]>([])
   const [matchesPlayed, setMatchesPlayed] = useState(0)
+  const [records, setRecords] = useState<RecordsData | null>(null)
+  const [weekStats, setWeekStats] = useState<WeekStatsData | null>(null)
+  const [courses, setCourses] = useState<CoursePlay[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [logoutLoading, setLogoutLoading] = useState(false)
@@ -303,6 +309,22 @@ export default function ProfilePage() {
             .filter((ev) => ev.actor_id !== userId)
             .slice(0, 20)
           setActivityFeed(mapped)
+        }
+
+        // Fetch dashboard stats in parallel: records, week, courses
+        const [recordsRes, weekRes, coursesRes] = await Promise.all([
+          supabase.rpc("get_profile_records", { p_user_id: userId }),
+          supabase.rpc("get_profile_week", { p_user_id: userId }),
+          supabase.rpc("get_profile_courses", { p_user_id: userId }),
+        ])
+        if (!recordsRes.error && recordsRes.data) {
+          setRecords(recordsRes.data as RecordsData)
+        }
+        if (!weekRes.error && weekRes.data) {
+          setWeekStats(weekRes.data as WeekStatsData)
+        }
+        if (!coursesRes.error && coursesRes.data) {
+          setCourses(coursesRes.data as CoursePlay[])
         }
 
         if (scoresCountRes.error) throw scoresCountRes.error
@@ -613,22 +635,31 @@ export default function ProfilePage() {
           )}
         </section>
 
-        {/* 2. Activity Feed — Carousel */}
+        {/* 2. This week — streak + 7-day calendar + next match CTA */}
+        <WeekCalendarCard week={weekStats} />
+
+        {/* 3. Records — best round, top rival, longest streak */}
+        <RecordsCard records={records} />
+
+        {/* 4. Activity Feed — Carousel */}
         <ActivityFeedCarousel events={activityFeed} />
 
-        {/* 3. Scheduled Matches — Carousel */}
+        {/* 5. Scheduled Matches — Carousel */}
         <MatchCarousel
           matches={scheduledMatches}
           matchPlayersMap={matchPlayersMap}
         />
 
-        {/* 4. Past Matches — Carousel */}
+        {/* 6. Past Matches — Carousel */}
         <PastMatchCarousel
           matches={pastMatches}
           matchPlayersMap={pastMatchPlayersMap}
         />
 
-        {/* 5. My Leagues — Carousel */}
+        {/* 7. Courses played — collection */}
+        <CoursesCard courses={courses} />
+
+        {/* 8. My Leagues — Carousel */}
         <LeagueCarousel leagues={enrichedLeagues} />
 
         {/* 6. Notifications — master toggle + per-type preferences (collapsed) */}
