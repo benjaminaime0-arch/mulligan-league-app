@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { Logo } from "@/components/Logo"
 import { Avatar } from "@/components/Avatar"
 import { NotificationBell } from "@/components/NotificationBell"
+import { NotificationReadSync } from "@/components/NotificationReadSync"
 import { supabase } from "@/lib/supabase"
 
 const authFreeRoutes = ["/", "/login", "/signup"]
@@ -51,6 +52,9 @@ export function Navbar() {
 
   return (
     <>
+      {/* Mount the ?n= → mark-as-read sync once per authenticated session */}
+      <NotificationReadSync />
+
       {/* Desktop top nav */}
       <header className="sticky top-0 z-40 hidden border-b border-primary/10 bg-white/95 backdrop-blur md:block">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
@@ -185,16 +189,20 @@ export function Navbar() {
           {/* Profile */}
           <Link
             href="/profile"
-            className="flex min-h-[44px] min-w-[52px] flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1"
+            className="relative flex min-h-[44px] min-w-[52px] flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1"
           >
+            <span
+              className={`absolute top-0 h-[3px] w-6 rounded-full bg-primary transition-opacity ${
+                isActive("/profile") ? "opacity-100" : "opacity-0"
+              }`}
+            />
             <Avatar
               src={avatarUrl}
               alt="Profile"
               size={22}
               fallback="U"
-              className={isActive("/profile") ? "ring-2 ring-primary ring-offset-1" : ""}
             />
-            <span className={`text-[10px] font-medium ${isActive("/profile") ? "text-primary" : "text-primary/50"}`}>
+            <span className={`text-[10px] font-medium ${isActive("/profile") ? "text-primary" : "text-primary/40"}`}>
               Profile
             </span>
           </Link>
@@ -222,12 +230,17 @@ function MobileNavTab({
   return (
     <Link
       href={href}
-      className="flex min-h-[44px] min-w-[52px] flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 active:bg-primary/5 transition-colors"
+      className="relative flex min-h-[44px] min-w-[52px] flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 active:bg-primary/5 transition-colors"
     >
+      <span
+        className={`absolute top-0 h-[3px] w-6 rounded-full bg-primary transition-opacity ${
+          active ? "opacity-100" : "opacity-0"
+        }`}
+      />
       <span className="flex h-6 w-6 items-center justify-center">
         {active ? activeIcon : icon}
       </span>
-      <span className={`text-[10px] font-medium ${active ? "text-primary" : "text-primary/50"}`}>
+      <span className={`text-[10px] font-medium ${active ? "text-primary" : "text-primary/40"}`}>
         {label}
       </span>
     </Link>

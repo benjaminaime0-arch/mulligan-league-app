@@ -1,5 +1,14 @@
 // Mulligan League — Push Notification Service Worker
 
+// Take control ASAP on install/activate so users don't run stale SW versions.
+self.addEventListener("install", (event) => {
+  event.waitUntil(self.skipWaiting())
+})
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim())
+})
+
 self.addEventListener("push", (event) => {
   if (!event.data) return
 
@@ -15,7 +24,8 @@ self.addEventListener("push", (event) => {
     body: payload.body || "",
     icon: "/logo-mark.png",
     badge: "/logo-mark.png",
-    tag: payload.tag || "mulligan-notification",
+    // Use the notification id as the tag when available so the OS can collapse duplicates
+    tag: payload.tag || payload.data?.notification_id || "mulligan-notification",
     data: payload.data || {},
     vibrate: [100, 50, 100],
   }
@@ -33,21 +43,53 @@ self.addEventListener("notificationclick", (event) => {
     url = `/matches/${data.match_id}`
   } else if (data.league_id) {
     url = `/leagues/${data.league_id}`
+  } else if (data.new_member_id) {
+    url = `/players/${data.new_member_id}`
+  }
+
+  // Append notification_id so the client can mark it read on arrival.
+  if (data.notification_id) {
+    const sep = url.includes("?") ? "&" : "?"
+    url = `${url}${sep}n=${encodeURIComponent(data.notification_id)}`
   }
 
   event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
-      // Focus existing tab if found
-      for (const client of windowClients) {
-        if (client.url.includes(self.location.origin) && "focus" in client) {
-          client.navigate(url)
-          return client.focus()
+    (async () => {
+      const windowClients = await clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      })
+
+      // Prefer a visible tab already on our origin.
+      const visible = windowClients.find(
+        (c) =>
+          c.url.startsWith(self.location.origin) &&
+          c.visibilityState === "visible",
+      )
+
+      // Otherwise, any tab that already has the target URL open.
+      const alreadyOnTarget = windowClients.find(
+        (c) => c.url.startsWith(self.location.origin) && c.url.endsWith(url),
+      )
+
+      const target = alreadyOnTarget || visible
+
+      if (target && "focus" in target) {
+        try {
+          // Only navigate when not already at the URL (avoids reloading into same route).
+          if (!target.url.endsWith(url) && "navigate" in target) {
+            await target.navigate(url)
+          }
+          return target.focus()
+        } catch {
+          // fall through to openWindow below
         }
       }
-      // Otherwise open a new tab
+
+      // No suitable existing tab → open a new one.
       if (clients.openWindow) {
         return clients.openWindow(url)
       }
-    }),
+    })(),
   )
 })

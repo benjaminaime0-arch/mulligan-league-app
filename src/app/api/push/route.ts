@@ -1,31 +1,39 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-const webpush = require("web-push") as {
-  setVapidDetails: (subject: string, publicKey: string, privateKey: string) => void
-  sendNotification: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }, payload: string) => Promise<unknown>
+
+// web-push ships CJS and has no bundled types. Keep the require but pin a
+// precise local type so callers get real inference.
+type PushSubscription = {
+  endpoint: string
+  keys: { p256dh: string; auth: string }
 }
+type WebPush = {
+  setVapidDetails: (subject: string, publicKey: string, privateKey: string) => void
+  sendNotification: (sub: PushSubscription, payload: string) => Promise<unknown>
+}
+const webpush = require("web-push") as WebPush
 
 /**
  * POST /api/push
  *
- * Sends web push notifications for a given notification record.
- * Called by a Supabase webhook on notifications INSERT, or can be
- * called manually.
+ * Sends web-push notifications for a given notification record.
+ * Invoked by a Supabase Database Webhook on notifications INSERT
+ * (configured in the Supabase Dashboard, not here). Can also be
+ * called manually for smoke-tests.
  *
- * Expected body:
- * {
- *   "type": "INSERT",
- *   "record": { "id", "user_id", "type", "title", "body", "data" }
- * }
+ * Expected body (either shape):
+ *   { "record": { ...notifications row } }
+ *   { ...notifications row }
  *
- * Requires env vars:
- *   SUPABASE_SERVICE_ROLE_KEY — to read push_subscriptions
- *   VAPID_PRIVATE_KEY — for web-push signing
- *   NEXT_PUBLIC_VAPID_PUBLIC_KEY — for web-push signing
+ * Required env vars:
+ *   SUPABASE_SERVICE_ROLE_KEY    — read push_subscriptions
+ *   VAPID_PRIVATE_KEY            — web-push signing
+ *   NEXT_PUBLIC_VAPID_PUBLIC_KEY — web-push signing
+ *   PUSH_WEBHOOK_SECRET          — optional; if set, the webhook must
+ *                                  send Authorization: Bearer <secret>
  */
-
 export async function POST(request: NextRequest) {
-  // Verify webhook secret
+  // Verify webhook secret (optional but recommended)
   const webhookSecret = process.env.PUSH_WEBHOOK_SECRET
   if (webhookSecret) {
     const authHeader = request.headers.get("authorization")
@@ -54,7 +62,45 @@ export async function POST(request: NextRequest) {
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
 
-    // Get user's push subscriptions
+    // ── Rapid-fire throttle ─────────────────────────────────────
+    // If the user already received 3+ notifications in the last 60
+    // seconds (not counting this one), skip the OS push to avoid
+    // buzzing them to death. The in-app notification still exists
+    // in the database and will appear in the bell when they check.
+    const throttleWindowMs = 60_000
+    const throttleThreshold = 3
+    const sinceIso = new Date(Date.now() - throttleWindowMs).toISOString()
+    const { count: recentCount } = await supabaseAdmin
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", record.user_id)
+      .gte("created_at", sinceIso)
+      .neq("id", record.id)
+
+    if (recentCount != null && recentCount >= throttleThreshold) {
+      return NextResponse.json({
+        sent: 0,
+        reason: "Throttled (rapid-fire)",
+        recentCount,
+      })
+    }
+
+    // ── Per-type preference check ───────────────────────────────
+    // User may have muted this notification type. Defaults to true
+    // if no preference row exists.
+    if (record.type) {
+      const { data: pushAllowed } = await supabaseAdmin.rpc("should_send_push", {
+        p_user_id: record.user_id,
+        p_type: record.type,
+      })
+      if (pushAllowed === false) {
+        return NextResponse.json({
+          sent: 0,
+          reason: "User muted this notification type",
+        })
+      }
+    }
+
     const { data: subscriptions, error } = await supabaseAdmin
       .from("push_subscriptions")
       .select("endpoint, p256dh, auth")
@@ -79,11 +125,17 @@ export async function POST(request: NextRequest) {
       vapidPrivate,
     )
 
+    // Bundle the notification_id into the payload so the SW can use it for
+    // OS-level tag dedupe (and future deep-link read-tracking).
     const payload = JSON.stringify({
       title: record.title,
       body: record.body || "",
       tag: record.type || "notification",
-      data: record.data || {},
+      data: {
+        ...(record.data || {}),
+        notification_id: record.id,
+        type: record.type,
+      },
     })
 
     let sent = 0

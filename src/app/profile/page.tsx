@@ -11,6 +11,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner"
 import { Avatar } from "@/components/Avatar"
 import AvatarCropModal from "@/components/AvatarCropModal"
 import { PushNotificationToggle } from "@/components/PushNotificationToggle"
+import { NotificationPreferences } from "@/components/NotificationPreferences"
 import { ConfirmModal } from "@/components/ConfirmModal"
 
 type Profile = {
@@ -623,6 +624,18 @@ export default function ProfilePage() {
 
         {/* 5. My Leagues — Carousel */}
         <LeagueCarousel leagues={enrichedLeagues} />
+
+        {/* 6. Notifications — master toggle + per-type preferences */}
+        <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold text-primary">Notifications</h2>
+          <PushNotificationToggle />
+          <div className="mt-4 border-t border-primary/10 pt-4">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-primary/40">
+              Per-type preferences
+            </p>
+            <NotificationPreferences />
+          </div>
+        </section>
 
         {/* Log Out */}
         <div className="flex justify-center py-2">
