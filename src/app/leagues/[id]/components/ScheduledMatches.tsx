@@ -212,9 +212,34 @@ export function ScheduledMatches({ matches, league, matchPlayersMap }: Scheduled
           </Link>
         </div>
         {upcoming.length === 0 ? (
-          <p className="text-center text-sm text-primary/70">
-            No matches scheduled yet. Create one to get the week rolling.
-          </p>
+          <div className="flex flex-col items-center justify-center py-4 text-center">
+            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-primary/40"
+                aria-hidden="true"
+              >
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            </div>
+            <p className="text-sm font-medium text-primary/70">
+              No matches scheduled yet
+            </p>
+            <p className="mt-0.5 text-xs text-primary/40">
+              Create one to get the week rolling.
+            </p>
+          </div>
         ) : (
           <MatchCarousel items={upcoming} league={league} matchPlayersMap={matchPlayersMap} />
         )}
@@ -222,23 +247,46 @@ export function ScheduledMatches({ matches, league, matchPlayersMap }: Scheduled
 
       {/* Past Matches */}
       <div className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-baseline justify-between">
+        <div className="mb-4">
           <h2 className="text-sm font-semibold text-primary">Past Matches</h2>
-          {past.length > 0 && (
-            <p className="text-[10px] text-primary/40">
-              <span className="font-semibold text-emerald-600">Green</span> ={" "}
-              {league.scoring_cards_count
-                ? `${league.scoring_cards_count} best cards counted`
-                : "counted toward leaderboard"}
-            </p>
-          )}
         </div>
         {past.length === 0 ? (
-          <p className="text-center text-sm text-primary/70">
-            No completed matches yet.
-          </p>
+          <div className="flex flex-col items-center justify-center py-4 text-center">
+            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-primary/40"
+                aria-hidden="true"
+              >
+                <path d="M12 8v4l3 3" />
+                <circle cx="12" cy="12" r="10" />
+              </svg>
+            </div>
+            <p className="text-sm font-medium text-primary/70">
+              No completed matches yet
+            </p>
+            <p className="mt-0.5 text-xs text-primary/40">
+              Results will appear here once scores are approved.
+            </p>
+          </div>
         ) : (
-          <MatchCarousel items={past} league={league} matchPlayersMap={matchPlayersMap} />
+          <>
+            {league.scoring_cards_count && (
+              <div className="mb-3 flex items-center justify-center gap-1.5 text-[11px] text-primary/50">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span>Best {league.scoring_cards_count} cards count toward leaderboard</span>
+              </div>
+            )}
+            <MatchCarousel items={past} league={league} matchPlayersMap={matchPlayersMap} />
+          </>
         )}
       </div>
     </>
