@@ -278,24 +278,30 @@ export default function ProfilePage() {
           }
         }
 
-        // Fetch activity feed
+        // Fetch activity feed. Pull 30 so that after filtering out the
+        // viewer's own actions we still have a healthy carousel. (On your
+        // own profile we only show what OTHERS are doing in your leagues.)
         const { data: activityData } = await supabase.rpc("get_activity_feed", {
           p_user_id: userId,
-          p_limit: 20,
+          p_limit: 30,
         })
         if (activityData) {
-          // Map out_ prefixed columns from RPC to clean names
-          const mapped = (activityData as Array<Record<string, unknown>>).map((r) => ({
-            id: r.out_id as string,
-            event_type: r.out_event_type as string,
-            league_id: (r.out_league_id as string) || null,
-            actor_id: r.out_actor_id as string,
-            match_id: (r.out_match_id as string) || null,
-            metadata: (r.out_metadata as Record<string, string | number | null>) || {},
-            created_at: r.out_created_at as string,
-            actor_name: r.out_actor_name as string,
-            actor_avatar_url: (r.out_actor_avatar_url as string) || null,
-          }))
+          // Map out_ prefixed columns from RPC to clean names, and hide
+          // activity events authored by the current user.
+          const mapped = (activityData as Array<Record<string, unknown>>)
+            .map((r) => ({
+              id: r.out_id as string,
+              event_type: r.out_event_type as string,
+              league_id: (r.out_league_id as string) || null,
+              actor_id: r.out_actor_id as string,
+              match_id: (r.out_match_id as string) || null,
+              metadata: (r.out_metadata as Record<string, string | number | null>) || {},
+              created_at: r.out_created_at as string,
+              actor_name: r.out_actor_name as string,
+              actor_avatar_url: (r.out_actor_avatar_url as string) || null,
+            }))
+            .filter((ev) => ev.actor_id !== userId)
+            .slice(0, 20)
           setActivityFeed(mapped)
         }
 
