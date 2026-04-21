@@ -56,10 +56,11 @@ CREATE POLICY "Users can update their own notifications"
   ON notifications FOR UPDATE
   USING (auth.uid() = user_id);
 
--- Allow the trigger functions (SECURITY DEFINER) to insert
-CREATE POLICY "System can insert notifications"
+-- Block direct client inserts. SECURITY DEFINER trigger functions
+-- bypass RLS by design and continue to work.
+CREATE POLICY "Block direct client inserts on notifications"
   ON notifications FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (false);
 
 -- ============================================================
 -- 4. RLS policies for push_subscriptions
@@ -201,6 +202,7 @@ DROP TRIGGER IF EXISTS trg_score_approved ON match_players;
 CREATE TRIGGER trg_score_approved
   AFTER UPDATE ON match_players
   FOR EACH ROW
+  WHEN (OLD.approved_at IS DISTINCT FROM NEW.approved_at)
   EXECUTE FUNCTION notify_score_approved();
 
 -- ============================================================
@@ -308,62 +310,52 @@ CREATE TRIGGER trg_league_member_joined
 -- 10. Trigger: new match scheduled → notify league members
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION notify_match_scheduled()
+-- Fires per match_players INSERT so each newly-added player gets
+-- exactly one "you've been added to a match" notification.
+-- The previous design (fire on matches INSERT) was broken because
+-- match_players rows are inserted in a second statement — the
+-- function body looped over an empty set and nobody was notified.
+CREATE OR REPLACE FUNCTION notify_match_player_added()
 RETURNS TRIGGER AS $$
 DECLARE
-  v_creator_name TEXT;
-  v_league RECORD;
-  v_member RECORD;
+  v_match RECORD;
 BEGIN
-  -- Only notify for league matches (not casual)
-  IF NEW.league_id IS NULL THEN RETURN NEW; END IF;
+  SELECT m.status, m.course_name, m.league_id, m.match_date, m.created_by,
+         l.name AS league_name
+  INTO v_match
+  FROM matches m
+  LEFT JOIN leagues l ON l.id = m.league_id
+  WHERE m.id = NEW.match_id;
 
-  -- Get creator name
-  SELECT COALESCE(p.username, p.first_name, 'Someone') INTO v_creator_name
-  FROM profiles p WHERE p.id = NEW.created_by;
+  IF NOT FOUND THEN RETURN NEW; END IF;
+  IF v_match.status IS DISTINCT FROM 'scheduled' THEN RETURN NEW; END IF;
+  IF v_match.league_id IS NULL THEN RETURN NEW; END IF;
+  IF NEW.user_id = v_match.created_by THEN RETURN NEW; END IF;
 
-  -- Get league info
-  SELECT l.id, l.name INTO v_league
-  FROM leagues l WHERE l.id = NEW.league_id;
-
-  IF v_league IS NULL THEN RETURN NEW; END IF;
-
-  -- Notify match players (except creator)
-  FOR v_member IN
-    SELECT mp.user_id
-    FROM match_players mp
-    WHERE mp.match_id = NEW.id
-      AND mp.user_id != NEW.created_by
-  LOOP
-    PERFORM create_notification(
-      v_member.user_id,
-      'match_scheduled',
-      'New match scheduled',
-      v_creator_name || ' scheduled a match at ' || COALESCE(NEW.course_name, 'TBA') ||
-        ' in ' || v_league.name,
-      jsonb_build_object(
-        'match_id', NEW.id,
-        'league_id', NEW.league_id,
-        'league_name', v_league.name,
-        'match_date', NEW.match_date
-      )
-    );
-  END LOOP;
+  PERFORM create_notification(
+    NEW.user_id,
+    'match_scheduled',
+    'You''ve been added to a match',
+    'In ' || COALESCE(v_match.league_name, 'your league') ||
+      ' at ' || COALESCE(v_match.course_name, 'TBA') ||
+      ' on ' || COALESCE(to_char(v_match.match_date, 'Mon DD'), 'TBA'),
+    jsonb_build_object(
+      'match_id', NEW.match_id,
+      'league_id', v_match.league_id,
+      'league_name', v_match.league_name,
+      'match_date', v_match.match_date
+    )
+  );
 
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Note: match_players are inserted AFTER the match, so we trigger on match_players insert
--- But we already have the member_joined trigger on league_members.
--- For match scheduling, let's use a slightly different approach:
--- We fire when a match with status='scheduled' is created.
-DROP TRIGGER IF EXISTS trg_match_scheduled ON matches;
-CREATE TRIGGER trg_match_scheduled
-  AFTER INSERT ON matches
+DROP TRIGGER IF EXISTS trg_match_player_added ON match_players;
+CREATE TRIGGER trg_match_player_added
+  AFTER INSERT ON match_players
   FOR EACH ROW
-  WHEN (NEW.status = 'scheduled' AND NEW.league_id IS NOT NULL)
-  EXECUTE FUNCTION notify_match_scheduled();
+  EXECUTE FUNCTION notify_match_player_added();
 
 -- ============================================================
 -- 11. RPC: mark notifications as read
@@ -412,19 +404,21 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 --
 -- Run this migration in your Supabase SQL Editor.
 --
--- The notification types are:
+-- The notification types (plus join_* types from
+-- add_join_requests_system.sql) are:
 --   score_submitted   - Someone submitted scores for a match you're in
 --   score_approved    - Someone approved scores for a match you're in
 --   match_completed   - All players approved, match is finalized
 --   member_joined     - A new player joined your league
---   match_scheduled   - A new match was scheduled in your league
+--   match_scheduled   - You were added to a scheduled league match
+--   join_request      - Someone wants to join your league/match (admin)
+--   join_approved     - Your join request was accepted
+--   join_rejected     - Your join request was declined
 --
 -- Each notification has a `data` JSONB field with relevant IDs
--- for navigation (match_id, league_id, etc.)
+-- for navigation (match_id, league_id, request_id, etc.)
 --
--- The match_scheduled trigger fires on match INSERT, but at that
--- point match_players may not exist yet. The notification goes to
--- match_players, so it may need to be adjusted if players are
--- added after match creation. An alternative is to notify all
--- league members instead.
+-- Dispatch to Web Push is handled by /api/push, invoked via a
+-- Supabase Database Webhook on notifications INSERT (configured
+-- in the Supabase Dashboard, not here).
 -- ============================================================

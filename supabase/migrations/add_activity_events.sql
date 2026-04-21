@@ -37,9 +37,11 @@ CREATE POLICY "Members can view league activity"
     )
   );
 
-CREATE POLICY "Authenticated users can insert activity"
+-- Block direct client inserts. All legitimate activity inserts happen via
+-- SECURITY DEFINER triggers below; they bypass RLS by design.
+CREATE POLICY "Block direct client inserts on activity_events"
   ON activity_events FOR INSERT
-  WITH CHECK (auth.uid() IS NOT NULL);
+  WITH CHECK (false);
 
 -- ============================================================
 -- 3. Trigger: player_joined_league
