@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/hooks/useAuth"
 
 export interface CalendarDay {
   date: string // ISO yyyy-mm-dd
@@ -35,7 +38,57 @@ export function WeekCalendarCard({
   week,
   loading = false,
 }: WeekCalendarCardProps) {
+  const router = useRouter()
+  const { user } = useAuth()
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), [])
+  const [dateJumpMessage, setDateJumpMessage] = useState<string | null>(null)
+  const dateInputRef = useRef<HTMLInputElement>(null)
+
+  /**
+   * Calendar-icon flow: user taps the icon → native date picker opens →
+   * onChange fires. We query get_user_match_on_date; if there's a match
+   * for the user on that date we navigate to it, otherwise we set a brief
+   * message under the strip.
+   */
+  const handleDatePicked = async (iso: string) => {
+    if (!user) return
+    setDateJumpMessage("Looking up…")
+    const { data, error } = await supabase.rpc("get_user_match_on_date", {
+      p_user_id: user.id,
+      p_date: iso,
+    })
+    if (error) {
+      setDateJumpMessage("Couldn't load that date.")
+      return
+    }
+    if (data) {
+      router.push(`/matches/${data as string}`)
+    } else {
+      const d = new Date(iso).toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      })
+      setDateJumpMessage(`No match on ${d}`)
+      // Clear after a moment so the strip looks clean again
+      setTimeout(() => setDateJumpMessage(null), 2500)
+    }
+  }
+
+  const handleCalendarIconClick = () => {
+    const input = dateInputRef.current
+    if (!input) return
+    // showPicker() is the modern API; fall back to .click() for older browsers
+    if (typeof input.showPicker === "function") {
+      try {
+        input.showPicker()
+        return
+      } catch {
+        // fall through
+      }
+    }
+    input.click()
+  }
 
   // Track which calendar day is selected. Default: today (if it has a match),
   // else the first future day that has a match, else null.
@@ -57,18 +110,23 @@ export function WeekCalendarCard({
   const selectedDay =
     (selectedDate && week?.calendar.find((d) => d.date === selectedDate)) || null
 
-  // Auto-center today's dot in the horizontal scroll strip on mount
+  // Auto-center today's dot in the horizontal scroll strip whenever
+  // the week data loads/updates. Using scrollIntoView with inline:'center'
+  // is more reliable than manual offsetLeft math (which breaks when the
+  // scroll container isn't a positioned ancestor of the day cells).
   const scrollRef = useRef<HTMLDivElement>(null)
   const todayRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (!scrollRef.current || !todayRef.current) return
-    const container = scrollRef.current
-    const today = todayRef.current
-    // Center today within the scroll container (instant so user doesn't see a jump)
-    const containerWidth = container.clientWidth
-    const targetLeft =
-      today.offsetLeft - containerWidth / 2 + today.clientWidth / 2
-    container.scrollLeft = Math.max(0, targetLeft)
+    if (!todayRef.current) return
+    // Defer one frame so the layout is fully settled before we scroll
+    const rafId = requestAnimationFrame(() => {
+      todayRef.current?.scrollIntoView({
+        block: "nearest",
+        inline: "center",
+        behavior: "auto",
+      })
+    })
+    return () => cancelAnimationFrame(rafId)
   }, [week])
 
   return (
@@ -89,14 +147,13 @@ export function WeekCalendarCard({
         </div>
       ) : (
         <>
-          {/* Horizontal scrollable calendar strip.
-              overflow-x-auto + negative horizontal margins so the strip can
-              bleed to the card edges (nicer thumb scroll). Tap a day to
-              select; swipe/scroll left or right to see past/future. */}
-          <div
-            ref={scrollRef}
-            className="no-scrollbar -mx-5 overflow-x-auto px-5 pb-1"
-          >
+          {/* Horizontal scrollable calendar strip + calendar icon for the
+              date-picker escape hatch. */}
+          <div className="flex items-end gap-2">
+            <div
+              ref={scrollRef}
+              className="no-scrollbar -ml-5 flex-1 overflow-x-auto pl-5 pb-1"
+            >
             <div className="flex gap-2">
               {(week?.calendar ?? []).map((day) => {
                 const dateObj = new Date(day.date)
@@ -154,7 +211,43 @@ export function WeekCalendarCard({
                 )
               })}
             </div>
+            </div>
+
+            {/* Calendar icon — opens native date picker to jump to any date */}
+            <div className="flex shrink-0 flex-col items-center gap-1">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-primary/40">
+                &nbsp;
+              </span>
+              <button
+                type="button"
+                onClick={handleCalendarIconClick}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/20 bg-white text-primary/60 transition-colors hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                aria-label="Jump to a specific date"
+              >
+                <CalendarIcon />
+              </button>
+              {/* Hidden native date input, triggered by the button above */}
+              <input
+                ref={dateInputRef}
+                type="date"
+                className="sr-only"
+                onChange={(e) => {
+                  if (e.target.value) handleDatePicked(e.target.value)
+                  // Reset so selecting the same date again re-fires
+                  e.target.value = ""
+                }}
+                tabIndex={-1}
+                aria-hidden="true"
+              />
+            </div>
           </div>
+
+          {/* Date-jump feedback */}
+          {dateJumpMessage && (
+            <p className="mt-2 text-center text-[11px] text-primary/50">
+              {dateJumpMessage}
+            </p>
+          )}
 
 
           {/* Tile reflects the selected day */}

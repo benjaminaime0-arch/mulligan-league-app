@@ -1,12 +1,14 @@
 -- ============================================================
--- Patch: widen the "week" calendar to a 36-day scrollable strip
+-- Patch: make week calendar span 15 days back + 15 days forward
 -- ============================================================
--- The component is now a horizontal scroller, so the RPC returns
--- 14 days of history + today + 21 days forward (36 days total).
--- Users can pan through the strip to peek at past / upcoming
--- matches without leaving /profile.
+-- Balanced window: today - 15 .. today + 15 (31 days total). The
+-- UI has a calendar icon next to the strip for jumping to dates
+-- outside this window via a date picker, so 31 days is the "quick
+-- context" view.
 --
--- Streak logic is unchanged (still retrospective).
+-- Also returns a small helper RPC `get_user_match_on_date` so the
+-- date picker can navigate to a specific date's match without the
+-- client having to hand-build a match_players/matches JOIN.
 --
 -- Safe to re-run (CREATE OR REPLACE).
 -- ============================================================
@@ -23,8 +25,8 @@ DECLARE
   v_next_match RECORD;
   v_week_cursor DATE;
   v_has_match BOOLEAN;
-  v_start_date DATE := (current_date - interval '14 days')::date;
-  v_end_date   DATE := (current_date + interval '21 days')::date;
+  v_start_date DATE := (current_date - interval '15 days')::date;
+  v_end_date   DATE := (current_date + interval '15 days')::date;
 BEGIN
   WITH day_matches AS (
     SELECT DISTINCT ON (m.match_date)
@@ -60,7 +62,6 @@ BEGIN
   ) AS d(day)
   LEFT JOIN day_matches dm ON dm.match_date = d.day;
 
-  -- Streak unchanged
   v_week_cursor := date_trunc('week', current_date)::date;
   LOOP
     SELECT EXISTS (
@@ -77,7 +78,6 @@ BEGIN
     EXIT WHEN v_current_streak > 520;
   END LOOP;
 
-  -- next_match kept for back-compat; client doesn't use it
   SELECT m.id, m.match_date, m.match_time,
          COALESCE(m.course_name, l.course_name) AS course_name,
          l.name AS league_name
@@ -106,4 +106,28 @@ BEGIN
     END
   );
 END;
+$$;
+
+-- ------------------------------------------------------------
+-- Helper: find the user's match on a specific date (if any)
+-- ------------------------------------------------------------
+-- Used by the calendar-icon date picker in WeekCalendarCard to
+-- jump to a match outside the 31-day strip.
+
+CREATE OR REPLACE FUNCTION get_user_match_on_date(
+  p_user_id UUID,
+  p_date DATE
+)
+RETURNS UUID
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT m.id
+  FROM match_players mp
+  JOIN matches m ON m.id = mp.match_id
+  WHERE mp.user_id = p_user_id
+    AND m.match_date = p_date
+  ORDER BY m.match_time NULLS LAST
+  LIMIT 1;
 $$;

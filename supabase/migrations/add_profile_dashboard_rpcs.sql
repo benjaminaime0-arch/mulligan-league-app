@@ -148,8 +148,9 @@ DECLARE
   v_week_cursor DATE;
   v_has_match BOOLEAN;
 BEGIN
-  -- Calendar spans 14 days back + today + 21 days forward (36 days).
-  -- Client renders as a horizontal scrollable strip centered on today.
+  -- Calendar spans 15 days back + today + 15 days forward (31 days).
+  -- The UI strip renders these; a calendar icon next to it lets users
+  -- jump to dates outside the window via a date picker.
   WITH day_matches AS (
     SELECT DISTINCT ON (m.match_date)
       m.match_date,
@@ -162,8 +163,8 @@ BEGIN
     JOIN matches m ON m.id = mp.match_id
     LEFT JOIN leagues l ON l.id = m.league_id
     WHERE mp.user_id = p_user_id
-      AND m.match_date >= (current_date - interval '14 days')::date
-      AND m.match_date <= (current_date + interval '21 days')::date
+      AND m.match_date >= (current_date - interval '15 days')::date
+      AND m.match_date <= (current_date + interval '15 days')::date
     ORDER BY m.match_date, m.match_time NULLS LAST
   )
   SELECT jsonb_agg(
@@ -178,8 +179,8 @@ BEGIN
     ) ORDER BY d.day
   ) INTO v_calendar
   FROM generate_series(
-    (current_date - interval '14 days')::date,
-    (current_date + interval '21 days')::date,
+    (current_date - interval '15 days')::date,
+    (current_date + interval '15 days')::date,
     '1 day'::interval
   ) AS d(day)
   LEFT JOIN day_matches dm ON dm.match_date = d.day;
