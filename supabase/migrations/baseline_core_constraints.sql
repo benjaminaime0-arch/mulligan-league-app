@@ -19,53 +19,88 @@
 -- ============================================================
 
 -- ------------------------------------------------------------
--- Foreign keys, UNIQUE, CHECK
+-- Foreign keys, UNIQUE, CHECK — DROP IF EXISTS + ADD pairs
 -- ------------------------------------------------------------
+-- Every ADD CONSTRAINT is preceded by a DROP CONSTRAINT IF EXISTS so
+-- this file is idempotent: safe to run on a fresh DB (DROP is no-op)
+-- AND on a live DB that already has the constraints (DROP removes,
+-- ADD re-creates identically).
 
 -- league_members
-ALTER TABLE league_members ADD CONSTRAINT league_members_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
-ALTER TABLE league_members ADD CONSTRAINT league_members_league_id_user_id_key UNIQUE (league_id, user_id);
-ALTER TABLE league_members ADD CONSTRAINT league_members_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'member'::text])));
-ALTER TABLE league_members ADD CONSTRAINT league_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
+ALTER TABLE league_members DROP CONSTRAINT IF EXISTS league_members_league_id_fkey;
+ALTER TABLE league_members ADD  CONSTRAINT league_members_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
+ALTER TABLE league_members DROP CONSTRAINT IF EXISTS league_members_league_id_user_id_key;
+ALTER TABLE league_members ADD  CONSTRAINT league_members_league_id_user_id_key UNIQUE (league_id, user_id);
+ALTER TABLE league_members DROP CONSTRAINT IF EXISTS league_members_role_check;
+ALTER TABLE league_members ADD  CONSTRAINT league_members_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'member'::text])));
+ALTER TABLE league_members DROP CONSTRAINT IF EXISTS league_members_user_id_fkey;
+ALTER TABLE league_members ADD  CONSTRAINT league_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
 
 -- league_periods
-ALTER TABLE league_periods ADD CONSTRAINT league_periods_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
-ALTER TABLE league_periods ADD CONSTRAINT league_periods_league_id_week_number_key UNIQUE (league_id, week_number);
-ALTER TABLE league_periods ADD CONSTRAINT league_periods_status_check CHECK ((status = ANY (ARRAY['upcoming'::text, 'active'::text, 'completed'::text])));
+ALTER TABLE league_periods DROP CONSTRAINT IF EXISTS league_periods_league_id_fkey;
+ALTER TABLE league_periods ADD  CONSTRAINT league_periods_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
+ALTER TABLE league_periods DROP CONSTRAINT IF EXISTS league_periods_league_id_week_number_key;
+ALTER TABLE league_periods ADD  CONSTRAINT league_periods_league_id_week_number_key UNIQUE (league_id, week_number);
+ALTER TABLE league_periods DROP CONSTRAINT IF EXISTS league_periods_status_check;
+ALTER TABLE league_periods ADD  CONSTRAINT league_periods_status_check CHECK ((status = ANY (ARRAY['upcoming'::text, 'active'::text, 'completed'::text])));
 
 -- leagues
-ALTER TABLE leagues ADD CONSTRAINT leagues_admin_id_fkey FOREIGN KEY (admin_id) REFERENCES profiles(id);
-ALTER TABLE leagues ADD CONSTRAINT leagues_dates_order CHECK (((start_date IS NULL) OR (end_date IS NULL) OR (start_date <= end_date)));
-ALTER TABLE leagues ADD CONSTRAINT leagues_invite_code_key UNIQUE (invite_code);
-ALTER TABLE leagues ADD CONSTRAINT leagues_max_players_check CHECK (((max_players >= 2) AND (max_players <= 10)));
-ALTER TABLE leagues ADD CONSTRAINT leagues_scoring_cards_range CHECK (((scoring_cards_count IS NULL) OR ((scoring_cards_count >= 1) AND (scoring_cards_count <= 10))));
-ALTER TABLE leagues ADD CONSTRAINT leagues_scoring_le_total_cards CHECK (((scoring_cards_count IS NULL) OR (total_cards_count IS NULL) OR (scoring_cards_count <= total_cards_count)));
-ALTER TABLE leagues ADD CONSTRAINT leagues_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'paused'::text, 'completed'::text])));
-ALTER TABLE leagues ADD CONSTRAINT leagues_total_cards_range CHECK (((total_cards_count IS NULL) OR ((total_cards_count >= 1) AND (total_cards_count <= 10))));
+ALTER TABLE leagues DROP CONSTRAINT IF EXISTS leagues_admin_id_fkey;
+ALTER TABLE leagues ADD  CONSTRAINT leagues_admin_id_fkey FOREIGN KEY (admin_id) REFERENCES profiles(id);
+ALTER TABLE leagues DROP CONSTRAINT IF EXISTS leagues_dates_order;
+ALTER TABLE leagues ADD  CONSTRAINT leagues_dates_order CHECK (((start_date IS NULL) OR (end_date IS NULL) OR (start_date <= end_date)));
+ALTER TABLE leagues DROP CONSTRAINT IF EXISTS leagues_invite_code_key;
+ALTER TABLE leagues ADD  CONSTRAINT leagues_invite_code_key UNIQUE (invite_code);
+ALTER TABLE leagues DROP CONSTRAINT IF EXISTS leagues_max_players_check;
+ALTER TABLE leagues ADD  CONSTRAINT leagues_max_players_check CHECK (((max_players >= 2) AND (max_players <= 10)));
+ALTER TABLE leagues DROP CONSTRAINT IF EXISTS leagues_scoring_cards_range;
+ALTER TABLE leagues ADD  CONSTRAINT leagues_scoring_cards_range CHECK (((scoring_cards_count IS NULL) OR ((scoring_cards_count >= 1) AND (scoring_cards_count <= 10))));
+ALTER TABLE leagues DROP CONSTRAINT IF EXISTS leagues_scoring_le_total_cards;
+ALTER TABLE leagues ADD  CONSTRAINT leagues_scoring_le_total_cards CHECK (((scoring_cards_count IS NULL) OR (total_cards_count IS NULL) OR (scoring_cards_count <= total_cards_count)));
+ALTER TABLE leagues DROP CONSTRAINT IF EXISTS leagues_status_check;
+ALTER TABLE leagues ADD  CONSTRAINT leagues_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'paused'::text, 'completed'::text])));
+ALTER TABLE leagues DROP CONSTRAINT IF EXISTS leagues_total_cards_range;
+ALTER TABLE leagues ADD  CONSTRAINT leagues_total_cards_range CHECK (((total_cards_count IS NULL) OR ((total_cards_count >= 1) AND (total_cards_count <= 10))));
 
 -- match_players
-ALTER TABLE match_players ADD CONSTRAINT match_players_match_id_fkey FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE;
-ALTER TABLE match_players ADD CONSTRAINT match_players_match_id_user_id_key UNIQUE (match_id, user_id);
-ALTER TABLE match_players ADD CONSTRAINT match_players_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
+ALTER TABLE match_players DROP CONSTRAINT IF EXISTS match_players_match_id_fkey;
+ALTER TABLE match_players ADD  CONSTRAINT match_players_match_id_fkey FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE;
+ALTER TABLE match_players DROP CONSTRAINT IF EXISTS match_players_match_id_user_id_key;
+ALTER TABLE match_players ADD  CONSTRAINT match_players_match_id_user_id_key UNIQUE (match_id, user_id);
+ALTER TABLE match_players DROP CONSTRAINT IF EXISTS match_players_user_id_fkey;
+ALTER TABLE match_players ADD  CONSTRAINT match_players_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
 
 -- matches
-ALTER TABLE matches ADD CONSTRAINT matches_created_by_fkey FOREIGN KEY (created_by) REFERENCES profiles(id);
-ALTER TABLE matches ADD CONSTRAINT matches_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
-ALTER TABLE matches ADD CONSTRAINT matches_period_id_fkey FOREIGN KEY (period_id) REFERENCES league_periods(id) ON DELETE CASCADE;
-ALTER TABLE matches ADD CONSTRAINT matches_status_check CHECK ((status = ANY (ARRAY['scheduled'::text, 'in_progress'::text, 'completed'::text])));
+ALTER TABLE matches DROP CONSTRAINT IF EXISTS matches_created_by_fkey;
+ALTER TABLE matches ADD  CONSTRAINT matches_created_by_fkey FOREIGN KEY (created_by) REFERENCES profiles(id);
+ALTER TABLE matches DROP CONSTRAINT IF EXISTS matches_league_id_fkey;
+ALTER TABLE matches ADD  CONSTRAINT matches_league_id_fkey FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE;
+ALTER TABLE matches DROP CONSTRAINT IF EXISTS matches_period_id_fkey;
+ALTER TABLE matches ADD  CONSTRAINT matches_period_id_fkey FOREIGN KEY (period_id) REFERENCES league_periods(id) ON DELETE CASCADE;
+ALTER TABLE matches DROP CONSTRAINT IF EXISTS matches_status_check;
+ALTER TABLE matches ADD  CONSTRAINT matches_status_check CHECK ((status = ANY (ARRAY['scheduled'::text, 'in_progress'::text, 'completed'::text])));
 
 -- profiles
-ALTER TABLE profiles ADD CONSTRAINT profiles_email_key UNIQUE (email);
-ALTER TABLE profiles ADD CONSTRAINT profiles_handicap_check CHECK (((handicap >= 0) AND (handicap <= 54)));
-ALTER TABLE profiles ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_email_key;
+ALTER TABLE profiles ADD  CONSTRAINT profiles_email_key UNIQUE (email);
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_handicap_check;
+ALTER TABLE profiles ADD  CONSTRAINT profiles_handicap_check CHECK (((handicap >= 0) AND (handicap <= 54)));
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
+ALTER TABLE profiles ADD  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 -- scores
-ALTER TABLE scores ADD CONSTRAINT scores_holes_check CHECK ((holes = ANY (ARRAY[9, 18])));
-ALTER TABLE scores ADD CONSTRAINT scores_match_id_fkey FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE;
-ALTER TABLE scores ADD CONSTRAINT scores_match_id_user_id_key UNIQUE (match_id, user_id);
-ALTER TABLE scores ADD CONSTRAINT scores_score_check CHECK (((score > 0) AND (score <= 200)));
-ALTER TABLE scores ADD CONSTRAINT scores_submitted_by_fkey FOREIGN KEY (submitted_by) REFERENCES auth.users(id);
-ALTER TABLE scores ADD CONSTRAINT scores_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
+ALTER TABLE scores DROP CONSTRAINT IF EXISTS scores_holes_check;
+ALTER TABLE scores ADD  CONSTRAINT scores_holes_check CHECK ((holes = ANY (ARRAY[9, 18])));
+ALTER TABLE scores DROP CONSTRAINT IF EXISTS scores_match_id_fkey;
+ALTER TABLE scores ADD  CONSTRAINT scores_match_id_fkey FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE;
+ALTER TABLE scores DROP CONSTRAINT IF EXISTS scores_match_id_user_id_key;
+ALTER TABLE scores ADD  CONSTRAINT scores_match_id_user_id_key UNIQUE (match_id, user_id);
+ALTER TABLE scores DROP CONSTRAINT IF EXISTS scores_score_check;
+ALTER TABLE scores ADD  CONSTRAINT scores_score_check CHECK (((score > 0) AND (score <= 200)));
+ALTER TABLE scores DROP CONSTRAINT IF EXISTS scores_submitted_by_fkey;
+ALTER TABLE scores ADD  CONSTRAINT scores_submitted_by_fkey FOREIGN KEY (submitted_by) REFERENCES auth.users(id);
+ALTER TABLE scores DROP CONSTRAINT IF EXISTS scores_user_id_fkey;
+ALTER TABLE scores ADD  CONSTRAINT scores_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
 
 -- ------------------------------------------------------------
 -- Indexes
