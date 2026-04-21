@@ -592,47 +592,51 @@ export default function ProfilePage() {
                     disabled={uploadingAvatar}
                   />
                 </label>
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h1 className="text-2xl font-bold text-primary">{displayName}</h1>
+                    <div className="min-w-0">
+                      <h1 className="truncate text-2xl font-bold text-primary">{displayName}</h1>
                       {profile?.username && profile?.first_name && (
-                        <p className="text-sm text-primary/60">{[profile.first_name, profile.last_name].filter(Boolean).join(" ")}</p>
+                        <p className="truncate text-sm text-primary/60">
+                          {[profile.first_name, profile.last_name].filter(Boolean).join(" ")}
+                        </p>
                       )}
                     </div>
                     <button
                       type="button"
                       onClick={startEditing}
-                      className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                      className="shrink-0 text-xs font-medium text-primary underline-offset-4 hover:underline"
                     >
                       Edit
                     </button>
                   </div>
+
+                  {/* Inline stats row — replaces the old 2x2 grid */}
+                  <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-primary/60">
+                    <span className="inline-flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                        <circle cx="12" cy="10" r="3" />
+                      </svg>
+                      {profile?.town || "No town"}
+                    </span>
+                    <span className="text-primary/30">·</span>
+                    <span>
+                      HCP <strong className="text-primary/80 tabular-nums">{profile?.handicap != null ? profile.handicap : "\u2013"}</strong>
+                    </span>
+                    <span className="text-primary/30">·</span>
+                    <span className="tabular-nums">
+                      {matchesPlayed}{" "}
+                      {matchesPlayed === 1 ? "match" : "matches"}
+                    </span>
+                    <span className="text-primary/30">·</span>
+                    <span className="tabular-nums">
+                      {memberships.length}{" "}
+                      {memberships.length === 1 ? "league" : "leagues"}
+                    </span>
+                  </div>
                 </div>
               </div>
-
-              <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-primary/10 pt-4 sm:grid-cols-4">
-                <div>
-                  <dt className="text-[10px] uppercase tracking-wide text-primary/50">Town</dt>
-                  <dd className="mt-1 truncate text-sm font-semibold text-primary">
-                    {profile?.town || "\u2013"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-[10px] uppercase tracking-wide text-primary/50">Handicap</dt>
-                  <dd className="mt-1 text-sm font-semibold text-primary">
-                    {profile?.handicap != null ? profile.handicap : "\u2013"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-[10px] uppercase tracking-wide text-primary/50">Matches Played</dt>
-                  <dd className="mt-1 text-sm font-semibold text-primary">{matchesPlayed}</dd>
-                </div>
-                <div>
-                  <dt className="text-[10px] uppercase tracking-wide text-primary/50">Leagues</dt>
-                  <dd className="mt-1 text-sm font-semibold text-primary">{memberships.length}</dd>
-                </div>
-              </dl>
             </>
           )}
         </section>
