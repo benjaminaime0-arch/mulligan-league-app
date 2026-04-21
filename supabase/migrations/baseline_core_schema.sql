@@ -136,8 +136,11 @@ CREATE TABLE IF NOT EXISTS match_players (
 -- ------------------------------------------------------------
 -- One row per player per match. submitted_by distinguishes "whose
 -- score" (user_id) from "who entered it" (submitted_by — typically
--- the match scorer). validated appears to be a legacy/deprecated
--- boolean; status ('pending' | 'approved') is the source of truth.
+-- the match scorer). status ('pending' | 'approved') is the source
+-- of truth for approval state.
+--
+-- A `validated boolean` column existed in an earlier design but was
+-- dropped via cleanup_scores_validated_column.sql; not recreated here.
 
 CREATE TABLE IF NOT EXISTS scores (
   id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -145,7 +148,6 @@ CREATE TABLE IF NOT EXISTS scores (
   user_id      uuid NOT NULL,
   score        integer NOT NULL,
   holes        integer NOT NULL DEFAULT 18,
-  validated    boolean DEFAULT false,
   created_at   timestamp with time zone DEFAULT now(),
   status       text DEFAULT 'pending'::text,
   approved_by  uuid,
