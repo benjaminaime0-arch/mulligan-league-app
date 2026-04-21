@@ -137,15 +137,16 @@ export default function AllMatchesPage() {
           <span className="w-[50px]" />
         </header>
 
-        {/* Tabs */}
+        {/* Tabs — Past on the left (reads left-to-right as history → future),
+            but the page lands on Scheduled so users see what's coming up first. */}
         <div className="flex gap-1 rounded-full border border-primary/15 bg-white p-1 shadow-sm">
-          <TabButton active={tab === "scheduled"} onClick={() => setTab("scheduled")}>
-            Scheduled
-            {scheduled.length > 0 && <span className="ml-1.5 tabular-nums text-primary/50">{scheduled.length}</span>}
-          </TabButton>
           <TabButton active={tab === "past"} onClick={() => setTab("past")}>
             Past
             {past.length > 0 && <span className="ml-1.5 tabular-nums text-primary/50">{past.length}</span>}
+          </TabButton>
+          <TabButton active={tab === "scheduled"} onClick={() => setTab("scheduled")}>
+            Scheduled
+            {scheduled.length > 0 && <span className="ml-1.5 tabular-nums text-primary/50">{scheduled.length}</span>}
           </TabButton>
         </div>
 
