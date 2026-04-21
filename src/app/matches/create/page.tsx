@@ -342,6 +342,7 @@ function CreateMatchContent() {
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
+                step={600}
                 className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2.5 text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 disabled={submitting}
               />
