@@ -625,16 +625,33 @@ export default function ProfilePage() {
         {/* 5. My Leagues — Carousel */}
         <LeagueCarousel leagues={enrichedLeagues} />
 
-        {/* 6. Notifications — master toggle + per-type preferences */}
+        {/* 6. Notifications — master toggle + per-type preferences (collapsed) */}
         <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
           <h2 className="mb-3 text-sm font-semibold text-primary">Notifications</h2>
           <PushNotificationToggle />
-          <div className="mt-4 border-t border-primary/10 pt-4">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-primary/40">
-              Per-type preferences
-            </p>
-            <NotificationPreferences />
-          </div>
+          <details className="group mt-4 border-t border-primary/10 pt-4">
+            <summary className="flex cursor-pointer list-none items-center justify-between py-1 text-xs font-medium uppercase tracking-wide text-primary/50 hover:text-primary/80">
+              <span>Per-type preferences</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="transition-transform duration-200 group-open:rotate-180"
+                aria-hidden="true"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </summary>
+            <div className="mt-2">
+              <NotificationPreferences />
+            </div>
+          </details>
         </section>
 
         {/* Log Out */}

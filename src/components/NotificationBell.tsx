@@ -122,13 +122,24 @@ export function NotificationBell() {
               </div>
             ) : notifications.length === 0 ? (
               <div className="px-4 py-10 text-center">
-                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/5">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary/30">
-                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-emerald-500"
+                    aria-hidden="true"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
-                <p className="text-xs text-primary/40">No notifications yet</p>
+                <p className="text-xs font-medium text-primary/60">You&apos;re all caught up</p>
               </div>
             ) : (
               <div className="divide-y divide-primary/5">

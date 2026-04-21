@@ -109,22 +109,22 @@ export function NotificationPreferences() {
         return (
           <div
             key={type}
-            className="flex items-center justify-between gap-3 py-3"
+            className="flex items-center justify-between gap-3 py-2"
           >
-            <div className="flex min-w-0 items-start gap-3">
+            <div className="flex min-w-0 items-center gap-2.5">
               <div
-                className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
                   enabled ? "bg-primary/10" : "bg-primary/5"
                 }`}
               >
                 {getNotificationIcon(
                   type,
-                  enabled ? "h-4 w-4 text-primary/60" : "h-4 w-4 text-primary/30",
+                  enabled ? "h-3.5 w-3.5 text-primary/60" : "h-3.5 w-3.5 text-primary/30",
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-primary">{meta.label}</p>
-                <p className="mt-0.5 text-xs text-primary/50">
+                <p className="text-xs font-medium text-primary">{meta.label}</p>
+                <p className="text-[10px] leading-snug text-primary/50 line-clamp-1">
                   {meta.description}
                 </p>
               </div>
@@ -134,15 +134,15 @@ export function NotificationPreferences() {
               type="button"
               onClick={() => toggle(type)}
               disabled={pending}
-              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+              className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
                 enabled ? "bg-emerald-500" : "bg-primary/20"
               }`}
               aria-label={enabled ? `Disable ${meta.label}` : `Enable ${meta.label}`}
               aria-pressed={enabled}
             >
               <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                  enabled ? "translate-x-[22px]" : "translate-x-0.5"
+                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                  enabled ? "translate-x-[18px]" : "translate-x-0.5"
                 }`}
               />
             </button>

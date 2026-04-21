@@ -369,45 +369,47 @@ export default function LeaguePage({ params }: LeaguePageProps) {
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-5">
         {/* Header */}
         <header>
-          {/* Tier A: nav strip */}
-          {userLeagues.length > 1 && (
-            <div className="flex items-center justify-between">
-              {prevLeague ? (
-                <button
-                  type="button"
-                  onClick={() => router.push(`/leagues/${prevLeague.id}`)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-primary/20 bg-white text-primary hover:bg-primary/5"
-                  aria-label={`Previous: ${prevLeague.name}`}
-                  title={prevLeague.name}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
-                </button>
-              ) : (
-                <div className="h-9 w-9" />
-              )}
-              {nextLeague ? (
-                <button
-                  type="button"
-                  onClick={() => router.push(`/leagues/${nextLeague.id}`)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-primary/20 bg-white text-primary hover:bg-primary/5"
-                  aria-label={`Next: ${nextLeague.name}`}
-                  title={nextLeague.name}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>
-                </button>
-              ) : (
-                <div className="h-9 w-9" />
-              )}
-            </div>
-          )}
+          {/* Title row: prev chevron · title + status chip · next chevron
+              The chevrons flank the title so they don't collide with the
+              fixed notification bell at top-right on mobile. */}
+          <div className="flex items-center justify-center gap-2">
+            {prevLeague ? (
+              <button
+                type="button"
+                onClick={() => router.push(`/leagues/${prevLeague.id}`)}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary hover:bg-primary/5"
+                aria-label={`Previous: ${prevLeague.name}`}
+                title={prevLeague.name}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+              </button>
+            ) : userLeagues.length > 1 ? (
+              <div className="h-8 w-8 shrink-0" />
+            ) : null}
 
-          {/* Tier B: title + status */}
-          <div className={`flex items-center justify-center gap-2 ${userLeagues.length > 1 ? "mt-3" : ""}`}>
-            <h1 className="text-3xl font-bold text-primary">{league.name}</h1>
-            <StatusChip status={league.status} />
+            <div className="flex min-w-0 items-center gap-2">
+              <h1 className="truncate text-2xl font-bold text-primary sm:text-3xl">
+                {league.name}
+              </h1>
+              <StatusChip status={league.status} />
+            </div>
+
+            {nextLeague ? (
+              <button
+                type="button"
+                onClick={() => router.push(`/leagues/${nextLeague.id}`)}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary hover:bg-primary/5"
+                aria-label={`Next: ${nextLeague.name}`}
+                title={nextLeague.name}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>
+              </button>
+            ) : userLeagues.length > 1 ? (
+              <div className="h-8 w-8 shrink-0" />
+            ) : null}
           </div>
 
-          {/* Tier C: meta */}
+          {/* Meta line */}
           <div className="mt-1.5 flex items-center justify-center gap-1.5 text-xs text-primary/70">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
             <span>{league.course_name || "Course TBA"}</span>
