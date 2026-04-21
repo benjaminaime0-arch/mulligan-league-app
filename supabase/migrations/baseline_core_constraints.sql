@@ -8,8 +8,14 @@
 -- baseline_core_policies.sql) — run this AFTER those.
 --
 -- Triggers that call functions defined in OTHER migration files
--- (notify_*, fn_activity_*) will only work if those migrations
--- have also been applied.
+-- (notify_*, fn_activity_*, check_*) will only work if those
+-- migrations have also been applied.
+--
+-- HISTORICAL NOTE: this file originally also declared `on_match_insert`
+-- and `on_score_insert` triggers that called on_match_created /
+-- on_score_submitted. Both were removed by
+-- cleanup_activity_log_shadow_system.sql — they wrote to a dead
+-- activity_log table the app never read. Do not reintroduce.
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -110,18 +116,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS profiles_username_unique
 -- covered by our in-git migrations. Triggers for notifications and
 -- activity_events are defined in add_notifications_system.sql,
 -- add_activity_events.sql, and fix_notification_triggers.sql.
-
-DROP TRIGGER IF EXISTS on_match_insert ON public.matches;
-CREATE TRIGGER on_match_insert
-  AFTER INSERT ON public.matches
-  FOR EACH ROW
-  EXECUTE FUNCTION on_match_created();
-
-DROP TRIGGER IF EXISTS on_score_insert ON public.scores;
-CREATE TRIGGER on_score_insert
-  AFTER INSERT ON public.scores
-  FOR EACH ROW
-  EXECUTE FUNCTION on_score_submitted();
 
 DROP TRIGGER IF EXISTS on_score_status_change ON public.scores;
 CREATE TRIGGER on_score_status_change
