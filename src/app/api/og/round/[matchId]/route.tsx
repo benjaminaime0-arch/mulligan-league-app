@@ -10,16 +10,17 @@ import { createClient } from "@supabase/supabase-js"
  * /share/round/[matchId], so link previews in chat apps render
  * the card automatically.
  *
- * Data fetch uses the service role key (server-only) to bypass RLS,
- * but matches/match_players/scores are already read-open for any
- * authenticated user (this is an open platform) so no new exposure.
+ * Note: satori (the engine behind next/og) requires every <div>
+ * with more than one child to explicitly set `display: flex` (or
+ * `display: none`). Defensive rule in this file: every <div> sets
+ * display: flex. Use <span> for inline text.
  */
 
 export const runtime = "nodejs"
 
 const WIDTH = 1080
 const HEIGHT = 1080
-const BG = "#C6D9B7" // cream (Tailwind token)
+const BG = "#C6D9B7" // cream
 const PRIMARY = "#0F3D2E"
 
 type PlayerRow = {
@@ -94,8 +95,6 @@ export async function GET(
     league_id: string | null
   }
 
-  // Fetch league name separately (simpler than embedded select, and
-  // avoids edge cases where embedded selects return shapes we didn't expect).
   let league: { name: string; course_name: string | null } | null = null
   if (match.league_id) {
     const { data: leagueData } = await supabase
@@ -116,15 +115,17 @@ export async function GET(
     if (s.status === "approved" || s.status === null) scoreMap.set(s.user_id, s.score)
   }
 
-  // Compute winner = lowest approved score
-  const approvedScores = scores.filter((s) => s.status === "approved" || s.status === null)
+  const approvedScores = scores.filter(
+    (s) => s.status === "approved" || s.status === null,
+  )
   let winnerScore: number | null = null
   if (approvedScores.length > 0) {
     winnerScore = Math.min(...approvedScores.map((s) => s.score))
   }
 
   const rendered: RenderPlayer[] = players.map((p) => {
-    const name = p.profiles?.username || p.profiles?.first_name || "Player"
+    const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles
+    const name = profile?.username || profile?.first_name || "Player"
     const score = scoreMap.get(p.user_id) ?? null
     return {
       name,
@@ -133,7 +134,6 @@ export async function GET(
       isWinner: score != null && score === winnerScore,
     }
   })
-  // Sort: winners first, then by score asc, no-score last
   rendered.sort((a, b) => {
     if (a.score == null && b.score == null) return 0
     if (a.score == null) return 1
@@ -142,7 +142,8 @@ export async function GET(
   })
 
   const courseName = match.course_name || league?.course_name || "Course"
-  const leagueName = league?.name || (match.match_type === "casual" ? "Casual Match" : "Match")
+  const leagueName =
+    league?.name || (match.match_type === "casual" ? "Casual Match" : "Match")
   const dateStr = match.match_date
     ? new Date(match.match_date).toLocaleDateString("en-US", {
         month: "long",
@@ -160,34 +161,35 @@ export async function GET(
           background: BG,
           display: "flex",
           flexDirection: "column",
-          padding: 64,
-          fontFamily: "system-ui, -apple-system, sans-serif",
+          padding: "64px",
           color: PRIMARY,
         }}
       >
-        {/* Top: brand wordmark */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        {/* Top brand strip */}
+        <div style={{ display: "flex", alignItems: "center" }}>
           <div
             style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              background: PRIMARY,
-              color: BG,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 28,
+              width: 56,
+              height: 56,
+              borderRadius: 14,
+              background: PRIMARY,
+              color: BG,
+              fontSize: 30,
               fontWeight: 800,
+              marginRight: 16,
             }}
           >
             ML
           </div>
           <div
             style={{
-              fontSize: 22,
+              display: "flex",
+              fontSize: 24,
               fontWeight: 700,
-              letterSpacing: 0.5,
+              letterSpacing: 1,
               textTransform: "uppercase",
             }}
           >
@@ -196,42 +198,64 @@ export async function GET(
         </div>
 
         {/* Match heading */}
-        <div style={{ marginTop: 80, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            marginTop: 80,
+          }}
+        >
           <div
             style={{
-              fontSize: 26,
+              display: "flex",
+              fontSize: 28,
               color: PRIMARY,
               opacity: 0.6,
               fontWeight: 600,
-              letterSpacing: 1,
+              letterSpacing: 1.5,
               textTransform: "uppercase",
             }}
           >
             {leagueName}
           </div>
-          <div style={{ fontSize: 92, fontWeight: 800, lineHeight: 1, letterSpacing: -2 }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: 96,
+              fontWeight: 800,
+              lineHeight: 1.05,
+              marginTop: 8,
+            }}
+          >
             {courseName}
           </div>
-          <div style={{ fontSize: 30, opacity: 0.7, fontWeight: 500, marginTop: 4 }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: 32,
+              opacity: 0.7,
+              fontWeight: 500,
+              marginTop: 12,
+            }}
+          >
             {dateStr}
           </div>
         </div>
 
-        {/* Players + scores */}
+        {/* Players */}
         <div
           style={{
-            marginTop: 70,
             display: "flex",
             flexDirection: "column",
-            gap: 18,
+            marginTop: 64,
           }}
         >
           {rendered.slice(0, 4).map((p, idx) => (
-            <PlayerRowView key={idx} player={p} />
+            <PlayerRowView key={idx} player={p} isFirst={idx === 0} />
           ))}
         </div>
 
-        {/* Spacer to push footer down */}
+        {/* Spacer */}
         <div style={{ display: "flex", flex: 1 }} />
 
         {/* Footer */}
@@ -244,8 +268,10 @@ export async function GET(
             opacity: 0.5,
           }}
         >
-          <span>app.mulliganleague.com</span>
-          <span>{rendered.length} players</span>
+          <div style={{ display: "flex" }}>app.mulliganleague.com</div>
+          <div style={{ display: "flex" }}>
+            {rendered.length} player{rendered.length === 1 ? "" : "s"}
+          </div>
         </div>
       </div>
     ),
@@ -253,7 +279,13 @@ export async function GET(
   )
 }
 
-function PlayerRowView({ player }: { player: RenderPlayer }) {
+function PlayerRowView({
+  player,
+  isFirst,
+}: {
+  player: RenderPlayer
+  isFirst: boolean
+}) {
   const highlight = player.isWinner
   return (
     <div
@@ -264,35 +296,50 @@ function PlayerRowView({ player }: { player: RenderPlayer }) {
         padding: "20px 28px",
         borderRadius: 24,
         background: highlight ? "#ffffff" : "rgba(255,255,255,0.55)",
-        border: highlight ? `3px solid ${PRIMARY}` : "3px solid transparent",
+        border: highlight ? `3px solid ${PRIMARY}` : "3px solid rgba(0,0,0,0)",
+        marginTop: isFirst ? 0 : 16,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-        {/* Avatar initial circle */}
+      {/* Left: avatar + name + chip */}
+      <div style={{ display: "flex", alignItems: "center" }}>
         <div
           style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             width: 64,
             height: 64,
             borderRadius: 32,
             background: PRIMARY,
             color: BG,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
             fontSize: 34,
             fontWeight: 700,
+            marginRight: 20,
           }}
         >
           {player.initial}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 38, fontWeight: 700, color: PRIMARY }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              fontSize: 38,
+              fontWeight: 700,
+              color: PRIMARY,
+            }}
+          >
             {player.name}
-          </span>
+          </div>
           {highlight && (
-            <span
+            <div
               style={{
-                fontSize: 18,
+                display: "flex",
+                fontSize: 16,
                 fontWeight: 700,
                 padding: "4px 12px",
                 borderRadius: 999,
@@ -300,19 +347,22 @@ function PlayerRowView({ player }: { player: RenderPlayer }) {
                 color: "#b45309",
                 letterSpacing: 1,
                 textTransform: "uppercase",
+                marginLeft: 12,
               }}
             >
               Winner
-            </span>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Right: score */}
       <div
         style={{
+          display: "flex",
           fontSize: 68,
           fontWeight: 800,
           color: highlight ? PRIMARY : "rgba(15,61,46,0.55)",
-          fontVariantNumeric: "tabular-nums",
         }}
       >
         {player.score ?? "\u2013"}
@@ -326,16 +376,17 @@ function renderErrorCard(message: string) {
     (
       <div
         style={{
+          display: "flex",
           width: "100%",
           height: "100%",
           background: BG,
-          display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "system-ui, sans-serif",
           fontSize: 52,
           color: PRIMARY,
           fontWeight: 700,
+          padding: "48px",
+          textAlign: "center",
         }}
       >
         {message}
