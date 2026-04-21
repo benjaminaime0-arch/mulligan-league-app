@@ -148,8 +148,9 @@ DECLARE
   v_week_cursor DATE;
   v_has_match BOOLEAN;
 BEGIN
-  -- 7-day calendar ending today (Mon..Sun anchored on today).
-  -- Each day: does the user have a scheduled/played match that day?
+  -- 7-day calendar starting TODAY and looking forward 6 days.
+  -- Each day: does the user have a match on that day (usually
+  -- scheduled, since we're looking at today + future)?
   SELECT jsonb_agg(
     jsonb_build_object(
       'date', d.day,
@@ -161,8 +162,8 @@ BEGIN
     ) ORDER BY d.day
   ) INTO v_calendar
   FROM generate_series(
-    (current_date - interval '6 days')::date,
     current_date,
+    (current_date + interval '6 days')::date,
     '1 day'::interval
   ) AS d(day);
 
