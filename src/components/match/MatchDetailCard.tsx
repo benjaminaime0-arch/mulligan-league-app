@@ -341,6 +341,27 @@ export function MatchDetailCard({
           return
         }
       }
+
+      // No-op guard: if every entry matches what's already in the DB
+      // (same score + same holes for every player), don't call the
+      // RPC at all. Otherwise submit_match_scores would rewrite rows
+      // and the server-side approval-reset logic would fire, yanking
+      // everyone's approvals even though the viewer opened the editor
+      // just to *look* at the scores. Rule: approvals only reset when
+      // an actual value changed.
+      const hasChange = entries.some((e) => {
+        const original = players.find((p) => p.user_id === e.user_id)
+        if (!original) return true // brand-new score row for this player
+        const origScore = original.score ?? null
+        const origHoles = original.holes ?? 18
+        return e.score !== origScore || e.holes !== origHoles
+      })
+      if (!hasChange) {
+        setEditing(false)
+        setSaving(false)
+        return
+      }
+
       const { data, error: rpcError } = await supabase.rpc(
         "submit_match_scores",
         { p_match_id: match.id, p_scores: entries },

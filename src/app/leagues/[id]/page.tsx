@@ -939,7 +939,55 @@ function NextStepBanner({
     )
   }
 
-  // 2. Upcoming match I haven't submitted yet. Same rationale as
+  // 2. Approvals pending — the viewer is a player in a match that
+  // has scores submitted, and their approved_at is still null.
+  // Teammates are literally waiting on them; this outranks "play
+  // your round" (a softer, forward-looking nudge) but sits below
+  // "submit your score" which blocks the match entirely.
+  const pendingApproval = myMatches
+    .map((m) => {
+      if (m.status === "completed" || m.status === "cancelled") return null
+      const players = matchPlayersMap.get(m.id) || []
+      const me = players.find((p) => p.user_id === userId)
+      if (!me) return null
+      // Need at least one submitted score on the match — otherwise
+      // there's nothing to approve.
+      const hasScores = players.some((p) => p.status != null)
+      if (!hasScores) return null
+      // Already approved? nothing to do.
+      if (me.approved_at != null) return null
+      return m
+    })
+    .filter((m): m is Match => m != null)
+    // Most recent first so the nudge tracks the latest submission.
+    .sort((a, b) => (b.match_date || "").localeCompare(a.match_date || ""))[0]
+
+  if (pendingApproval) {
+    const dateLabel = pendingApproval.match_date
+      ? new Date(pendingApproval.match_date).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })
+      : "this match"
+    const others = (matchPlayersMap.get(pendingApproval.id) || []).filter(
+      (p) => p.user_id !== userId && p.status != null,
+    ).length
+    return (
+      <NextStepRow
+        href={`/leagues/${leagueId}?match=${pendingApproval.id}`}
+        tone="primary"
+        icon={
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        }
+        title="Approve scores"
+        subtitle={`${dateLabel} — ${others} teammate${others === 1 ? "" : "s"} waiting on you`}
+      />
+    )
+  }
+
+  // 3. Upcoming match I haven't submitted yet. Same rationale as
   // pendingPast: if I've already sent a score for my next scheduled
   // match (it can happen on the match day itself), don't keep telling
   // me to "play" it.
