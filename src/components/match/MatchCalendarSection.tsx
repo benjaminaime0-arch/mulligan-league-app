@@ -149,6 +149,26 @@ export function MatchCalendarSection({
     if (focusMatchId) setSelectedDate(initialDate)
   }, [focusMatchId, initialDate])
 
+  // When the banner click drives a focus seek, scroll the detail
+  // body into view so the user sees the roster + Approve button
+  // immediately — otherwise the banner is at the top of the page and
+  // the match card lives below the leaderboard, requiring manual
+  // scroll to find. Skip scrolling on plain mount (no focus intent)
+  // so the initial page load respects the user's current scroll.
+  const detailRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!focusMatchId) return
+    // Defer one frame so the detail card has already mounted at
+    // the new selectedDate.
+    const raf = requestAnimationFrame(() => {
+      detailRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [focusMatchId, selectedDate])
+
   // Auto-center today on mount — same approach as the old
   // WeekCalendarCard: two rAF nests for layout-settled measurements.
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -299,8 +319,10 @@ export function MatchCalendarSection({
       {/* Selected-day detail(s). One match → render the card bare.
           Multiple → horizontal carousel (arrows + dots) so the page
           height stays bounded regardless of how many matches are on
-          the same day. */}
-      <div className="mt-4">
+          the same day. `detailRef` is the scroll target used when
+          the banner drives a focus seek — brings the roster + action
+          buttons into view without requiring the user to scroll. */}
+      <div ref={detailRef} className="mt-4">
         {matchesOnSelected.length === 0 ? (
           <EmptyTile iso={selectedDate} todayIso={todayIso} />
         ) : (

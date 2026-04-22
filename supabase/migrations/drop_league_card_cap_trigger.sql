@@ -1,0 +1,33 @@
+-- ============================================================
+-- Drop the approval-blocking league-card-cap trigger
+-- ============================================================
+-- `add_enforce_league_card_cap.sql` added a trigger that fires on
+-- every score-row UPDATE/INSERT where status becomes 'approved' and
+-- rejects the change if the player already has `total_cards_count`
+-- approved scores in that league.
+--
+-- This was intended to hard-enforce "you only get 5 cards". The side
+-- effect: the normal approval flow flips pending scores to approved
+-- one match at a time. If ANY player in a match already had 5
+-- approved cards in the league, flipping their 6th pending card
+-- threw and cancelled the whole `approve_match_scores` RPC — which
+-- manifested on the live app as "some users can approve some matches
+-- but not others".
+--
+-- Decision: drop the trigger. The 5-card cap is already enforced
+-- *semantically* by `get_leaderboard` (see
+-- fix_get_leaderboard_show_all_members.sql) — it only feeds the
+-- chronologically-first `total_cards_count` approved rows into the
+-- standings. Extra cards exist in the DB but don't count toward the
+-- ranking. That's the right place for the cap; a trigger at the
+-- approval-RPC level causes cross-player collateral damage.
+--
+-- If the product later needs a harder "can't even submit a 6th" cap,
+-- that belongs on INSERT only (or on a submit_match_scores pre-check)
+-- — NOT on the approval transition.
+--
+-- Safe to re-run: both statements are IF EXISTS.
+-- ============================================================
+
+DROP TRIGGER IF EXISTS trg_enforce_league_card_cap ON scores;
+DROP FUNCTION IF EXISTS enforce_league_card_cap();
