@@ -25,8 +25,19 @@
 -- ============================================================
 
 -- 1. Purge casual match rows. FK CASCADE on match_players + scores
--- means we don't need to manually delete those.
-DELETE FROM matches WHERE match_type = 'casual';
+-- means we don't need to manually delete those. Guarded with a DO
+-- block so a re-run (when the column is already gone) doesn't error.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'matches'
+      AND column_name = 'match_type'
+  ) THEN
+    EXECUTE 'DELETE FROM matches WHERE match_type = ''casual''';
+  END IF;
+END $$;
 
 -- 2. Drop casual-only RLS policies
 DROP POLICY IF EXISTS "Users can create casual matches" ON matches;

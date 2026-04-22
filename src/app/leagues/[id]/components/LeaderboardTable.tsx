@@ -7,9 +7,29 @@ import type { LeaderboardRow } from "../types"
 interface LeaderboardTableProps {
   leaderboard: LeaderboardRow[]
   subtitle?: string | null
+  /**
+   * Current viewer's id — when present we highlight their row so
+   * members can locate themselves at a glance. Pass `null` on pages
+   * where the viewer isn't a league member.
+   */
+  currentUserId?: string | null
+  /**
+   * When the league scores "best N of total" this is that N; used to
+   * explain the "Counted" column via a title tooltip.
+   */
+  scoringCardsCount?: number | null
 }
 
-export function LeaderboardTable({ leaderboard, subtitle }: LeaderboardTableProps) {
+export function LeaderboardTable({
+  leaderboard,
+  subtitle,
+  currentUserId,
+  scoringCardsCount,
+}: LeaderboardTableProps) {
+  const countedTitle = scoringCardsCount
+    ? `Counted / Played — best ${scoringCardsCount} of all rounds played count toward Total`
+    : "Rounds counted / played"
+
   return (
     <div className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-baseline justify-between gap-3">
@@ -56,23 +76,51 @@ export function LeaderboardTable({ leaderboard, subtitle }: LeaderboardTableProp
               <tr className="border-b border-primary/10 text-[10px] uppercase tracking-wider text-primary/50">
                 <th className="py-2 pr-2 font-medium">#</th>
                 <th className="py-2 pr-3 font-medium">Player</th>
-                <th className="py-2 pr-3 text-right font-medium">Total</th>
-                <th className="py-2 pr-3 text-right font-medium">Best</th>
-                <th className="py-2 text-right font-medium">Cards</th>
+                <th
+                  className="py-2 pr-3 text-right font-medium"
+                  title="Sum of your counted rounds"
+                >
+                  Total
+                </th>
+                <th
+                  className="py-2 pr-3 text-right font-medium"
+                  title="Lowest single round this league"
+                >
+                  Best
+                </th>
+                <th
+                  className="py-2 text-right font-medium"
+                  title={countedTitle}
+                >
+                  Counted
+                </th>
               </tr>
             </thead>
             <tbody>
               {leaderboard.map((row, idx) => {
                 const position = row.position ?? idx + 1
                 const medal = getMedal(position)
+                const isMe = !!currentUserId && row.user_id === currentUserId
+                const isLeader = position === 1
+
+                // Row bg: viewer gets a cream wash + left border; leader gets
+                // a subtle emerald wash so "who's winning" reads instantly.
+                const rowBg = isMe
+                  ? "bg-cream/50"
+                  : isLeader
+                    ? "bg-emerald-50/40"
+                    : ""
+                const rowBorder = isMe
+                  ? "border-l-2 border-l-primary"
+                  : "border-l-2 border-l-transparent"
 
                 return (
                   <tr
                     key={idx}
-                    className="border-b border-primary/5 last:border-0"
+                    className={`border-b border-primary/5 last:border-0 ${rowBg} ${rowBorder}`}
                   >
                     {/* Position */}
-                    <td className="py-3 pr-2">
+                    <td className="py-3 pl-1 pr-2">
                       <span
                         className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${medal.className}`}
                         aria-label={`Position ${position}`}
@@ -89,7 +137,14 @@ export function LeaderboardTable({ leaderboard, subtitle }: LeaderboardTableProp
                           className="flex items-center gap-2 rounded text-sm text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                         >
                           <Avatar src={row.avatar_url} size={24} fallback={row.player_name || "P"} />
-                          <span className="font-medium">{row.player_name || "Player"}</span>
+                          <span className="font-medium">
+                            {row.player_name || "Player"}
+                            {isMe && (
+                              <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary/60">
+                                you
+                              </span>
+                            )}
+                          </span>
                         </Link>
                       ) : (
                         <div className="flex items-center gap-2 text-sm text-primary">
@@ -99,8 +154,12 @@ export function LeaderboardTable({ leaderboard, subtitle }: LeaderboardTableProp
                       )}
                     </td>
 
-                    {/* Total — dominant number */}
-                    <td className="py-3 pr-3 text-right text-base font-bold tabular-nums text-primary">
+                    {/* Total — dominant number; bump size for the leader */}
+                    <td
+                      className={`py-3 pr-3 text-right tabular-nums text-primary ${
+                        isLeader ? "text-lg font-extrabold" : "text-base font-bold"
+                      }`}
+                    >
                       {row.total_score ?? "–"}
                     </td>
 
@@ -109,8 +168,12 @@ export function LeaderboardTable({ leaderboard, subtitle }: LeaderboardTableProp
                       {row.best_score ?? "–"}
                     </td>
 
-                    {/* Cards — secondary */}
-                    <td className="py-3 text-right text-xs tabular-nums text-primary/60">
+                    {/* Counted — secondary. Rendered as "counted / played"
+                        so the "3/10" form is unambiguous on a first read. */}
+                    <td
+                      className="py-3 text-right text-xs tabular-nums text-primary/60"
+                      title={countedTitle}
+                    >
                       {row.rounds_counted ?? 0}/{row.rounds_played ?? 0}
                     </td>
                   </tr>

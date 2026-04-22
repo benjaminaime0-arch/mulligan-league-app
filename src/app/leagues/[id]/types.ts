@@ -1,25 +1,7 @@
-export type MatchPlayer = {
-  name: string
-  avatar_url?: string | null
-  user_id?: string | null
-  score?: number | null
-  isBestScore?: boolean
-}
-
-export type League = {
-  id: string | number
-  name: string
-  course_name?: string | null
-  invite_code?: string | null
-  max_players?: number | null
-  admin_id?: string | null
-  status?: string | null
-  league_type?: string | null
-  scoring_cards_count?: number | null
-  total_cards_count?: number | null
-  start_date?: string | null
-  end_date?: string | null
-}
+// Core match/league types moved to `src/components/match/types.ts` so
+// both league and profile pages can share them. Re-exported here for
+// back-compat with this directory's existing imports.
+export type { Match, League, MatchPlayer } from "@/components/match/types"
 
 export type UserLeague = {
   id: string | number
@@ -47,16 +29,6 @@ export type LeaguePeriod = {
   status?: string | null
 }
 
-export type Match = {
-  id: string | number
-  league_id: string | number
-  period_id: string | number
-  course_name?: string | null
-  match_date?: string | null
-  match_time?: string | null
-  status?: string | null
-}
-
 export type LeaderboardRow = {
   position?: number | null
   user_id?: string | null
@@ -67,4 +39,3 @@ export type LeaderboardRow = {
   rounds_counted?: number | null
   rounds_played?: number | null
 }
-

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -10,13 +10,12 @@ import { fetchMatchPlayers, fetchMatchPlayersWithScores, type MatchPlayerInfo, t
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 import { Avatar } from "@/components/Avatar"
 import AvatarCropModal from "@/components/AvatarCropModal"
-import { PushNotificationToggle } from "@/components/PushNotificationToggle"
-import { NotificationPreferences } from "@/components/NotificationPreferences"
 import { ConfirmModal } from "@/components/ConfirmModal"
 import { RecordsCard, type RecordsData } from "@/components/profile/RecordsCard"
-import { WeekCalendarCard, type WeekStatsData } from "@/components/profile/WeekCalendarCard"
+import { MatchCalendarSection } from "@/components/match/MatchCalendarSection"
+import type { League as SharedLeague, Match as SharedMatch, MatchPlayer as SharedMatchPlayer } from "@/components/match/types"
 import { CoursesCard, type CoursePlay } from "@/components/profile/CoursesCard"
-import { ScoreTrendCard, type ScoreTrendData } from "@/components/profile/ScoreTrendCard"
+import { ScoreTrendCard } from "@/components/profile/ScoreTrendCard"
 
 type Profile = {
   id: string
@@ -116,13 +115,188 @@ export default function ProfilePage() {
   const [activityFeed, setActivityFeed] = useState<ActivityEvent[]>([])
   const [matchesPlayed, setMatchesPlayed] = useState(0)
   const [records, setRecords] = useState<RecordsData | null>(null)
-  const [weekStats, setWeekStats] = useState<WeekStatsData | null>(null)
+  // Viewer's matches within the calendar window (±30 days around
+  // today) + lookups the MatchCalendarSection needs to render per-
+  // match detail cards: `calendarMatches` is the raw list,
+  // `calendarPlayersMap` keys rosters by match id,
+  // `calendarLeaguesById` lets the section resolve each match to its
+  // league (matches span multiple leagues on profile, unlike league
+  // page where every card shares the same league).
+  const [calendarMatches, setCalendarMatches] = useState<SharedMatch[]>([])
+  const [calendarPlayersMap, setCalendarPlayersMap] = useState<
+    Map<string | number, SharedMatchPlayer[]>
+  >(new Map())
+  const [calendarLeaguesById, setCalendarLeaguesById] = useState<
+    Map<string, SharedLeague>
+  >(new Map())
   const [courses, setCourses] = useState<CoursePlay[] | null>(null)
-  const [scoreTrend, setScoreTrend] = useState<ScoreTrendData | null>(null)
+  // ScoreTrendCard now owns its own trend state (fetched per range selection)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [logoutLoading, setLogoutLoading] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+
+  /**
+   * Pulls the viewer's matches in a ±30 day window around today and
+   * builds the three maps MatchCalendarSection consumes: the matches
+   * themselves, per-match rosters (with scores + approved_at), and a
+   * leagues-by-id map used as the `resolveLeague` backing for the
+   * detail card.
+   *
+   * Three queries in parallel:
+   *   1. match_players (mine, in window) → matches & leagues
+   *   2. match_players (all, for those matches) → rosters
+   *   3. scores (for those matches) → per-player score + status
+   *
+   * Exposed as onRefresh to the section so inline mutations
+   * (edit scores, approve, leave, delete) re-pull on success.
+   */
+  const loadCalendar = useCallback(async (userId: string) => {
+    const now = new Date()
+    const start = new Date(now)
+    start.setDate(now.getDate() - 30)
+    const end = new Date(now)
+    end.setDate(now.getDate() + 30)
+    const startIso = start.toISOString().slice(0, 10)
+    const endIso = end.toISOString().slice(0, 10)
+
+    type LeagueEmbed = {
+      id: string
+      name: string
+      course_name?: string | null
+      status?: string | null
+      max_players?: number | null
+      scoring_cards_count?: number | null
+      total_cards_count?: number | null
+      invite_code?: string | null
+      admin_id?: string | null
+      start_date?: string | null
+      end_date?: string | null
+    }
+    type MineRow = {
+      match_id: string
+      matches:
+        | {
+            id: string
+            course_name: string | null
+            match_date: string | null
+            match_time: string | null
+            status: string | null
+            league_id: string | null
+            created_by: string | null
+            leagues: LeagueEmbed | null
+          }
+        | null
+    }
+
+    // Step 1
+    const mineRes = await supabase
+      .from("match_players")
+      .select(
+        "match_id, matches!inner(id, course_name, match_date, match_time, status, league_id, created_by, leagues(id, name, course_name, status, max_players, scoring_cards_count, total_cards_count, invite_code, admin_id, start_date, end_date))",
+      )
+      .eq("user_id", userId)
+      .gte("matches.match_date", startIso)
+      .lte("matches.match_date", endIso)
+
+    const mineRows = ((mineRes.data as unknown) as MineRow[]) || []
+    const uniqueMatches: SharedMatch[] = []
+    const leaguesById = new Map<string, SharedLeague>()
+    const seen = new Set<string>()
+
+    for (const row of mineRows) {
+      const m = row.matches
+      if (!m || seen.has(m.id)) continue
+      seen.add(m.id)
+      uniqueMatches.push({
+        id: m.id,
+        league_id: m.league_id ?? "",
+        course_name: m.course_name,
+        match_date: m.match_date,
+        match_time: m.match_time,
+        status: m.status,
+        created_by: m.created_by,
+      })
+      if (m.leagues && !leaguesById.has(String(m.leagues.id))) {
+        leaguesById.set(String(m.leagues.id), m.leagues as SharedLeague)
+      }
+    }
+
+    setCalendarMatches(uniqueMatches)
+    setCalendarLeaguesById(leaguesById)
+
+    if (uniqueMatches.length === 0) {
+      setCalendarPlayersMap(new Map())
+      return
+    }
+
+    const matchIds = uniqueMatches.map((m) => m.id)
+
+    // Steps 2 + 3
+    const [rostersRes, scoresRes] = await Promise.all([
+      supabase
+        .from("match_players")
+        .select(
+          "match_id, user_id, approved_at, profiles(username, first_name, avatar_url)",
+        )
+        .in("match_id", matchIds),
+      supabase
+        .from("scores")
+        .select("match_id, user_id, score, holes, status")
+        .in("match_id", matchIds),
+    ])
+
+    type ScoreRow = {
+      match_id: string
+      user_id: string
+      score: number
+      holes: number | null
+      status: string
+    }
+    type RosterRow = {
+      match_id: string
+      user_id: string
+      approved_at: string | null
+      profiles: {
+        username?: string | null
+        first_name?: string | null
+        avatar_url?: string | null
+      } | null
+    }
+
+    const scoreLookup = new Map<
+      string,
+      { score: number; holes: number | null; status: string }
+    >()
+    for (const s of (scoresRes.data || []) as ScoreRow[]) {
+      scoreLookup.set(`${s.match_id}:${s.user_id}`, {
+        score: s.score,
+        holes: s.holes,
+        status: s.status,
+      })
+    }
+
+    const map = new Map<string | number, SharedMatchPlayer[]>()
+    for (const r of (rostersRes.data || []) as RosterRow[]) {
+      const key = `${r.match_id}:${r.user_id}`
+      const entry = scoreLookup.get(key)
+      const arr = map.get(r.match_id) || []
+      arr.push({
+        name:
+          r.profiles?.username ||
+          r.profiles?.first_name ||
+          "Player",
+        avatar_url: r.profiles?.avatar_url ?? null,
+        user_id: r.user_id,
+        score: entry?.score ?? null,
+        holes: entry?.holes ?? null,
+        status: entry?.status ?? null,
+        approved_at: r.approved_at,
+      })
+      map.set(r.match_id, arr)
+    }
+    setCalendarPlayersMap(map)
+  }, [])
 
   // Profile editing
   const [editing, setEditing] = useState(false)
@@ -217,9 +391,9 @@ export default function ProfilePage() {
           setEnrichedLeagues(enriched)
         }
 
-        // Scheduled + past match lists moved to /profile/matches — see the
-        // "See all matches" link inside WeekCalendarCard. We no longer fetch
-        // or render those here on /profile.
+        // Scheduled + past match lists moved to /profile/matches —
+        // reachable via the "My calendar →" link in MatchCalendarSection's
+        // header. We no longer fetch or render those here on /profile.
 
         // Fetch activity feed. Pull 30 so that after filtering out the
         // viewer's own actions we still have a healthy carousel. (On your
@@ -248,25 +422,27 @@ export default function ProfilePage() {
           setActivityFeed(mapped)
         }
 
-        // Fetch dashboard stats in parallel: records, week, courses, trend
-        const [recordsRes, weekRes, coursesRes, trendRes] = await Promise.all([
+        // Fetch dashboard stats in parallel: records + courses.
+        // (score trend is fetched inside ScoreTrendCard, which owns
+        // the range-selector state). get_profile_week is retired —
+        // the calendar block now pulls the viewer's actual matches
+        // with full rosters so it can host the inline detail card
+        // (see `loadCalendar` further down).
+        const [recordsRes, coursesRes] = await Promise.all([
           supabase.rpc("get_profile_records", { p_user_id: userId }),
-          supabase.rpc("get_profile_week", { p_user_id: userId }),
           supabase.rpc("get_profile_courses", { p_user_id: userId }),
-          supabase.rpc("get_profile_score_trend", { p_user_id: userId }),
         ])
         if (!recordsRes.error && recordsRes.data) {
           setRecords(recordsRes.data as RecordsData)
         }
-        if (!weekRes.error && weekRes.data) {
-          setWeekStats(weekRes.data as WeekStatsData)
-        }
         if (!coursesRes.error && coursesRes.data) {
           setCourses(coursesRes.data as CoursePlay[])
         }
-        if (!trendRes.error && trendRes.data) {
-          setScoreTrend(trendRes.data as ScoreTrendData)
-        }
+
+        // Calendar data — the viewer's matches in a ±30 day window
+        // around today, with rosters + scores + embedded league
+        // info so the inline MatchDetailCard has what it needs.
+        await loadCalendar(userId)
 
         if (scoresCountRes.error) throw scoresCountRes.error
         setMatchesPlayed(scoresCountRes.count || 0)
@@ -278,7 +454,7 @@ export default function ProfilePage() {
     }
 
     init()
-  }, [authLoading, user])
+  }, [authLoading, user, loadCalendar])
 
   const handleLogout = async () => {
     setLogoutLoading(true)
@@ -495,8 +671,9 @@ export default function ProfilePage() {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-4">
-                <label className="group relative cursor-pointer" htmlFor="avatar-upload">
+              {/* Identity row: avatar + username (vertically centered) + Edit */}
+              <div className="flex items-center gap-3">
+                <label className="group relative cursor-pointer shrink-0" htmlFor="avatar-upload">
                   {profile?.avatar_url ? (
                     <Image
                       src={profile.avatar_url}
@@ -531,60 +708,64 @@ export default function ProfilePage() {
                     disabled={uploadingAvatar}
                   />
                 </label>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h1 className="truncate text-2xl font-bold text-primary">{displayName}</h1>
-                      {profile?.username && profile?.first_name && (
-                        <p className="truncate text-sm text-primary/60">
-                          {[profile.first_name, profile.last_name].filter(Boolean).join(" ")}
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={startEditing}
-                      className="shrink-0 text-xs font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      Edit
-                    </button>
-                  </div>
+                <h1 className="min-w-0 flex-1 truncate text-2xl font-bold text-primary">
+                  {displayName}
+                </h1>
+                <button
+                  type="button"
+                  onClick={startEditing}
+                  className="shrink-0 text-xs font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Edit
+                </button>
+              </div>
 
-                  {/* Inline stats row — replaces the old 2x2 grid */}
-                  <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-primary/60">
-                    <span className="inline-flex items-center gap-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                        <circle cx="12" cy="10" r="3" />
-                      </svg>
-                      {profile?.town || "No town"}
-                    </span>
-                    <span className="text-primary/30">·</span>
-                    <span>
-                      HCP <strong className="text-primary/80 tabular-nums">{profile?.handicap != null ? profile.handicap : "\u2013"}</strong>
-                    </span>
-                    <span className="text-primary/30">·</span>
-                    <span className="tabular-nums">
-                      {matchesPlayed}{" "}
-                      {matchesPlayed === 1 ? "match" : "matches"}
-                    </span>
-                    <span className="text-primary/30">·</span>
-                    <span className="tabular-nums">
-                      {memberships.length}{" "}
-                      {memberships.length === 1 ? "league" : "leagues"}
-                    </span>
-                  </div>
-                </div>
+              {/* Stats row — full-width under the identity row */}
+              <div className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-primary/60">
+                <span className="inline-flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  {profile?.town || "No town"}
+                </span>
+                <span className="text-primary/30">·</span>
+                <span>
+                  HCP <strong className="text-primary/80 tabular-nums">{profile?.handicap != null ? profile.handicap : "\u2013"}</strong>
+                </span>
+                <span className="text-primary/30">·</span>
+                <span className="tabular-nums">
+                  {matchesPlayed}{" "}
+                  {matchesPlayed === 1 ? "match" : "matches"}
+                </span>
+                <span className="text-primary/30">·</span>
+                <span className="tabular-nums">
+                  {memberships.length}{" "}
+                  {memberships.length === 1 ? "league" : "leagues"}
+                </span>
               </div>
             </>
           )}
         </section>
 
         {/* 2. Score trajectory — sparkline + trend arrow */}
-        <ScoreTrendCard trend={scoreTrend} handicap={profile?.handicap ?? null} />
+        <ScoreTrendCard handicap={profile?.handicap ?? null} />
 
-        {/* 3. This week — streak + 7-day calendar + next match CTA */}
-        <WeekCalendarCard week={weekStats} />
+        {/* 3. My calendar — horizontal day strip + inline MatchDetailCard
+            for the selected day. Shared with league page via
+            `MatchCalendarSection`. Full list still one tap away via
+            the "My calendar →" link in the section header. */}
+        {user && (
+          <MatchCalendarSection
+            matches={calendarMatches}
+            matchPlayersMap={calendarPlayersMap}
+            currentUserId={user.id}
+            resolveLeague={(m) =>
+              calendarLeaguesById.get(String(m.league_id)) ?? null
+            }
+            onRefresh={() => loadCalendar(user.id)}
+          />
+        )}
 
         {/* 3. Records — best round, top rival, longest streak */}
         <RecordsCard records={records} />
@@ -592,43 +773,14 @@ export default function ProfilePage() {
         {/* 4. Activity Feed — Carousel */}
         <ActivityFeedCarousel events={activityFeed} />
 
-        {/* Scheduled + Past matches lists moved to /profile/matches
-            (reached via the "See all matches" link inside WeekCalendarCard) */}
-
         {/* 5. Courses played — collection */}
         <CoursesCard courses={courses} />
 
         {/* 8. My Leagues — Carousel */}
         <LeagueCarousel leagues={enrichedLeagues} />
 
-        {/* 6. Notifications — master toggle + per-type preferences (collapsed) */}
-        <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold text-primary">Notifications</h2>
-          <PushNotificationToggle />
-          <details className="group mt-4 border-t border-primary/10 pt-4">
-            <summary className="flex cursor-pointer list-none items-center justify-between py-1 text-xs font-medium uppercase tracking-wide text-primary/50 hover:text-primary/80">
-              <span>Per-type preferences</span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="transition-transform duration-200 group-open:rotate-180"
-                aria-hidden="true"
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </summary>
-            <div className="mt-2">
-              <NotificationPreferences />
-            </div>
-          </details>
-        </section>
+        {/* Notification prefs moved out of the profile — the bell icon
+            and the /notifications page are the canonical surfaces now. */}
 
         {/* Log Out */}
         <div className="flex justify-center py-2">

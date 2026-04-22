@@ -229,24 +229,33 @@ function ScheduledMatchRow({
       href={`/matches/${match.id}`}
       className="block rounded-xl border border-primary/15 bg-white p-4 shadow-sm transition-colors hover:bg-cream/40"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+      <div className="flex items-center justify-between gap-4">
+        {/* Left: info text */}
+        <div className="min-w-0 flex-1 flex flex-col gap-0.5">
           <p className="text-xs font-medium uppercase tracking-wide text-primary/50">
             {dateLabel}
             {match.match_time ? ` · ${match.match_time.slice(0, 5)}` : ""}
           </p>
-          <p className="mt-1 truncate text-sm font-semibold text-primary">
+          <p className="truncate text-sm font-semibold text-primary">
             {match.course_name || "Course TBA"}
           </p>
           {match.leagues?.name && (
             <p className="truncate text-xs text-primary/60">{match.leagues.name}</p>
           )}
         </div>
+
+        {/* Right: players (avatar + name), inline with text */}
         {players.length > 0 && (
-          <div className="flex -space-x-2">
-            {players.slice(0, 4).map((p) => (
-              <div key={p.user_id} className="ring-2 ring-white">
-                <Avatar src={p.avatar_url} size={28} fallback={p.name} />
+          <div className="flex shrink-0 gap-3">
+            {players.map((p) => (
+              <div
+                key={p.user_id}
+                className="flex flex-col items-center gap-1"
+              >
+                <Avatar src={p.avatar_url} size={32} fallback={p.name} />
+                <span className="max-w-[56px] truncate text-[10px] font-medium text-primary/70">
+                  {p.name}
+                </span>
               </div>
             ))}
           </div>
@@ -270,43 +279,62 @@ function PastMatchRow({
     month: "short",
     day: "numeric",
   })
-  const winner = players.reduce<MatchPlayerWithScore | null>(
-    (best, p) =>
-      p.score != null && (best == null || (best.score != null && p.score < best.score)) ? p : best,
-    null,
-  )
+
+  // Sort players by score ascending (lowest = best in golf); no-score last
+  const sorted = [...players].sort((a, b) => {
+    if (a.score == null && b.score == null) return 0
+    if (a.score == null) return 1
+    if (b.score == null) return -1
+    return a.score - b.score
+  })
+  const winnerScore =
+    sorted.length > 0 && sorted[0].score != null ? sorted[0].score : null
+
   return (
     <Link
       href={`/matches/${match.match_id}`}
       className="block rounded-xl border border-primary/15 bg-white p-4 shadow-sm transition-colors hover:bg-cream/40"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+      <div className="flex items-center justify-between gap-4">
+        {/* Left: info text */}
+        <div className="min-w-0 flex-1 flex flex-col gap-0.5">
           <p className="text-xs font-medium uppercase tracking-wide text-primary/50">
             {dateLabel}
           </p>
-          <p className="mt-1 truncate text-sm font-semibold text-primary">
+          <p className="truncate text-sm font-semibold text-primary">
             {match.course_name || "Course"}
           </p>
           {match.league_name && (
             <p className="truncate text-xs text-primary/60">{match.league_name}</p>
           )}
-          {winner && (
-            <p className="mt-1 text-[11px] text-primary/50">
-              Winner: <span className="font-semibold text-emerald-600">{winner.name}</span>
-              {winner.score != null ? ` · ${winner.score}` : ""}
-            </p>
-          )}
         </div>
-        <div className="flex flex-col items-end">
-          <span className="text-[10px] uppercase tracking-wide text-primary/40">
-            Your score
-          </span>
-          <span className="text-lg font-bold tabular-nums text-primary">
-            {match.score}
-          </span>
-          <span className="text-[10px] text-primary/40">{match.holes}H</span>
-        </div>
+
+        {/* Right: players (avatar + name + score), inline with text */}
+        {sorted.length > 0 && (
+          <div className="flex shrink-0 gap-3">
+            {sorted.map((p) => {
+              const isWinner = winnerScore != null && p.score === winnerScore
+              return (
+                <div
+                  key={p.user_id}
+                  className="flex flex-col items-center gap-1"
+                >
+                  <Avatar src={p.avatar_url} size={32} fallback={p.name} />
+                  <span className="max-w-[56px] truncate text-[10px] font-medium text-primary/70">
+                    {p.name}
+                  </span>
+                  <span
+                    className={`text-xs font-bold tabular-nums ${
+                      isWinner ? "text-emerald-600" : "text-primary/70"
+                    }`}
+                  >
+                    {p.score ?? "\u2013"}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </Link>
   )

@@ -20,7 +20,7 @@ export const runtime = "nodejs"
 
 const WIDTH = 1080
 const HEIGHT = 1080
-const BG = "#C6D9B7" // cream
+const BG = "#E3EDD6" // cream (keep in sync with tailwind.config.ts)
 const PRIMARY = "#0F3D2E"
 
 type PlayerRow = {
