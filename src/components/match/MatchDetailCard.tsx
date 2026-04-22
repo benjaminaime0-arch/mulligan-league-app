@@ -22,6 +22,7 @@
  */
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Avatar } from "@/components/Avatar"
 import type { League, Match, MatchPlayer } from "./types"
@@ -550,13 +551,11 @@ export function MatchDetailCard({
             ) : (
               sorted.map((p, i) => {
                 const isMe = !!currentUserId && p.user_id === currentUserId
-                return (
-                  <div
-                    key={`${p.user_id ?? i}`}
-                    className={`flex items-center gap-2 rounded-md px-1.5 py-1 ${
-                      isMe ? "bg-cream/50" : ""
-                    }`}
-                  >
+                const rowClass = `flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors ${
+                  isMe ? "bg-cream/50" : "hover:bg-cream/40"
+                }`
+                const body = (
+                  <>
                     <div className="relative shrink-0">
                       <Avatar src={p.avatar_url} size={28} fallback={p.name} />
                       {p.isBestScore && (
@@ -606,6 +605,27 @@ export function MatchDetailCard({
                           the header already tells the story, and
                           repeating "Pending" per row read as noise. */}
                     </div>
+                  </>
+                )
+                // Whole-row tap target → player profile. `/players/[id]`
+                // redirects to `/profile` when id matches the viewer,
+                // so tapping your own row just opens your own profile.
+                // Fall back to a plain div if we somehow don't have a
+                // user_id (defensive; shouldn't normally happen).
+                if (p.user_id) {
+                  return (
+                    <Link
+                      key={`${p.user_id}-${i}`}
+                      href={`/players/${p.user_id}`}
+                      className={rowClass}
+                    >
+                      {body}
+                    </Link>
+                  )
+                }
+                return (
+                  <div key={`${p.user_id ?? i}`} className={rowClass}>
+                    {body}
                   </div>
                 )
               })

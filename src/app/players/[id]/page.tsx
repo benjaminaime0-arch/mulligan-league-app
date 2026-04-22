@@ -418,16 +418,29 @@ function LeagueCarousel({ leagues, playerName }: { leagues: EnrichedLeague[]; pl
         </div>
       </div>
 
-      {/* Players preview */}
+      {/* Players preview — same tap-through-to-profile pattern as
+          the profile page's LeagueCarousel. Button stops propagation
+          so the outer league-card click doesn't hijack. */}
       <div className="mt-4 flex flex-col items-center gap-2">
         <div className="flex gap-2">
           {league.members.slice(0, 5).map((m) => (
-            <Avatar
+            <button
+              type="button"
               key={m.user_id}
-              src={m.profiles?.avatar_url}
-              size={28}
-              fallback={m.profiles?.username || m.profiles?.first_name || "P"}
-            />
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                router.push(`/players/${m.user_id}`)
+              }}
+              className="rounded-full transition-opacity hover:opacity-80"
+              aria-label={m.profiles?.username || m.profiles?.first_name || "Player"}
+            >
+              <Avatar
+                src={m.profiles?.avatar_url}
+                size={28}
+                fallback={m.profiles?.username || m.profiles?.first_name || "P"}
+              />
+            </button>
           ))}
           {league.memberCount > 5 && (
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary/60">

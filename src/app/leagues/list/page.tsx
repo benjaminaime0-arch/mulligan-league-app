@@ -381,16 +381,30 @@ export default function LeagueListPage() {
                   </div>
               </div>
 
-              {/* Players preview */}
+              {/* Players preview — each avatar is a button that
+                  stops propagation so tapping a member opens their
+                  profile instead of the enclosing league card's
+                  navigation target. */}
               <div className="flex flex-col items-center gap-2 px-5 py-4">
                 <div className="flex gap-2">
                   {league.members.slice(0, 5).map((m) => (
-                    <Avatar
+                    <button
+                      type="button"
                       key={m.user_id}
-                      src={m.profiles?.avatar_url}
-                      size={28}
-                      fallback={m.profiles?.username || m.profiles?.first_name || "P"}
-                    />
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        router.push(`/players/${m.user_id}`)
+                      }}
+                      className="rounded-full transition-opacity hover:opacity-80"
+                      aria-label={m.profiles?.username || m.profiles?.first_name || "Player"}
+                    >
+                      <Avatar
+                        src={m.profiles?.avatar_url}
+                        size={28}
+                        fallback={m.profiles?.username || m.profiles?.first_name || "P"}
+                      />
+                    </button>
                   ))}
                   {league.memberCount > 5 && (
                     <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary/60">

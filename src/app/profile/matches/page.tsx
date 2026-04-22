@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { Avatar } from "@/components/Avatar"
@@ -217,6 +218,7 @@ function ScheduledMatchRow({
   match: ScheduledMatch
   players: MatchPlayerInfo[]
 }) {
+  const router = useRouter()
   const dateLabel = match.match_date
     ? new Date(match.match_date).toLocaleDateString("en-US", {
         weekday: "short",
@@ -244,19 +246,30 @@ function ScheduledMatchRow({
           )}
         </div>
 
-        {/* Right: players (avatar + name), inline with text */}
+        {/* Right: players (avatar + name). Each player is its own
+            button so a tap on the avatar/name routes to that player's
+            profile; the outer Link still handles taps on the rest of
+            the card (date, course, league) → goes to the match. We
+            e.preventDefault()+stopPropagation so only one navigation
+            fires. Can't nest <Link> in <Link> — browsers choke on it. */}
         {players.length > 0 && (
           <div className="flex shrink-0 gap-3">
             {players.map((p) => (
-              <div
+              <button
+                type="button"
                 key={p.user_id}
-                className="flex flex-col items-center gap-1"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  router.push(`/players/${p.user_id}`)
+                }}
+                className="flex flex-col items-center gap-1 rounded-md p-0.5 transition-colors hover:bg-cream/40"
               >
                 <Avatar src={p.avatar_url} size={32} fallback={p.name} />
                 <span className="max-w-[56px] truncate text-[10px] font-medium text-primary/70">
                   {p.name}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -274,6 +287,7 @@ function PastMatchRow({
   match: PastMatch
   players: MatchPlayerWithScore[]
 }) {
+  const router = useRouter()
   const dateLabel = new Date(match.round_date).toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
@@ -309,15 +323,23 @@ function PastMatchRow({
           )}
         </div>
 
-        {/* Right: players (avatar + name + score), inline with text */}
+        {/* Right: players (avatar + name + score). Same pattern as
+            ScheduledMatchRow — each player is its own button routing
+            to their profile, outer Link preserves card → match nav. */}
         {sorted.length > 0 && (
           <div className="flex shrink-0 gap-3">
             {sorted.map((p) => {
               const isWinner = winnerScore != null && p.score === winnerScore
               return (
-                <div
+                <button
+                  type="button"
                   key={p.user_id}
-                  className="flex flex-col items-center gap-1"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    router.push(`/players/${p.user_id}`)
+                  }}
+                  className="flex flex-col items-center gap-1 rounded-md p-0.5 transition-colors hover:bg-cream/40"
                 >
                   <Avatar src={p.avatar_url} size={32} fallback={p.name} />
                   <span className="max-w-[56px] truncate text-[10px] font-medium text-primary/70">
@@ -330,7 +352,7 @@ function PastMatchRow({
                   >
                     {p.score ?? "\u2013"}
                   </span>
-                </div>
+                </button>
               )
             })}
           </div>
