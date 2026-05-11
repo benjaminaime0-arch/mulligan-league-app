@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 :root {
-  --primary: #0f3d2e;
-  --cream: #f6f3ee;
-  --forest: #0f3d2e;
+  --primary: #003800;
+  --cream: #FFFFFF;
+  --forest: #003800;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 

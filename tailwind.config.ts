@@ -8,18 +8,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: "#0F3D2E",
-        // `cream` is the page background. Stepped from the previous
-        // #C6D9B7 (muted sage) to a noticeably lighter tint so the dark
-        // primary content pops against more whitespace. Still clearly in
-        // the sage/green family — reads as a softer version, not a
-        // palette change.
-        cream: "#E3EDD6",
+        primary: "#003800",
+        // `cream` is the CTA text + light surface color. Flipped to
+        // pure white so on-primary CTA labels read as crisp white,
+        // matching the rebrand spec (green button, white text).
+        cream: "#FFFFFF",
         // Page-level background. Same green as the primary CTA so the
         // app's surfaces and accents share a single brand green; the
         // logo lockup was darker but reads as the same family in
         // context. Used on every <main> container.
-        forest: "#0F3D2E",
+        forest: "#003800",
       },
     },
   },
