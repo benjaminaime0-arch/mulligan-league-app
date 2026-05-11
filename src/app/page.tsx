@@ -23,7 +23,7 @@ export default function Home() {
   if (checking) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cream/20 border-t-cream" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
       </main>
     )
   }
@@ -35,10 +35,10 @@ export default function Home() {
           <Logo size={200} priority />
         </div>
         <h1 className="sr-only">Mulligan League</h1>
-        <p className="mt-3 text-lg text-cream/90">
+        <p className="mt-3 text-lg text-primary/90">
           Your weekend golf crew, organized.
         </p>
-        <p className="mt-1 text-sm text-cream/60">
+        <p className="mt-1 text-sm text-primary/60">
           Leagues, scores, bragging rights — all in one place.
         </p>
 
