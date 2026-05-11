@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: ["/"],
-        disallow: ["/dashboard", "/profile", "/leagues", "/matches", "/leaderboard"],
+        disallow: ["/dashboard", "/profile", "/games", "/matches", "/leaderboard"],
       },
     ],
     sitemap: "https://app.mulliganclub.co/sitemap.xml",

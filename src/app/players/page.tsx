@@ -28,13 +28,13 @@ export default function PlayersPage() {
   useEffect(() => {
     if (authLoading || !user) return
 
-    const fetchLeagueMates = async () => {
+    const fetchGameMates = async () => {
       setLoadingRecent(true)
 
       // Get all game IDs the user is in
       const { data: memberships } = await supabase
-        .from("league_members")
-        .select("league_id")
+        .from("game_members")
+        .select("game_id")
         .eq("user_id", user.id)
 
       if (!memberships || memberships.length === 0) {
@@ -42,13 +42,13 @@ export default function PlayersPage() {
         return
       }
 
-      const leagueIds = memberships.map((m) => m.league_id)
+      const gameIds = memberships.map((m) => m.game_id)
 
       // Get unique fellow members from those games
       const { data: fellows } = await supabase
-        .from("league_members")
+        .from("game_members")
         .select("user_id, profiles!inner(id, username, first_name, last_name, avatar_url, club, town, handicap)")
-        .in("league_id", leagueIds)
+        .in("game_id", gameIds)
         .neq("user_id", user.id)
 
       if (fellows) {
@@ -67,7 +67,7 @@ export default function PlayersPage() {
       setLoadingRecent(false)
     }
 
-    fetchLeagueMates()
+    fetchGameMates()
   }, [authLoading, user])
 
   const handleSelect = (player: PlayerResult) => {

@@ -26,7 +26,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 import { MatchDetailCard } from "@/components/match/MatchDetailCard"
 import type {
-  Game as SharedLeague,
+  Game as SharedGame,
   Match as SharedMatch,
   MatchPlayer as SharedMatchPlayer,
 } from "@/components/match/types"
@@ -62,11 +62,11 @@ function AllMatchesInner() {
   // When present, scopes the list to a single game — the "Game
   // calendar" link on the game page passes this. Absent → cross-
   // game "My calendar" mode (from /profile).
-  const scopedLeagueId = searchParams.get("game")
+  const scopedGameId = searchParams.get("game")
   const [tab, setTab] = useState<Tab>("scheduled")
   const [matches, setMatches] = useState<SharedMatch[]>([])
-  const [leaguesById, setLeaguesById] = useState<
-    Map<string, SharedLeague>
+  const [gamesById, setGamesById] = useState<
+    Map<string, SharedGame>
   >(new Map())
   const [playersByMatch, setPlayersByMatch] = useState<
     Map<string | number, SharedMatchPlayer[]>
@@ -75,14 +75,14 @@ function AllMatchesInner() {
 
   /**
    * Pulls every match the viewer is rostered on plus full rosters +
-   * scores. When `leagueId` is set the fetch is scoped to that
+   * scores. When `gameId` is set the fetch is scoped to that
    * game; otherwise the full cross-game list is returned.
    * Exposed as `onRefresh` so any MatchDetailCard mutation (score
    * edit, approval, leave, delete) re-pulls fresh data in place
    * without navigating.
    */
-  const load = useCallback(async (userId: string, leagueId: string | null) => {
-    type LeagueEmbed = {
+  const load = useCallback(async (userId: string, gameId: string | null) => {
+    type GameEmbed = {
       id: string
       name: string
       course_name?: string | null
@@ -105,9 +105,9 @@ function AllMatchesInner() {
             match_date: string | null
             match_time: string | null
             status: string | null
-            league_id: string | null
+            game_id: string | null
             created_by: string | null
-            leagues: LeagueEmbed | null
+            games: GameEmbed | null
           }
         | null
     }
@@ -115,20 +115,20 @@ function AllMatchesInner() {
     let mineQ = supabase
       .from("match_players")
       .select(
-        "match_id, matches!inner(id, course_name, match_date, match_time, status, league_id, created_by, leagues(id, name, course_name, status, max_players, scoring_cards_count, total_cards_count, invite_code, admin_id, start_date, end_date, format))",
+        "match_id, matches!inner(id, course_name, match_date, match_time, status, game_id, created_by, games(id, name, course_name, status, max_players, scoring_cards_count, total_cards_count, invite_code, admin_id, start_date, end_date, format))",
       )
       .eq("user_id", userId)
-    if (leagueId) {
-      // Filter on the embedded `matches.league_id` so we only get
+    if (gameId) {
+      // Filter on the embedded `matches.game_id` so we only get
       // the viewer's match_players rows that belong to the scoped
       // game. Supabase supports dotted paths on `!inner` joins.
-      mineQ = mineQ.eq("matches.league_id", leagueId)
+      mineQ = mineQ.eq("matches.game_id", gameId)
     }
     const mineRes = await mineQ
 
     const mineRows = ((mineRes.data as unknown) as MineRow[]) || []
     const uniqueMatches: SharedMatch[] = []
-    const lMap = new Map<string, SharedLeague>()
+    const lMap = new Map<string, SharedGame>()
     const seen = new Set<string>()
 
     for (const row of mineRows) {
@@ -137,20 +137,20 @@ function AllMatchesInner() {
       seen.add(m.id)
       uniqueMatches.push({
         id: m.id,
-        league_id: m.league_id ?? "",
+        game_id: m.game_id ?? "",
         course_name: m.course_name,
         match_date: m.match_date,
         match_time: m.match_time,
         status: m.status,
         created_by: m.created_by,
       })
-      if (m.leagues && !lMap.has(String(m.leagues.id))) {
-        lMap.set(String(m.leagues.id), m.leagues as SharedLeague)
+      if (m.games && !lMap.has(String(m.games.id))) {
+        lMap.set(String(m.games.id), m.games as SharedGame)
       }
     }
 
     setMatches(uniqueMatches)
-    setLeaguesById(lMap)
+    setGamesById(lMap)
 
     if (uniqueMatches.length === 0) {
       setPlayersByMatch(new Map())
@@ -227,7 +227,7 @@ function AllMatchesInner() {
     const run = async () => {
       setLoading(true)
       try {
-        await load(user.id, scopedLeagueId)
+        await load(user.id, scopedGameId)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -236,7 +236,7 @@ function AllMatchesInner() {
     return () => {
       cancelled = true
     }
-  }, [authLoading, user, load, scopedLeagueId])
+  }, [authLoading, user, load, scopedGameId])
 
   // Realtime: pick up approvals + new matches + deletions from other
   // devices / teammates without a manual reload. Debounced 400ms so a
@@ -248,7 +248,7 @@ function AllMatchesInner() {
       if (timer) clearTimeout(timer)
       timer = setTimeout(() => {
         timer = null
-        load(user.id, scopedLeagueId)
+        load(user.id, scopedGameId)
       }, 400)
     }
 
@@ -272,12 +272,12 @@ function AllMatchesInner() {
           // Scoped mode: only bump if the event's game matches our
           // filter. Unscoped mode: gate on whether we already know
           // the game (viewer is a member).
-          const leagueId =
-            (payload.new as { league_id?: string })?.league_id ??
-            (payload.old as { league_id?: string })?.league_id
-          if (!leagueId) return
-          if (scopedLeagueId && String(leagueId) !== scopedLeagueId) return
-          if (leaguesById.has(String(leagueId))) bump()
+          const gameId =
+            (payload.new as { game_id?: string })?.game_id ??
+            (payload.old as { game_id?: string })?.game_id
+          if (!gameId) return
+          if (scopedGameId && String(gameId) !== scopedGameId) return
+          if (gamesById.has(String(gameId))) bump()
         },
       )
       .subscribe()
@@ -290,7 +290,7 @@ function AllMatchesInner() {
     // from deps to avoid resubscribe churn. Fresh matches still get
     // picked up on the next load() cycle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, scopedLeagueId, load])
+  }, [user, scopedGameId, load])
 
   if (authLoading) return <LoadingSpinner message="Checking your session..." />
   if (!user) return null
@@ -321,21 +321,21 @@ function AllMatchesInner() {
   // the title relabels to the game's name (falling back to
   // "Game calendar" until the fetch lands). Cross-game default
   // stays on /profile with "My calendar".
-  const backHref = scopedLeagueId ? `/leagues/${scopedLeagueId}` : "/profile"
-  const scopedLeague = scopedLeagueId
-    ? leaguesById.get(scopedLeagueId) ?? null
+  const backHref = scopedGameId ? `/games/${scopedGameId}` : "/profile"
+  const scopedGame = scopedGameId
+    ? gamesById.get(scopedGameId) ?? null
     : null
-  const pageTitle = scopedLeagueId
-    ? scopedLeague?.name || "Game calendar"
+  const pageTitle = scopedGameId
+    ? scopedGame?.name || "Game calendar"
     : "My calendar"
 
   // Scoped mode, load completed, but the game didn't land in
-  // `leaguesById` — viewer isn't a member (RLS blocked the join) or
+  // `gamesById` — viewer isn't a member (RLS blocked the join) or
   // the game id is bogus. Either way the "no matches" empty state
   // would be misleading, so we surface an explicit access notice
   // with a path back to their own calendar.
   const scopedAccessDenied =
-    !loading && scopedLeagueId != null && scopedLeague == null
+    !loading && scopedGameId != null && scopedGame == null
 
   return (
     <main className="min-h-screen px-4 pb-6 pt-4">
@@ -411,7 +411,7 @@ function AllMatchesInner() {
         ) : (
           <div className="flex flex-col gap-3">
             {list.map((m) => {
-              const game = leaguesById.get(String(m.league_id)) ?? null
+              const game = gamesById.get(String(m.game_id)) ?? null
               if (!game) return null
               return (
                 <MatchDetailCard
@@ -421,8 +421,8 @@ function AllMatchesInner() {
                   matchPlayers={playersByMatch.get(m.id)}
                   currentUserId={user.id}
                   variant={tab === "scheduled" ? "scheduled" : "past"}
-                  onRefresh={() => load(user.id, scopedLeagueId)}
-                  context={scopedLeagueId ? "game" : "profile"}
+                  onRefresh={() => load(user.id, scopedGameId)}
+                  context={scopedGameId ? "game" : "profile"}
                 />
               )
             })}

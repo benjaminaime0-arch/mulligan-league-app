@@ -11,7 +11,7 @@
  * Data model: caller passes `matches` (ALL matches to surface on the
  * strip — e.g. a game's period matches, or a viewer's matches across
  * games), plus `matchPlayersMap` keyed by match id, plus a
- * `resolveLeague` callback that returns the matching Game for a
+ * `resolveGame` callback that returns the matching Game for a
  * given match (game page: same game for all; profile page: per
  * match from an embedded games map).
  *
@@ -36,9 +36,9 @@ export interface MatchCalendarSectionProps {
   /**
    * Returns the Game that contextualizes a given match. Called per
    * rendered MatchDetailCard. On the game page this always returns
-   * the same league object; on profile it looks up by match.league_id.
+   * the same game object; on profile it looks up by match.game_id.
    */
-  resolveLeague: (match: Match) => Game | null
+  resolveGame: (match: Match) => Game | null
   onRefresh: () => Promise<void> | void
   /**
    * Optional URL-driven focus (game page forwards this from
@@ -64,14 +64,14 @@ export interface MatchCalendarSectionProps {
    * CTA will open the create page without pre-selecting a game
    * (user picks one there).
    */
-  defaultLeagueId?: string | number | null
+  defaultGameId?: string | number | null
   /**
    * Forwarded to each rendered MatchDetailCard. Lets the "Lowest of
    * game" flame chip show up on the specific card/row that holds
    * the game-wide best approved round. Computed once upstream so
    * per-card rendering doesn't re-scan the full match set.
    */
-  leagueHighlights?: {
+  gameHighlights?: {
     lowestRound?: {
       matchId: string
       userId: string
@@ -97,7 +97,7 @@ export function MatchCalendarSection({
   matches,
   matchPlayersMap,
   currentUserId,
-  resolveLeague,
+  resolveGame,
   onRefresh,
   focusMatchId,
   autoEdit,
@@ -105,8 +105,8 @@ export function MatchCalendarSection({
   daysBefore = 15,
   daysAfter = 15,
   context = "profile",
-  defaultLeagueId = null,
-  leagueHighlights = null,
+  defaultGameId = null,
+  gameHighlights = null,
 }: MatchCalendarSectionProps) {
   const todayIso = useMemo(() => toIso(new Date()), [])
 
@@ -233,8 +233,8 @@ export function MatchCalendarSection({
       <h2 className="mb-3">
         <Link
           href={
-            context === "game" && defaultLeagueId != null
-              ? `/profile/matches?game=${encodeURIComponent(String(defaultLeagueId))}`
+            context === "game" && defaultGameId != null
+              ? `/profile/matches?game=${encodeURIComponent(String(defaultGameId))}`
               : "/profile/matches"
           }
           className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary/70"
@@ -393,14 +393,14 @@ export function MatchCalendarSection({
           <EmptyTile
             iso={selectedDate}
             todayIso={todayIso}
-            defaultLeagueId={defaultLeagueId}
+            defaultGameId={defaultGameId}
           />
         ) : (
           <DayMatchesCarousel
             key={selectedDate /* reset index when date changes */}
             matches={matchesOnSelected}
             matchPlayersMap={matchPlayersMap}
-            resolveLeague={resolveLeague}
+            resolveGame={resolveGame}
             currentUserId={currentUserId}
             onRefresh={onRefresh}
             focusMatchId={focusMatchId}
@@ -408,7 +408,7 @@ export function MatchCalendarSection({
             onFocusConsumed={onFocusConsumed}
             todayIso={todayIso}
             context={context}
-            leagueHighlights={leagueHighlights}
+            gameHighlights={gameHighlights}
           />
         )}
       </div>
@@ -555,7 +555,7 @@ function dayCircleClasses({
 function DayMatchesCarousel({
   matches,
   matchPlayersMap,
-  resolveLeague,
+  resolveGame,
   currentUserId,
   onRefresh,
   focusMatchId,
@@ -563,11 +563,11 @@ function DayMatchesCarousel({
   onFocusConsumed,
   todayIso,
   context,
-  leagueHighlights,
+  gameHighlights,
 }: {
   matches: Match[]
   matchPlayersMap: Map<string | number, MatchPlayer[]>
-  resolveLeague: (m: Match) => Game | null
+  resolveGame: (m: Match) => Game | null
   currentUserId: string
   onRefresh: () => Promise<void> | void
   focusMatchId?: string | null
@@ -575,7 +575,7 @@ function DayMatchesCarousel({
   onFocusConsumed?: () => void
   todayIso: string
   context: "game" | "profile"
-  leagueHighlights?: {
+  gameHighlights?: {
     lowestRound?: {
       matchId: string
       userId: string
@@ -630,7 +630,7 @@ function DayMatchesCarousel({
 
   if (!current) return null
 
-  const game = resolveLeague(current)
+  const game = resolveGame(current)
   const hasPrev = safeIndex > 0
   const hasNext = safeIndex < matches.length - 1
 
@@ -667,7 +667,7 @@ function DayMatchesCarousel({
             }
             onAutoEditConsumed={onFocusConsumed}
             context={context}
-            leagueHighlights={leagueHighlights}
+            gameHighlights={gameHighlights}
           />
         )}
 
@@ -723,11 +723,11 @@ function DayMatchesCarousel({
 function EmptyTile({
   iso,
   todayIso,
-  defaultLeagueId,
+  defaultGameId,
 }: {
   iso: string
   todayIso: string
-  defaultLeagueId: string | number | null
+  defaultGameId: string | number | null
 }) {
   const d = new Date(iso)
   const isToday = iso === todayIso
@@ -753,7 +753,7 @@ function EmptyTile({
   // Today / future → active CTA that deep-links into the match-create
   // form with date + game pre-filled.
   const params = new URLSearchParams({ date: iso })
-  if (defaultLeagueId != null) params.set("game", String(defaultLeagueId))
+  if (defaultGameId != null) params.set("game", String(defaultGameId))
   const href = `/matches/create?${params.toString()}`
 
   return (

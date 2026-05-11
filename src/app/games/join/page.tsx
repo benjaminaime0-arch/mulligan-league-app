@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 
-export default function JoinLeaguePage() {
+export default function JoinGamePage() {
   return (
     <Suspense
       fallback={
@@ -14,12 +14,12 @@ export default function JoinLeaguePage() {
         </main>
       }
     >
-      <JoinLeagueContent />
+      <JoinGameContent />
     </Suspense>
   )
 }
 
-function JoinLeagueContent() {
+function JoinGameContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
@@ -27,8 +27,8 @@ function JoinLeagueContent() {
   const [code, setCode] = useState(searchParams.get("code")?.toUpperCase().slice(0, 6) || "")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [leagueId, setLeagueId] = useState<string | number | null>(null)
-  const [successLeagueName, setSuccessLeagueName] = useState<string | null>(null)
+  const [gameId, setGameId] = useState<string | number | null>(null)
+  const [successGameName, setSuccessGameName] = useState<string | null>(null)
   const [successCourseName, setSuccessCourseName] = useState<string | null>(null)
   const [successMemberCount, setSuccessMemberCount] = useState<number>(0)
 
@@ -44,7 +44,7 @@ function JoinLeagueContent() {
 
     setSubmitting(true)
     try {
-      const { data, error: rpcError } = await supabase.rpc("join_league_by_code", {
+      const { data, error: rpcError } = await supabase.rpc("join_game_by_code", {
         code: trimmed,
       })
 
@@ -53,10 +53,10 @@ function JoinLeagueContent() {
       }
 
       const result = data as
-        | { success: boolean; league_id?: string | number; league_name?: string; error?: string }
+        | { success: boolean; game_id?: string | number; game_name?: string; error?: string }
         | null
 
-      if (!result || !result.success || !result.league_id || !result.league_name) {
+      if (!result || !result.success || !result.game_id || !result.game_name) {
         const message =
           result?.error ||
           "Unable to join game. The code may be invalid, the game may be full, or you may already be a member."
@@ -64,23 +64,23 @@ function JoinLeagueContent() {
         return
       }
 
-      setLeagueId(result.league_id)
-      setSuccessLeagueName(result.league_name ?? null)
+      setGameId(result.game_id)
+      setSuccessGameName(result.game_name ?? null)
 
       // Fetch additional game details for the success card
-      const [leagueRes, membersRes] = await Promise.all([
+      const [gameRes, membersRes] = await Promise.all([
         supabase
-          .from("leagues")
+          .from("games")
           .select("course_name")
-          .eq("id", result.league_id)
+          .eq("id", result.game_id)
           .maybeSingle(),
         supabase
-          .from("league_members")
+          .from("game_members")
           .select("id")
-          .eq("league_id", result.league_id),
+          .eq("game_id", result.game_id),
       ])
       setSuccessCourseName(
-        (leagueRes.data as { course_name?: string | null } | null)?.course_name ?? null
+        (gameRes.data as { course_name?: string | null } | null)?.course_name ?? null
       )
       setSuccessMemberCount(membersRes.data?.length ?? 0)
     } catch (err) {
@@ -112,7 +112,7 @@ function JoinLeagueContent() {
   }
 
   // Success state — replace entire form with success card
-  if (leagueId) {
+  if (gameId) {
     return (
       <main className="min-h-screen px-4 py-8">
         <div className="mx-auto flex w-full max-w-md flex-col gap-8">
@@ -127,7 +127,7 @@ function JoinLeagueContent() {
             <h2 className="text-xl font-bold text-primary">You&apos;re in!</h2>
 
             <p className="mt-2 text-lg font-semibold text-primary">
-              {successLeagueName}
+              {successGameName}
             </p>
 
             <p className="mt-1 text-sm text-primary/60">
@@ -139,7 +139,7 @@ function JoinLeagueContent() {
             <div className="mt-6 flex flex-col gap-3">
               <button
                 type="button"
-                onClick={() => router.push(`/leagues/${leagueId}`)}
+                onClick={() => router.push(`/games/${gameId}`)}
                 className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98]"
               >
                 Go to Game

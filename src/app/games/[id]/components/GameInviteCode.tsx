@@ -1,11 +1,11 @@
-interface LeagueInviteCodeProps {
+interface GameInviteCodeProps {
   inviteCode: string
-  leagueName: string
+  gameName: string
   /** "desktop" shows inline next to title, "mobile" shows centered block, "bottom" always visible */
   variant: "desktop" | "mobile" | "bottom"
 }
 
-export function LeagueInviteCode({ inviteCode, leagueName, variant }: LeagueInviteCodeProps) {
+export function GameInviteCode({ inviteCode, gameName, variant }: GameInviteCodeProps) {
   const handleCopy = async () => {
     if (typeof navigator === "undefined" || !navigator.clipboard) return
     try {
@@ -17,7 +17,7 @@ export function LeagueInviteCode({ inviteCode, leagueName, variant }: LeagueInvi
 
   const handleShare = async () => {
     const joinUrl = `${window.location.origin}/games/join?code=${inviteCode}`
-    const message = `Join my golf game "${leagueName}" on Mulligan!\n${joinUrl}`
+    const message = `Join my golf game "${gameName}" on Mulligan!\n${joinUrl}`
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ text: message, url: joinUrl })

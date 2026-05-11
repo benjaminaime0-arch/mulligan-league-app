@@ -29,7 +29,7 @@ export type MatchPlayer = {
 
 export type Match = {
   id: string | number
-  league_id: string | number
+  game_id: string | number
   period_id?: string | number | null
   course_name?: string | null
   match_date?: string | null
@@ -50,7 +50,7 @@ export type Match = {
  *                 the highest N scores. Pre-calculated totals entered
  *                 per round — no per-hole data required in v1.
  */
-export type LeagueFormat = "stroke_play" | "stableford"
+export type GameFormat = "stroke_play" | "stableford"
 
 export type Game = {
   id: string | number
@@ -60,7 +60,7 @@ export type Game = {
   max_players?: number | null
   admin_id?: string | null
   status?: string | null
-  league_type?: string | null
+  game_type?: string | null
   scoring_cards_count?: number | null
   total_cards_count?: number | null
   start_date?: string | null
@@ -69,5 +69,5 @@ export type Game = {
    * Scoring model. Defaults to "stroke_play" on the server for
    * existing rows, so treat missing/unknown values as stroke play.
    */
-  format?: LeagueFormat | string | null
+  format?: GameFormat | string | null
 }

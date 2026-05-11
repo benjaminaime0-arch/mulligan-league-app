@@ -9,7 +9,7 @@
  * links (notifications, emails, shared invites, bookmarks) keep
  * working. It:
  *
- *   1. Fetches the match's league_id
+ *   1. Fetches the match's game_id
  *   2. Forwards any `?edit=1` query as `?match=[id]&edit=1` on the
  *      game URL so the game page can auto-select that match +
  *      auto-open the score editor
@@ -39,7 +39,7 @@ export default function MatchRedirectPage() {
     const run = async () => {
       const { data, error: fetchError } = await supabase
         .from("matches")
-        .select("league_id")
+        .select("game_id")
         .eq("id", matchId)
         .maybeSingle()
 
@@ -48,9 +48,9 @@ export default function MatchRedirectPage() {
         return
       }
 
-      const leagueId = data?.league_id as string | null | undefined
+      const gameId = data?.game_id as string | null | undefined
 
-      if (!leagueId) {
+      if (!gameId) {
         // Match isn't visible (RLS), or doesn't exist, or was
         // casual (shouldn't happen post-purge). Punt to dashboard.
         router.replace("/dashboard")
@@ -65,7 +65,7 @@ export default function MatchRedirectPage() {
       qs.set("match", matchId)
       if (edit) qs.set("edit", "1")
 
-      router.replace(`/leagues/${leagueId}?${qs.toString()}`)
+      router.replace(`/games/${gameId}?${qs.toString()}`)
     }
 
     run()

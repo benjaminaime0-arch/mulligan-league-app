@@ -29,20 +29,20 @@ type Profile = {
   handicap: number | null
 }
 
-type LeagueData = {
+type GameData = {
   id: string
   name: string
   course_name?: string | null
   max_players?: number | null
   status?: string | null
-  league_type?: string | null
+  game_type?: string | null
   scoring_cards_count?: number | null
   total_cards_count?: number | null
   start_date?: string | null
   end_date?: string | null
 }
 
-type LeagueMemberProfile = {
+type GameMemberProfile = {
   user_id: string
   profiles?: {
     id: string
@@ -55,15 +55,15 @@ type LeagueMemberProfile = {
 
 type PeriodData = {
   id: string | number
-  league_id: string | number
+  game_id: string | number
   name?: string | null
   start_date?: string | null
   end_date?: string | null
   status?: string | null
 }
 
-type EnrichedLeague = LeagueData & {
-  members: LeagueMemberProfile[]
+type EnrichedGame = GameData & {
+  members: GameMemberProfile[]
   memberCount: number
   activePeriod?: PeriodData | null
 }
@@ -74,11 +74,11 @@ export default function PlayerProfilePage() {
   const { user, loading: authLoading } = useAuth()
 
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [enrichedLeagues, setEnrichedLeagues] = useState<EnrichedLeague[]>([])
+  const [enrichedGames, setEnrichedGames] = useState<EnrichedGame[]>([])
   const [records, setRecords] = useState<RecordsData | null>(null)
   const [courses, setCourses] = useState<CoursePlay[] | null>(null)
   const [matchesPlayed, setMatchesPlayed] = useState(0)
-  const [leagueCount, setLeagueCount] = useState(0)
+  const [gameCount, setGameCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [isOwnProfile, setIsOwnProfile] = useState(false)
 
@@ -104,8 +104,8 @@ export default function PlayerProfilePage() {
             .eq("id", id)
             .maybeSingle(),
           supabase
-            .from("league_members")
-            .select("id, league_id, leagues(*)")
+            .from("game_members")
+            .select("id, game_id, games(*)")
             .eq("user_id", id),
           supabase
             .from("scores")
@@ -122,58 +122,58 @@ export default function PlayerProfilePage() {
       setProfile(profileRes.data as Profile)
 
       // Build enriched games for the carousel
-      type MemberRow = { id: string; league_id: string; leagues?: LeagueData | null }
+      type MemberRow = { id: string; game_id: string; games?: GameData | null }
       const membershipData = (membershipsRes.data as unknown as MemberRow[]) || []
-      const leagueMap = new Map<string, LeagueData>()
+      const gameMap = new Map<string, GameData>()
       for (const m of membershipData) {
-        const l = m.leagues as LeagueData | null
-        if (l && !leagueMap.has(String(l.id))) {
-          leagueMap.set(String(l.id), l)
+        const l = m.games as GameData | null
+        if (l && !gameMap.has(String(l.id))) {
+          gameMap.set(String(l.id), l)
         }
       }
-      const leagueList = Array.from(leagueMap.values())
-      setLeagueCount(leagueList.length)
+      const gameList = Array.from(gameMap.values())
+      setGameCount(gameList.length)
 
-      if (leagueList.length > 0) {
-        const leagueIds = leagueList.map((l) => l.id)
-        const [leagueMembersRes, periodsRes] = await Promise.all([
+      if (gameList.length > 0) {
+        const gameIds = gameList.map((l) => l.id)
+        const [gameMembersRes, periodsRes] = await Promise.all([
           supabase
-            .from("league_members")
-            .select("league_id, user_id, profiles(id, first_name, last_name, username, avatar_url)")
-            .in("league_id", leagueIds),
+            .from("game_members")
+            .select("game_id, user_id, profiles(id, first_name, last_name, username, avatar_url)")
+            .in("game_id", gameIds),
           supabase
-            .from("league_periods")
+            .from("game_periods")
             .select("*")
-            .in("league_id", leagueIds)
+            .in("game_id", gameIds)
             .order("start_date", { ascending: true }),
         ])
 
-        const membersByLeague: Record<string, LeagueMemberProfile[]> = {}
-        for (const m of leagueMembersRes.data || []) {
-          const key = String(m.league_id)
-          if (!membersByLeague[key]) membersByLeague[key] = []
-          membersByLeague[key].push(m as unknown as LeagueMemberProfile)
+        const membersByGame: Record<string, GameMemberProfile[]> = {}
+        for (const m of gameMembersRes.data || []) {
+          const key = String(m.game_id)
+          if (!membersByGame[key]) membersByGame[key] = []
+          membersByGame[key].push(m as unknown as GameMemberProfile)
         }
 
-        const periodByLeague: Record<string, PeriodData> = {}
+        const periodByGame: Record<string, PeriodData> = {}
         for (const p of (periodsRes.data || []) as PeriodData[]) {
-          const key = String(p.league_id)
-          if (!periodByLeague[key] || p.status === "active") {
-            periodByLeague[key] = p
+          const key = String(p.game_id)
+          if (!periodByGame[key] || p.status === "active") {
+            periodByGame[key] = p
           }
         }
 
-        const enriched: EnrichedLeague[] = leagueList.map((l) => {
+        const enriched: EnrichedGame[] = gameList.map((l) => {
           const key = String(l.id)
-          const members = membersByLeague[key] || []
+          const members = membersByGame[key] || []
           return {
             ...l,
             members,
             memberCount: members.length,
-            activePeriod: periodByLeague[key] || null,
+            activePeriod: periodByGame[key] || null,
           }
         })
-        setEnrichedLeagues(enriched)
+        setEnrichedGames(enriched)
       }
 
       if (!recordsRes.error && recordsRes.data) {
@@ -269,7 +269,7 @@ export default function PlayerProfilePage() {
             </span>
             <span className="text-primary/30">·</span>
             <span className="tabular-nums">
-              {leagueCount} {leagueCount === 1 ? "game" : "games"}
+              {gameCount} {gameCount === 1 ? "game" : "games"}
             </span>
           </div>
         </section>
@@ -284,7 +284,7 @@ export default function PlayerProfilePage() {
         <CoursesCard courses={courses} />
 
         {/* 5. Games */}
-        <LeagueCarousel games={enrichedLeagues} playerName={displayName} />
+        <GameCarousel games={enrichedGames} playerName={displayName} />
       </div>
     </main>
   )
@@ -292,7 +292,7 @@ export default function PlayerProfilePage() {
 
 /* ── Game Carousel ───────────────────────────────────────── */
 
-function formatLeagueType(type?: string | null): string {
+function formatGameType(type?: string | null): string {
   if (!type) return "Standard"
   return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
 }
@@ -302,7 +302,7 @@ function formatDateShort(iso?: string | null): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-function LeagueCarousel({ games, playerName }: { games: EnrichedLeague[]; playerName: string }) {
+function GameCarousel({ games, playerName }: { games: EnrichedGame[]; playerName: string }) {
   const [idx, setIdx] = useState(0)
   const router = useRouter()
 
@@ -320,7 +320,7 @@ function LeagueCarousel({ games, playerName }: { games: EnrichedLeague[]; player
   return (
     <section
       className="cursor-pointer rounded-xl border border-primary/15 bg-white p-5 shadow-sm"
-      onClick={() => router.push(`/leagues/${game.id}`)}
+      onClick={() => router.push(`/games/${game.id}`)}
     >
       {/* Header with arrows */}
       <div className="flex items-center justify-between gap-2">
@@ -381,7 +381,7 @@ function LeagueCarousel({ games, playerName }: { games: EnrichedLeague[]; player
           </div>
           <div>
             <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Format</p>
-            <p className="text-xs font-semibold text-primary">{formatLeagueType(game.league_type)}</p>
+            <p className="text-xs font-semibold text-primary">{formatGameType(game.game_type)}</p>
           </div>
         </div>
 
@@ -419,7 +419,7 @@ function LeagueCarousel({ games, playerName }: { games: EnrichedLeague[]; player
       </div>
 
       {/* Players preview — same tap-through-to-profile pattern as
-          the profile page's LeagueCarousel. Button stops propagation
+          the profile page's GameCarousel. Button stops propagation
           so the outer game-card click doesn't hijack. */}
       <div className="mt-4 flex flex-col items-center gap-2">
         <div className="flex gap-2">

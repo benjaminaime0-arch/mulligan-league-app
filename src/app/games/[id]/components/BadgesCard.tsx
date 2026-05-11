@@ -9,7 +9,7 @@
  *   Most Active     — most cards submitted (min 2 to qualify)
  *   Most Consistent — tightest STDDEV across ≥3 rounds
  *
- * Data shape mirrors `get_league_badges` RPC (one row per earned
+ * Data shape mirrors `get_game_badges` RPC (one row per earned
  * badge). Rows are rendered in RPC order — the badge_key-driven ORDER
  * BY in SQL keeps the visual sequence stable.
  *
@@ -20,8 +20,8 @@
 
 import Link from "next/link"
 import { Avatar } from "@/components/Avatar"
-import type { LeagueFormat } from "@/components/match/types"
-import { formatCopy } from "@/lib/leagueFormat"
+import type { GameFormat } from "@/components/match/types"
+import { formatCopy } from "@/lib/gameFormat"
 
 export interface BadgeRow {
   badge_key: "best_round" | "most_active" | "most_consistent" | string
@@ -43,10 +43,10 @@ interface BadgesCardProps {
    * stroke play, so profile-level usages that don't care about
    * format can pass it through unchanged.
    */
-  leagueFormat?: LeagueFormat
+  gameFormat?: GameFormat
 }
 
-export function BadgesCard({ badges, currentUserId, leagueFormat = "stroke_play" }: BadgesCardProps) {
+export function BadgesCard({ badges, currentUserId, gameFormat = "stroke_play" }: BadgesCardProps) {
   return (
     <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
       <h2 className="mb-4 text-sm font-semibold text-primary">Honors</h2>
@@ -62,7 +62,7 @@ export function BadgesCard({ badges, currentUserId, leagueFormat = "stroke_play"
               key={b.badge_key}
               badge={b}
               isMe={!!currentUserId && b.user_id === currentUserId}
-              leagueFormat={leagueFormat}
+              gameFormat={gameFormat}
             />
           ))}
         </div>
@@ -76,13 +76,13 @@ export function BadgesCard({ badges, currentUserId, leagueFormat = "stroke_play"
 function BadgeRow({
   badge,
   isMe,
-  leagueFormat,
+  gameFormat,
 }: {
   badge: BadgeRow
   isMe: boolean
-  leagueFormat: LeagueFormat
+  gameFormat: GameFormat
 }) {
-  const meta = badgeMeta(badge.badge_key, leagueFormat)
+  const meta = badgeMeta(badge.badge_key, gameFormat)
   const bg = isMe ? "bg-cream/50" : ""
 
   const body = (
@@ -116,7 +116,7 @@ function BadgeRow({
 
       <div className="shrink-0 text-right">
         <span className="text-lg font-bold tabular-nums text-primary">
-          {formatValue(badge, leagueFormat)}
+          {formatValue(badge, gameFormat)}
         </span>
         {meta.valueSuffix && (
           <span className="ml-1 text-[10px] font-medium text-primary/40">
@@ -142,7 +142,7 @@ function BadgeRow({
 
 /* ── Helpers ──────────────────────────────────────────── */
 
-function formatValue(b: BadgeRow, format: LeagueFormat): string {
+function formatValue(b: BadgeRow, format: GameFormat): string {
   if (b.value == null) return "—"
   // Most Consistent → ±3.2 (prefix the sign to read as "spread").
   if (b.badge_key === "most_consistent") return `±${Number(b.value).toFixed(1)}`
@@ -165,7 +165,7 @@ type BadgeMeta = {
   valueSuffix?: (b: BadgeRow) => string
 }
 
-function badgeMeta(key: string, format: LeagueFormat): BadgeMeta {
+function badgeMeta(key: string, format: GameFormat): BadgeMeta {
   switch (key) {
     case "best_round":
       return {

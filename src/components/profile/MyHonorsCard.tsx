@@ -11,23 +11,23 @@
  * per-game `BadgesCard` for now — extract to `src/lib/badges.ts`
  * the moment a third surface needs it. Keeping it inline prevents
  * a premature abstraction when the single source of truth for the
- * badge list (the `get_league_badges` RPC) already lives in SQL.
+ * badge list (the `get_game_badges` RPC) already lives in SQL.
  */
 
 import Link from "next/link"
-import type { LeagueFormat } from "@/components/match/types"
-import { formatCopy } from "@/lib/leagueFormat"
+import type { GameFormat } from "@/components/match/types"
+import { formatCopy } from "@/lib/gameFormat"
 
 export interface UserHonorRow {
-  league_id: string | null
-  league_name: string | null
+  game_id: string | null
+  game_name: string | null
   /**
    * Format of the game this honor belongs to. Rides along per-row
    * (unlike the per-game BadgesCard which gets it once from its
    * parent) because the trophy shelf can mix games of different
    * formats — each row needs its own "strokes vs points" context.
    */
-  league_format?: LeagueFormat | string | null
+  game_format?: GameFormat | string | null
   badge_key: "best_round" | "most_active" | "most_consistent" | string
   value: number | null
   unit: string | null
@@ -41,7 +41,7 @@ interface MyHonorsCardProps {
 
 export function MyHonorsCard({ honors, loading = false }: MyHonorsCardProps) {
   // Group by game — one block per game, rows = badges held in it.
-  const byLeague = groupByLeague(honors)
+  const byGame = groupByGame(honors)
 
   return (
     <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
@@ -51,14 +51,14 @@ export function MyHonorsCard({ honors, loading = false }: MyHonorsCardProps) {
         <div className="flex items-center justify-center py-4">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-      ) : byLeague.length === 0 ? (
+      ) : byGame.length === 0 ? (
         <p className="py-2 text-center text-xs text-primary/50">
           Keep playing — your first honor will land soon.
         </p>
       ) : (
         <div className="flex flex-col gap-4">
-          {byLeague.map((group) => (
-            <LeagueGroup key={group.leagueId ?? group.leagueName} group={group} />
+          {byGame.map((group) => (
+            <GameGroup key={group.gameId ?? group.gameName} group={group} />
           ))}
         </div>
       )}
@@ -68,17 +68,17 @@ export function MyHonorsCard({ honors, loading = false }: MyHonorsCardProps) {
 
 /* ── Game group ─────────────────────────────────────── */
 
-type LeagueGroupShape = {
-  leagueId: string | null
-  leagueName: string
+type GameGroupShape = {
+  gameId: string | null
+  gameName: string
   rows: UserHonorRow[]
 }
 
-function LeagueGroup({ group }: { group: LeagueGroupShape }) {
+function GameGroup({ group }: { group: GameGroupShape }) {
   const header = (
     <h3 className="mb-2 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-primary/50">
-      <span className="truncate">{group.leagueName}</span>
-      {group.leagueId && (
+      <span className="truncate">{group.gameName}</span>
+      {group.gameId && (
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="11"
@@ -106,11 +106,11 @@ function LeagueGroup({ group }: { group: LeagueGroupShape }) {
     </div>
   )
 
-  if (group.leagueId) {
+  if (group.gameId) {
     return (
       <div>
         <Link
-          href={`/leagues/${group.leagueId}`}
+          href={`/games/${group.gameId}`}
           className="block rounded-md transition-colors hover:bg-cream/30"
         >
           {header}
@@ -130,8 +130,8 @@ function LeagueGroup({ group }: { group: LeagueGroupShape }) {
 /* ── Row primitive ────────────────────────────────────── */
 
 function HonorRow({ row }: { row: UserHonorRow }) {
-  const format: LeagueFormat =
-    row.league_format === "stableford" ? "stableford" : "stroke_play"
+  const format: GameFormat =
+    row.game_format === "stableford" ? "stableford" : "stroke_play"
   const meta = badgeMeta(row.badge_key, format)
   return (
     <div className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5">
@@ -167,17 +167,17 @@ function HonorRow({ row }: { row: UserHonorRow }) {
 
 /* ── Helpers ──────────────────────────────────────────── */
 
-function groupByLeague(rows: UserHonorRow[]): LeagueGroupShape[] {
-  const map = new Map<string, LeagueGroupShape>()
+function groupByGame(rows: UserHonorRow[]): GameGroupShape[] {
+  const map = new Map<string, GameGroupShape>()
   for (const r of rows) {
-    const key = String(r.league_id ?? r.league_name ?? "_")
+    const key = String(r.game_id ?? r.game_name ?? "_")
     const existing = map.get(key)
     if (existing) {
       existing.rows.push(r)
     } else {
       map.set(key, {
-        leagueId: r.league_id ? String(r.league_id) : null,
-        leagueName: r.league_name || "League",
+        gameId: r.game_id ? String(r.game_id) : null,
+        gameName: r.game_name || "Game",
         rows: [r],
       })
     }
@@ -185,7 +185,7 @@ function groupByLeague(rows: UserHonorRow[]): LeagueGroupShape[] {
   return Array.from(map.values())
 }
 
-function formatValue(r: UserHonorRow, format: LeagueFormat): string {
+function formatValue(r: UserHonorRow, format: GameFormat): string {
   if (r.value == null) return "—"
   if (r.badge_key === "most_consistent") return `±${Number(r.value).toFixed(1)}`
   const n = Math.round(Number(r.value))
@@ -203,7 +203,7 @@ type BadgeMeta = {
   valueSuffix?: (r: UserHonorRow) => string
 }
 
-function badgeMeta(key: string, format: LeagueFormat): BadgeMeta {
+function badgeMeta(key: string, format: GameFormat): BadgeMeta {
   switch (key) {
     case "best_round":
       return {

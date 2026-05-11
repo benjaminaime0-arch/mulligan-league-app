@@ -8,26 +8,26 @@ import { useAuth } from "@/hooks/useAuth"
 import { ConfirmModal } from "@/components/ConfirmModal"
 import type {
   Game,
-  UserLeague,
+  UserGame,
   MemberWithProfile,
-  LeaguePeriod,
+  GamePeriod,
   Match,
   LeaderboardRow,
   MatchPlayer,
 } from "./types"
 import { LeaderboardTable } from "./components/LeaderboardTable"
 import { MatchCalendarSection } from "@/components/match/MatchCalendarSection"
-import { LeagueInviteCode } from "./components/LeagueInviteCode"
+import { GameInviteCode } from "./components/GameInviteCode"
 import { DraftGuide } from "./components/DraftGuide"
-import { LeagueActivityCard } from "./components/LeagueActivityCard"
+import { GameActivityCard } from "./components/GameActivityCard"
 import { BadgesCard, type BadgeRow } from "./components/BadgesCard"
 import {
   formatCopy,
   isBetter,
   resolveFormat,
-} from "@/lib/leagueFormat"
+} from "@/lib/gameFormat"
 
-interface LeaguePageProps {
+interface GamePageProps {
   params: { id: string }
 }
 
@@ -39,17 +39,17 @@ interface LeaguePageProps {
  * Format is surfaced explicitly — "Stroke play" or "Stableford" —
  * so viewers of a Stableford game know at a glance that scores
  * higher=better without having to dig into the leaderboard rules.
- * Falls back to `league_type` when `format` is missing (legacy
+ * Falls back to `game_type` when `format` is missing (legacy
  * rows), and omits the format segment entirely when neither is set.
  */
 function formatSubtitle(game: {
-  league_type?: string | null
+  game_type?: string | null
   scoring_cards_count?: number | null
   total_cards_count?: number | null
   format?: string | null
 }): string | null {
   const parts: string[] = []
-  const fmt = game.format || game.league_type
+  const fmt = game.format || game.game_type
   if (fmt) {
     parts.push(
       fmt
@@ -86,10 +86,10 @@ function StatusChip({ status }: { status: string | null | undefined }) {
   )
 }
 
-export default function LeaguePage({ params }: LeaguePageProps) {
+export default function GamePage({ params }: GamePageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const leagueId = params.id
+  const gameId = params.id
   const { user, loading: authLoading } = useAuth()
 
   // Reads once on mount — subsequent changes are not re-applied so
@@ -111,19 +111,19 @@ export default function LeaguePage({ params }: LeaguePageProps) {
     remaining.delete("match")
     remaining.delete("edit")
     const qs = remaining.toString()
-    router.replace(`/leagues/${leagueId}${qs ? `?${qs}` : ""}`, {
+    router.replace(`/games/${gameId}${qs ? `?${qs}` : ""}`, {
       scroll: false,
     })
     setFocusMatchId(null)
     setAutoEdit(false)
-  }, [leagueId, router, searchParams])
+  }, [gameId, router, searchParams])
 
-  const [game, setLeague] = useState<Game | null>(null)
+  const [game, setGame] = useState<Game | null>(null)
   const [members, setMembers] = useState<MemberWithProfile[]>([])
-  const [currentPeriod, setCurrentPeriod] = useState<LeaguePeriod | null>(null)
+  const [currentPeriod, setCurrentPeriod] = useState<GamePeriod | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([])
   // Honors / badges list. 0–3 rows depending on how much has been
-  // played in the game. Computed on read by `get_league_badges` —
+  // played in the game. Computed on read by `get_game_badges` —
   // never persisted.
   const [badges, setBadges] = useState<BadgeRow[]>([])
 
@@ -137,16 +137,16 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   // awaiting approvals.
   const [mySubmittedMatchIds, setMySubmittedMatchIds] = useState<Set<string>>(new Set())
 
-  const [userLeagues, setUserLeagues] = useState<UserLeague[]>([])
+  const [userGames, setUserGames] = useState<UserGame[]>([])
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [startingLeague, setStartingLeague] = useState(false)
+  const [startingGame, setStartingGame] = useState(false)
   const [showStartConfirm, setShowStartConfirm] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [deletingLeague, setDeletingLeague] = useState(false)
+  const [deletingGame, setDeletingGame] = useState(false)
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
-  const [leavingLeague, setLeavingLeague] = useState(false)
+  const [leavingGame, setLeavingGame] = useState(false)
 
   // Join request state
   const [requestingJoin, setRequestingJoin] = useState(false)
@@ -166,33 +166,33 @@ export default function LeaguePage({ params }: LeaguePageProps) {
         setError(null)
 
         const [
-          leagueRes,
+          gameRes,
           membersRes,
           periodRes,
           leaderboardRes,
-          userLeaguesRes,
+          userGamesRes,
           badgesRes,
         ] = await Promise.all([
-          supabase.from("leagues").select("*").eq("id", leagueId).single(),
-          supabase.from("league_members").select("*, profiles(*)").eq("league_id", leagueId),
+          supabase.from("games").select("*").eq("id", gameId).single(),
+          supabase.from("game_members").select("*, profiles(*)").eq("game_id", gameId),
           supabase
-            .from("league_periods")
+            .from("game_periods")
             .select("*")
-            .eq("league_id", leagueId)
+            .eq("game_id", gameId)
             .eq("status", "active")
             .maybeSingle(),
-          supabase.rpc("get_leaderboard", { p_league_id: leagueId }),
+          supabase.rpc("get_leaderboard", { p_game_id: gameId }),
           supabase
-            .from("league_members")
-            .select("league_id, leagues(id, name)")
+            .from("game_members")
+            .select("game_id, games(id, name)")
             .eq("user_id", user.id),
-          supabase.rpc("get_league_badges", { p_league_id: leagueId }),
+          supabase.rpc("get_game_badges", { p_game_id: gameId }),
         ])
 
-        if (leagueRes.error) throw leagueRes.error
-        if (!leagueRes.data) throw new Error("Game not found.")
+        if (gameRes.error) throw gameRes.error
+        if (!gameRes.data) throw new Error("Game not found.")
 
-        setLeague(leagueRes.data as Game)
+        setGame(gameRes.data as Game)
 
         if (membersRes.error) throw membersRes.error
         setMembers((membersRes.data || []) as MemberWithProfile[])
@@ -203,40 +203,40 @@ export default function LeaguePage({ params }: LeaguePageProps) {
           .select("id")
           .eq("requester_id", user.id)
           .eq("target_type", "game")
-          .eq("target_id", leagueId)
+          .eq("target_id", gameId)
           .eq("status", "pending")
           .maybeSingle()
         if (existingRequest) setJoinRequestSent(true)
 
         // Build user game list for navigation
-        if (!userLeaguesRes.error && userLeaguesRes.data) {
-          type UserLeagueRow = { league_id: string; leagues: { id: string; name: string } | { id: string; name: string }[] | null }
-          const leagueList: UserLeague[] = []
-          for (const r of userLeaguesRes.data as unknown as UserLeagueRow[]) {
-            if (!r.leagues) continue
-            const lg = Array.isArray(r.leagues) ? r.leagues[0] : r.leagues
-            if (lg) leagueList.push({ id: lg.id, name: lg.name })
+        if (!userGamesRes.error && userGamesRes.data) {
+          type UserGameRow = { game_id: string; games: { id: string; name: string } | { id: string; name: string }[] | null }
+          const gameList: UserGame[] = []
+          for (const r of userGamesRes.data as unknown as UserGameRow[]) {
+            if (!r.games) continue
+            const lg = Array.isArray(r.games) ? r.games[0] : r.games
+            if (lg) gameList.push({ id: lg.id, name: lg.name })
           }
-          setUserLeagues(leagueList)
+          setUserGames(gameList)
         }
 
         if (periodRes.error && periodRes.error.code !== "PGRST116") {
           throw periodRes.error
         }
-        const active = (periodRes.data as LeaguePeriod | null) ?? null
+        const active = (periodRes.data as GamePeriod | null) ?? null
         setCurrentPeriod(active)
 
         // Calendar shows ALL matches in this game, not just the
         // active period's. Previously we scoped to `period_id` which
         // hid older/newer matches from the day strip — users couldn't
-        // see anything past the current week. Filtering by league_id
+        // see anything past the current week. Filtering by game_id
         // gives the day strip full game history + future matches;
         // the date picker can now jump to anything in the game.
         {
           const { data: matchesData, error: matchesError } = await supabase
             .from("matches")
             .select("*")
-            .eq("league_id", leagueId)
+            .eq("game_id", gameId)
             .order("match_date", { ascending: true })
 
           if (matchesError) throw matchesError
@@ -318,7 +318,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
             // Determine which match scores are "best N" per player
             const bestMatchIds = new Set<string>() // "matchId:userId" keys
-            const scoringCards = leagueRes.data.scoring_cards_count as number | null
+            const scoringCards = gameRes.data.scoring_cards_count as number | null
             for (const [userId, entries] of Array.from(userApprovedScores)) {
               const sorted = [...entries].sort((a, b) => a.score - b.score)
               const counted = scoringCards ? sorted.slice(0, scoringCards) : sorted
@@ -368,7 +368,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
         // fall back to an empty list rather than failing the whole
         // page. The badges section renders its own empty state.
         if (badgesRes.error) {
-          console.warn("get_league_badges failed", badgesRes.error)
+          console.warn("get_game_badges failed", badgesRes.error)
           setBadges([])
         } else {
           setBadges((badgesRes.data || []) as BadgeRow[])
@@ -379,7 +379,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
         // `instanceof Error` check misses them and we'd render the
         // generic fallback, hiding the real failure. Dig out the
         // message however we can and log the full payload for DevTools.
-        console.error("[LeaguePage] init failed", err)
+        console.error("[GamePage] init failed", err)
         const msg =
           err instanceof Error
             ? err.message
@@ -396,7 +396,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
     }
 
     await init()
-  }, [leagueId, user])
+  }, [gameId, user])
 
   useEffect(() => {
     if (authLoading || !user) return
@@ -417,7 +417,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   // compatibility with the prop wiring — semantically it's now "best
   // round" regardless of format, but renaming ripples through a
   // handful of type bounds and doesn't earn its keep.
-  const leagueHighlights = useMemo(() => {
+  const gameHighlights = useMemo(() => {
     type Best = { matchId: string; userId: string; score: number; date: string }
     let best: Best | null = null
     const fmt = resolveFormat(game)
@@ -465,7 +465,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   // Live leaderboard: subscribe to score + match_player changes so
   // approvals landing in other tabs / other players' devices refresh
   // this page without a manual reload. Scoped as tightly as RLS
-  // allows: postgres_changes has no server-side `WHERE match.league_id
+  // allows: postgres_changes has no server-side `WHERE match.game_id
   // = X` filter on the scores table (scores only carries match_id),
   // so we subscribe broadly and filter in JS by cross-referencing
   // `matchPlayersMap`, which is already this game's matches.
@@ -474,7 +474,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   // approve_match_scores RPC flips multiple rows in one call) only
   // triggers a single refetch.
   useEffect(() => {
-    if (!user || !leagueId) return
+    if (!user || !gameId) return
     let timer: ReturnType<typeof setTimeout> | null = null
     const bump = () => {
       if (timer) clearTimeout(timer)
@@ -485,7 +485,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
     }
 
     const channel = supabase
-      .channel(`game-${leagueId}-live`)
+      .channel(`game-${gameId}-live`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "scores" },
@@ -501,7 +501,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "matches", filter: `league_id=eq.${leagueId}` },
+        { event: "*", schema: "public", table: "matches", filter: `game_id=eq.${gameId}` },
         () => bump(),
       )
       .subscribe()
@@ -515,22 +515,22 @@ export default function LeaguePage({ params }: LeaguePageProps) {
     // realtime connection. The snapshot closure is fine; new matches
     // will be picked up on the next loadData cycle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, leagueId, loadData])
+  }, [user, gameId, loadData])
 
   const isAdmin = game && user && game.admin_id === user.id
   const isMember = user && members.some((m) => {
     const profile = m.profiles as { id?: string } | null
     return profile?.id === user.id
   })
-  const isLeagueFull = game && game.max_players ? members.length >= game.max_players : false
+  const isGameFull = game && game.max_players ? members.length >= game.max_players : false
 
-  const handleRequestJoinLeague = async () => {
+  const handleRequestJoinGame = async () => {
     if (!game || !user) return
     setRequestingJoin(true)
     setJoinRequestError(null)
     try {
-      const { data, error: rpcError } = await supabase.rpc("request_join_league", {
-        p_league_id: game.id,
+      const { data, error: rpcError } = await supabase.rpc("request_join_game", {
+        p_game_id: game.id,
       })
       if (rpcError) throw rpcError
       const result = data as { success: boolean; error?: string }
@@ -547,64 +547,64 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   }
 
   // Game navigation
-  const currentLeagueIndex = userLeagues.findIndex((l) => String(l.id) === String(leagueId))
-  const prevLeague = currentLeagueIndex > 0 ? userLeagues[currentLeagueIndex - 1] : null
-  const nextLeague = currentLeagueIndex >= 0 && currentLeagueIndex < userLeagues.length - 1 ? userLeagues[currentLeagueIndex + 1] : null
+  const currentGameIndex = userGames.findIndex((l) => String(l.id) === String(gameId))
+  const prevGame = currentGameIndex > 0 ? userGames[currentGameIndex - 1] : null
+  const nextGame = currentGameIndex >= 0 && currentGameIndex < userGames.length - 1 ? userGames[currentGameIndex + 1] : null
 
-  const handleStartLeague = async () => {
+  const handleStartGame = async () => {
     if (!game) return
     setShowStartConfirm(false)
-    setStartingLeague(true)
+    setStartingGame(true)
     setError(null)
     try {
-      const { error: rpcError } = await supabase.rpc("generate_league_periods", {
-        p_league_id: game.id,
+      const { error: rpcError } = await supabase.rpc("generate_game_periods", {
+        p_game_id: game.id,
       })
       if (rpcError) throw rpcError
       window.location.reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start game.")
     } finally {
-      setStartingLeague(false)
+      setStartingGame(false)
     }
   }
 
-  const handleDeleteLeague = async () => {
+  const handleDeleteGame = async () => {
     if (!game) return
     setShowDeleteConfirm(false)
-    setDeletingLeague(true)
+    setDeletingGame(true)
     setError(null)
     try {
       const { error: deleteError } = await supabase
-        .from("leagues")
+        .from("games")
         .delete()
         .eq("id", game.id)
       if (deleteError) throw deleteError
-      router.push("/leagues")
+      router.push("/games")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete game.")
     } finally {
-      setDeletingLeague(false)
+      setDeletingGame(false)
     }
   }
 
-  const handleLeaveLeague = async () => {
+  const handleLeaveGame = async () => {
     if (!game || !user) return
     setShowLeaveConfirm(false)
-    setLeavingLeague(true)
+    setLeavingGame(true)
     setError(null)
     try {
       const { error: leaveError } = await supabase
-        .from("league_members")
+        .from("game_members")
         .delete()
-        .eq("league_id", game.id)
+        .eq("game_id", game.id)
         .eq("user_id", user.id)
       if (leaveError) throw leaveError
-      router.push("/leagues")
+      router.push("/games")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to leave game.")
     } finally {
-      setLeavingLeague(false)
+      setLeavingGame(false)
     }
   }
 
@@ -658,17 +658,17 @@ export default function LeaguePage({ params }: LeaguePageProps) {
               The chevrons flank the title so they don't collide with the
               fixed notification bell at top-right on mobile. */}
           <div className="flex items-center justify-center gap-2">
-            {prevLeague ? (
+            {prevGame ? (
               <button
                 type="button"
-                onClick={() => router.push(`/leagues/${prevLeague.id}`)}
+                onClick={() => router.push(`/games/${prevGame.id}`)}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary hover:bg-primary/5"
-                aria-label={`Previous: ${prevLeague.name}`}
-                title={prevLeague.name}
+                aria-label={`Previous: ${prevGame.name}`}
+                title={prevGame.name}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
               </button>
-            ) : userLeagues.length > 1 ? (
+            ) : userGames.length > 1 ? (
               <div className="h-8 w-8 shrink-0" />
             ) : null}
 
@@ -679,17 +679,17 @@ export default function LeaguePage({ params }: LeaguePageProps) {
               <StatusChip status={game.status} />
             </div>
 
-            {nextLeague ? (
+            {nextGame ? (
               <button
                 type="button"
-                onClick={() => router.push(`/leagues/${nextLeague.id}`)}
+                onClick={() => router.push(`/games/${nextGame.id}`)}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary hover:bg-primary/5"
-                aria-label={`Next: ${nextLeague.name}`}
-                title={nextLeague.name}
+                aria-label={`Next: ${nextGame.name}`}
+                title={nextGame.name}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>
               </button>
-            ) : userLeagues.length > 1 ? (
+            ) : userGames.length > 1 ? (
               <div className="h-8 w-8 shrink-0" />
             ) : null}
           </div>
@@ -739,10 +739,10 @@ export default function LeaguePage({ params }: LeaguePageProps) {
               <button
                 type="button"
                 onClick={() => setShowStartConfirm(true)}
-                disabled={startingLeague}
+                disabled={startingGame}
                 className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {startingLeague ? "Starting…" : "Start Game"}
+                {startingGame ? "Starting…" : "Start Game"}
               </button>
             </div>
             <ConfirmModal
@@ -750,8 +750,8 @@ export default function LeaguePage({ params }: LeaguePageProps) {
               title="Start your game?"
               message="This will generate weekly match periods for your game. Make sure all players have joined before starting."
               confirmLabel="Start Game"
-              loading={startingLeague}
-              onConfirm={handleStartLeague}
+              loading={startingGame}
+              onConfirm={handleStartGame}
               onCancel={() => setShowStartConfirm(false)}
             />
           </>
@@ -763,9 +763,9 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             title="Delete this game?"
             message="This will permanently delete the game, all matches, scores, and member data. This action cannot be undone."
             confirmLabel="Delete Game"
-            loading={deletingLeague}
+            loading={deletingGame}
             destructive
-            onConfirm={handleDeleteLeague}
+            onConfirm={handleDeleteGame}
             onCancel={() => setShowDeleteConfirm(false)}
           />
         ) : (
@@ -774,9 +774,9 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             title="Leave this game?"
             message="You will be removed from the game and your scores will remain on record. You can rejoin later with an invite code."
             confirmLabel="Leave Game"
-            loading={leavingLeague}
+            loading={leavingGame}
             destructive
-            onConfirm={handleLeaveLeague}
+            onConfirm={handleLeaveGame}
             onCancel={() => setShowLeaveConfirm(false)}
           />
         )}
@@ -789,7 +789,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
           (game.status === "active" || game.status === "completed") && (
           <YourStatusCard
             userId={user.id}
-            leagueId={leagueId}
+            gameId={gameId}
             periodMatches={periodMatches}
             matchPlayersMap={matchPlayersMap}
             mySubmittedMatchIds={mySubmittedMatchIds}
@@ -804,8 +804,8 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             into standings and matches. */}
         <section className="flex flex-col gap-6">
           {/* Game activity feed — scoped to THIS game only via
-              the get_league_activity_feed RPC. */}
-          {isMember && <LeagueActivityCard leagueId={leagueId} />}
+              the get_game_activity_feed RPC. */}
+          {isMember && <GameActivityCard gameId={gameId} />}
 
           {/* Format info (Stroke Play · Best 3 of 5 cards) moved to the
               page header, so the Leaderboard card doesn't duplicate it. */}
@@ -813,7 +813,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             leaderboard={leaderboard}
             currentUserId={user.id}
             scoringCardsCount={game.scoring_cards_count ?? null}
-            leagueFormat={resolveFormat(game)}
+            gameFormat={resolveFormat(game)}
           />
 
           {/* Honors — compact achievements strip. Hidden entirely for
@@ -824,7 +824,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             <BadgesCard
               badges={badges}
               currentUserId={user.id}
-              leagueFormat={resolveFormat(game)}
+              gameFormat={resolveFormat(game)}
             />
           )}
 
@@ -837,7 +837,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
               matchPlayersMap={matchPlayersMap}
               currentUserId={user.id}
               // All matches on this page belong to this game.
-              resolveLeague={() => game}
+              resolveGame={() => game}
               onRefresh={loadData}
               focusMatchId={focusMatchId}
               autoEdit={autoEdit}
@@ -845,11 +845,11 @@ export default function LeaguePage({ params }: LeaguePageProps) {
               context="game"
               // Empty-day CTA deep-links into match-create with this
               // game pre-selected + the tapped day pre-filled.
-              defaultLeagueId={game.id}
+              defaultGameId={game.id}
               // Forwarded to each rendered MatchDetailCard so the
               // "Lowest of game" flame chip lights up on the row
               // that holds the best approved round in this game.
-              leagueHighlights={leagueHighlights}
+              gameHighlights={gameHighlights}
             />
           )}
         </section>
@@ -864,14 +864,14 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                 </svg>
                 Request pending — waiting for admin approval
               </div>
-            ) : isLeagueFull ? (
+            ) : isGameFull ? (
               <p className="text-sm text-primary/50">This game is full ({members.length}/{game.max_players} players)</p>
             ) : (
               <>
                 <p className="mb-3 text-sm text-primary/60">Want to join this game?</p>
                 <button
                   type="button"
-                  onClick={handleRequestJoinLeague}
+                  onClick={handleRequestJoinGame}
                   disabled={requestingJoin}
                   className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-60"
                 >
@@ -904,16 +904,16 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                 <>
                   <span className="text-xs text-primary/60">Invite code</span>
                   <div className="flex items-center gap-2">
-                    <LeagueInviteCode
+                    <GameInviteCode
                       inviteCode={game.invite_code}
-                      leagueName={game.name}
+                      gameName={game.name}
                       variant="bottom"
                     />
                     {isAdmin ? (
                       <button
                         type="button"
                         onClick={() => setShowDeleteConfirm(true)}
-                        disabled={deletingLeague}
+                        disabled={deletingGame}
                         aria-label="Delete this game"
                         title="Delete this game"
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-60"
@@ -924,7 +924,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                       <button
                         type="button"
                         onClick={() => setShowLeaveConfirm(true)}
-                        disabled={leavingLeague}
+                        disabled={leavingGame}
                         aria-label="Leave this game"
                         title="Leave this game"
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-60"
@@ -947,7 +947,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                     <button
                       type="button"
                       onClick={() => setShowDeleteConfirm(true)}
-                      disabled={deletingLeague}
+                      disabled={deletingGame}
                       aria-label="Delete this game"
                       title="Delete this game"
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-60"
@@ -958,7 +958,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                     <button
                       type="button"
                       onClick={() => setShowLeaveConfirm(true)}
-                      disabled={leavingLeague}
+                      disabled={leavingGame}
                       aria-label="Leave this game"
                       title="Leave this game"
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-60"
@@ -1085,7 +1085,7 @@ type Action = {
 
 function YourStatusCard({
   userId,
-  leagueId,
+  gameId,
   periodMatches,
   matchPlayersMap,
   mySubmittedMatchIds,
@@ -1093,7 +1093,7 @@ function YourStatusCard({
   game,
 }: {
   userId: string
-  leagueId: string
+  gameId: string
   periodMatches: Match[]
   matchPlayersMap: Map<string | number, MatchPlayer[]>
   mySubmittedMatchIds: Set<string>
@@ -1165,7 +1165,7 @@ function YourStatusCard({
         ),
         title: "Submit your score",
         subtitle: `${dateLabel} — your card isn't submitted yet`,
-        href: `/leagues/${leagueId}?match=${pendingPast.id}&edit=1`,
+        href: `/games/${gameId}?match=${pendingPast.id}&edit=1`,
       }
     }
 
@@ -1202,7 +1202,7 @@ function YourStatusCard({
         ),
         title: "Approve scores",
         subtitle: `${dateLabel} — ${others} teammate${others === 1 ? "" : "s"} waiting on you`,
-        href: `/leagues/${leagueId}?match=${pendingApproval.id}`,
+        href: `/games/${gameId}?match=${pendingApproval.id}`,
       }
     }
 
@@ -1229,7 +1229,7 @@ function YourStatusCard({
         ),
         title: "Play your round",
         subtitle: `${dateLabel}${upcoming.match_time ? ` · ${upcoming.match_time.slice(0, 5)}` : ""}${upcoming.course_name ? ` · ${upcoming.course_name}` : ""}`,
-        href: `/leagues/${leagueId}?match=${upcoming.id}`,
+        href: `/games/${gameId}?match=${upcoming.id}`,
       }
     }
 
@@ -1257,7 +1257,7 @@ function YourStatusCard({
             ? "1 more round to lock your rank"
             : `${toGo} more rounds to lock your rank`,
         subtitle: "",
-        href: `/matches/create?game=${leagueId}`,
+        href: `/matches/create?game=${gameId}`,
       }
     }
 
@@ -1281,7 +1281,7 @@ function YourStatusCard({
         // they have rounds left in the allowance. The filled
         // counterpart stays informational (no href) since there's
         // nothing to do at cap.
-        href: `/matches/create?game=${leagueId}`,
+        href: `/matches/create?game=${gameId}`,
       }
     }
     if (cap != null && myPlayed >= cap) {
@@ -1310,7 +1310,7 @@ function YourStatusCard({
     }
   }, [
     userId,
-    leagueId,
+    gameId,
     periodMatches,
     matchPlayersMap,
     mySubmittedMatchIds,

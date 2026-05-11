@@ -7,13 +7,13 @@ import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { Avatar } from "@/components/Avatar"
 
-type LeagueData = {
+type GameData = {
   id: string | number
   name: string
   course_name?: string | null
   max_players?: number | null
   status?: string | null
-  league_type?: string | null
+  game_type?: string | null
   scoring_cards_count?: number | null
   total_cards_count?: number | null
   start_date?: string | null
@@ -33,20 +33,20 @@ type MemberProfile = {
 
 type PeriodData = {
   id: string | number
-  league_id: string | number
+  game_id: string | number
   name?: string | null
   start_date?: string | null
   end_date?: string | null
   status?: string | null
 }
 
-type EnrichedLeague = LeagueData & {
+type EnrichedGame = GameData & {
   members: MemberProfile[]
   memberCount: number
   activePeriod?: PeriodData | null
 }
 
-function formatLeagueType(type?: string | null): string {
+function formatGameType(type?: string | null): string {
   if (!type) return "Standard"
   return type
     .replace(/_/g, " ")
@@ -70,11 +70,11 @@ function formatDateShort(iso?: string | null): string {
   })
 }
 
-export default function LeagueListPage() {
+export default function GameListPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
 
-  const [games, setLeagues] = useState<EnrichedLeague[]>([])
+  const [games, setGames] = useState<EnrichedGame[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -89,72 +89,72 @@ export default function LeagueListPage() {
 
         // Get user's games with full details
         const { data: memberRows, error: memberError } = await supabase
-          .from("league_members")
-          .select("*, leagues(*)")
+          .from("game_members")
+          .select("*, games(*)")
           .eq("user_id", user.id)
 
         if (memberError) throw memberError
 
-        const leagueMap = new Map<string, LeagueData>()
+        const gameMap = new Map<string, GameData>()
         for (const m of memberRows || []) {
-          const l = m.leagues as LeagueData | null
-          if (l && !leagueMap.has(String(l.id))) {
-            leagueMap.set(String(l.id), l)
+          const l = m.games as GameData | null
+          if (l && !gameMap.has(String(l.id))) {
+            gameMap.set(String(l.id), l)
           }
         }
 
-        const leagueList = Array.from(leagueMap.values())
-        if (leagueList.length === 0) {
-          setLeagues([])
+        const gameList = Array.from(gameMap.values())
+        if (gameList.length === 0) {
+          setGames([])
           return
         }
 
-        const leagueIds = leagueList.map((l) => l.id)
+        const gameIds = gameList.map((l) => l.id)
 
         // Fetch members with profiles and periods in parallel
         const [membersResult, periodsResult] = await Promise.all([
           supabase
-            .from("league_members")
-            .select("league_id, user_id, profiles(id, first_name, last_name, username, avatar_url)")
-            .in("league_id", leagueIds),
+            .from("game_members")
+            .select("game_id, user_id, profiles(id, first_name, last_name, username, avatar_url)")
+            .in("game_id", gameIds),
           supabase
-            .from("league_periods")
+            .from("game_periods")
             .select("*")
-            .in("league_id", leagueIds)
+            .in("game_id", gameIds)
             .order("start_date", { ascending: true }),
         ])
 
         // Group members by game
-        const membersByLeague: Record<string, MemberProfile[]> = {}
+        const membersByGame: Record<string, MemberProfile[]> = {}
         for (const m of membersResult.data || []) {
-          const key = String(m.league_id)
-          if (!membersByLeague[key]) membersByLeague[key] = []
-          membersByLeague[key].push(m as unknown as MemberProfile)
+          const key = String(m.game_id)
+          if (!membersByGame[key]) membersByGame[key] = []
+          membersByGame[key].push(m as unknown as MemberProfile)
         }
 
         // Find active or latest period per game
-        const periodByLeague: Record<string, PeriodData> = {}
+        const periodByGame: Record<string, PeriodData> = {}
         for (const p of (periodsResult.data || []) as PeriodData[]) {
-          const key = String(p.league_id)
+          const key = String(p.game_id)
           // Prefer active period, otherwise keep the latest
-          if (!periodByLeague[key] || p.status === "active") {
-            periodByLeague[key] = p
+          if (!periodByGame[key] || p.status === "active") {
+            periodByGame[key] = p
           }
         }
 
         // Build enriched games
-        const enriched: EnrichedLeague[] = leagueList.map((l) => {
+        const enriched: EnrichedGame[] = gameList.map((l) => {
           const key = String(l.id)
-          const members = membersByLeague[key] || []
+          const members = membersByGame[key] || []
           return {
             ...l,
             members,
             memberCount: members.length,
-            activePeriod: periodByLeague[key] || null,
+            activePeriod: periodByGame[key] || null,
           }
         })
 
-        setLeagues(enriched)
+        setGames(enriched)
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load games.")
       } finally {
@@ -237,13 +237,13 @@ export default function LeagueListPage() {
             </p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Link
-                href="/leagues/create"
+                href="/games/create"
                 className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream hover:bg-primary/90"
               >
                 Create Game
               </Link>
               <Link
-                href="/leagues/join"
+                href="/games/join"
                 className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-cream px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
               >
                 Join Game
@@ -259,7 +259,7 @@ export default function LeagueListPage() {
               className="cursor-pointer rounded-2xl border border-primary/15 bg-white shadow-sm transition-colors hover:bg-cream/30"
               onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}
-              onClick={() => router.push(`/leagues/${game.id}`)}
+              onClick={() => router.push(`/games/${game.id}`)}
             >
               {/* Game switcher header */}
               <div className="flex items-center justify-between gap-2 px-4 pt-4">
@@ -342,7 +342,7 @@ export default function LeagueListPage() {
                     </div>
                     <div>
                       <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Format</p>
-                      <p className="text-xs font-semibold text-primary">{formatLeagueType(game.league_type)}</p>
+                      <p className="text-xs font-semibold text-primary">{formatGameType(game.game_type)}</p>
                     </div>
                   </div>
 

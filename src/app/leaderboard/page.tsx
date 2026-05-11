@@ -13,11 +13,11 @@ type Game = {
   course_name?: string | null
 }
 
-type MemberWithLeague = {
+type MemberWithGame = {
   id: string | number
-  league_id: string | number
+  game_id: string | number
   user_id: string
-  leagues?: Game | null
+  games?: Game | null
 }
 
 type LeaderboardRow = {
@@ -35,19 +35,19 @@ export default function LeaderboardPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
 
-  const [games, setLeagues] = useState<Game[]>([])
-  const [leagueIndex, setLeagueIndex] = useState(0)
+  const [games, setGames] = useState<Game[]>([])
+  const [gameIndex, setGameIndex] = useState(0)
 
   const [rows, setRows] = useState<LeaderboardRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const loadLeaderboard = useCallback(async (leagueId: string | number) => {
+  const loadLeaderboard = useCallback(async (gameId: string | number) => {
     setLoading(true)
     setError(null)
     try {
       const { data, error } = await supabase.rpc("get_leaderboard", {
-        p_league_id: leagueId,
+        p_game_id: gameId,
       })
 
       if (error) throw error
@@ -69,25 +69,25 @@ export default function LeaderboardPage() {
         setError(null)
 
         const { data: memberRows, error: memberError } = await supabase
-          .from("league_members")
-          .select("*, leagues(*)")
+          .from("game_members")
+          .select("*, games(*)")
           .eq("user_id", user.id)
 
         if (memberError) throw memberError
 
-        const typedMembers = (memberRows || []) as MemberWithLeague[]
-        const leagueMap = new Map<string | number, Game>()
+        const typedMembers = (memberRows || []) as MemberWithGame[]
+        const gameMap = new Map<string | number, Game>()
         for (const m of typedMembers) {
-          if (m.leagues && !leagueMap.has(m.leagues.id)) {
-            leagueMap.set(m.leagues.id, m.leagues)
+          if (m.games && !gameMap.has(m.games.id)) {
+            gameMap.set(m.games.id, m.games)
           }
         }
 
-        const userLeagues = Array.from(leagueMap.values())
-        setLeagues(userLeagues)
+        const userGames = Array.from(gameMap.values())
+        setGames(userGames)
 
-        if (userLeagues.length > 0) {
-          await loadLeaderboard(userLeagues[0].id)
+        if (userGames.length > 0) {
+          await loadLeaderboard(userGames[0].id)
         } else {
           setRows([])
         }
@@ -102,16 +102,16 @@ export default function LeaderboardPage() {
   }, [authLoading, user, loadLeaderboard])
 
   const goNext = useCallback(async () => {
-    const next = (leagueIndex + 1) % games.length
-    setLeagueIndex(next)
+    const next = (gameIndex + 1) % games.length
+    setGameIndex(next)
     await loadLeaderboard(games[next].id)
-  }, [leagueIndex, games, loadLeaderboard])
+  }, [gameIndex, games, loadLeaderboard])
 
   const goPrev = useCallback(async () => {
-    const prev = (leagueIndex - 1 + games.length) % games.length
-    setLeagueIndex(prev)
+    const prev = (gameIndex - 1 + games.length) % games.length
+    setGameIndex(prev)
     await loadLeaderboard(games[prev].id)
-  }, [leagueIndex, games, loadLeaderboard])
+  }, [gameIndex, games, loadLeaderboard])
 
   const highlightUserRow = (row: LeaderboardRow) =>
     !!user && row.user_id != null && row.user_id === user.id
@@ -145,7 +145,7 @@ export default function LeaderboardPage() {
     )
   }
 
-  const currentLeague = games[leagueIndex]
+  const currentGame = games[gameIndex]
 
   return (
     <main className="min-h-screen px-4 pb-6 pt-4">
@@ -165,13 +165,13 @@ export default function LeaderboardPage() {
             </p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Link
-                href="/leagues/create"
+                href="/games/create"
                 className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream hover:bg-primary/90"
               >
                 Create Game
               </Link>
               <Link
-                href="/leagues/join"
+                href="/games/join"
                 className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-cream px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
               >
                 Join Game
@@ -189,7 +189,7 @@ export default function LeaderboardPage() {
           </div>
         )}
 
-        {currentLeague && (
+        {currentGame && (
           <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
             {/* Game switcher header */}
             <div className="mb-3 flex items-center justify-between gap-2">
@@ -207,13 +207,13 @@ export default function LeaderboardPage() {
               )}
               <div
                 className="min-w-0 flex-1 cursor-pointer text-center"
-                onClick={() => router.push(`/leagues/${currentLeague.id}`)}
+                onClick={() => router.push(`/games/${currentGame.id}`)}
               >
                 <h2 className="text-lg font-bold text-primary">
-                  {currentLeague.name}
+                  {currentGame.name}
                 </h2>
                 <p className="text-xs uppercase tracking-[0.2em] text-primary/50">
-                  {currentLeague.course_name || "Course TBA"}
+                  {currentGame.course_name || "Course TBA"}
                 </p>
               </div>
               {games.length > 1 && (
@@ -238,11 +238,11 @@ export default function LeaderboardPage() {
                     key={l.id}
                     type="button"
                     onClick={async () => {
-                      setLeagueIndex(idx)
+                      setGameIndex(idx)
                       await loadLeaderboard(l.id)
                     }}
                     className={`h-1.5 rounded-full transition-all ${
-                      idx === leagueIndex
+                      idx === gameIndex
                         ? "w-5 bg-primary"
                         : "w-1.5 bg-primary/20 hover:bg-primary/40"
                     }`}

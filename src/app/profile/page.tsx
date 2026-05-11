@@ -18,11 +18,11 @@ import {
   type UserHonorRow,
 } from "@/components/profile/MyHonorsCard"
 import { MatchCalendarSection } from "@/components/match/MatchCalendarSection"
-import type { Game as SharedLeague, Match as SharedMatch, MatchPlayer as SharedMatchPlayer } from "@/components/match/types"
+import type { Game as SharedGame, Match as SharedMatch, MatchPlayer as SharedMatchPlayer } from "@/components/match/types"
 import { ScoreTrendCard } from "@/components/profile/ScoreTrendCard"
-import { LeaderboardTable } from "@/app/leagues/[id]/components/LeaderboardTable"
-import type { LeaderboardRow } from "@/app/leagues/[id]/types"
-import { resolveFormat } from "@/lib/leagueFormat"
+import { LeaderboardTable } from "@/app/games/[id]/components/LeaderboardTable"
+import type { LeaderboardRow } from "@/app/games/[id]/types"
+import { resolveFormat } from "@/lib/gameFormat"
 
 type Profile = {
   id: string
@@ -35,19 +35,19 @@ type Profile = {
   username?: string | null
 }
 
-type LeagueMember = {
+type GameMember = {
   id: string
-  league_id: string
-  leagues?: LeagueData | null
+  game_id: string
+  games?: GameData | null
 }
 
-type LeagueData = {
+type GameData = {
   id: string
   name: string
   course_name?: string | null
   max_players?: number | null
   status?: string | null
-  league_type?: string | null
+  game_type?: string | null
   scoring_cards_count?: number | null
   total_cards_count?: number | null
   start_date?: string | null
@@ -60,25 +60,25 @@ type LeagueData = {
 
 // ActivityEvent / feed removed — the profile no longer shows a
 // cross-game activity feed. Each game page now carries its own
-// scoped feed via `LeagueActivityCard` + `get_league_activity_feed`.
+// scoped feed via `GameActivityCard` + `get_game_activity_feed`.
 
 export default function ProfilePage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
 
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [memberships, setMemberships] = useState<LeagueMember[]>([])
+  const [memberships, setMemberships] = useState<GameMember[]>([])
   // Games the viewer belongs to, deduped, used to drive the
   // per-game leaderboard carousel at the bottom of /profile.
-  const [myLeagues, setMyLeagues] = useState<LeagueData[]>([])
+  const [myGames, setMyGames] = useState<GameData[]>([])
   // Leaderboard rows keyed by game id. Populated in parallel after
   // memberships resolve — each game's leaderboard is a separate
   // `get_leaderboard` RPC call (they're small and member-gated).
-  const [leaderboardsByLeague, setLeaderboardsByLeague] = useState<
+  const [leaderboardsByGame, setLeaderboardsByGame] = useState<
     Map<string, LeaderboardRow[]>
   >(new Map())
   // Scheduled + past matches moved to /profile/matches page.
-  // Activity feed moved to per-game (LeagueActivityCard).
+  // Activity feed moved to per-game (GameActivityCard).
   const [matchesPlayed, setMatchesPlayed] = useState(0)
   const [records, setRecords] = useState<RecordsData | null>(null)
   // Cross-game honors — badges the viewer currently holds. Null
@@ -88,15 +88,15 @@ export default function ProfilePage() {
   // today) + lookups the MatchCalendarSection needs to render per-
   // match detail cards: `calendarMatches` is the raw list,
   // `calendarPlayersMap` keys rosters by match id,
-  // `calendarLeaguesById` lets the section resolve each match to its
+  // `calendarGamesById` lets the section resolve each match to its
   // game (matches span multiple games on profile, unlike game
   // page where every card shares the same game).
   const [calendarMatches, setCalendarMatches] = useState<SharedMatch[]>([])
   const [calendarPlayersMap, setCalendarPlayersMap] = useState<
     Map<string | number, SharedMatchPlayer[]>
   >(new Map())
-  const [calendarLeaguesById, setCalendarLeaguesById] = useState<
-    Map<string, SharedLeague>
+  const [calendarGamesById, setCalendarGamesById] = useState<
+    Map<string, SharedGame>
   >(new Map())
   // ScoreTrendCard now owns its own trend state (fetched per range selection)
   const [loading, setLoading] = useState(true)
@@ -108,7 +108,7 @@ export default function ProfilePage() {
    * Pulls the viewer's matches in a ±30 day window around today and
    * builds the three maps MatchCalendarSection consumes: the matches
    * themselves, per-match rosters (with scores + approved_at), and a
-   * games-by-id map used as the `resolveLeague` backing for the
+   * games-by-id map used as the `resolveGame` backing for the
    * detail card.
    *
    * Three queries in parallel:
@@ -120,12 +120,12 @@ export default function ProfilePage() {
    * (edit scores, approve, leave, delete) re-pull on success.
    */
   const loadLeaderboards = useCallback(
-    async (leagueIds: string[]): Promise<Map<string, LeaderboardRow[]>> => {
-      if (leagueIds.length === 0) return new Map()
+    async (gameIds: string[]): Promise<Map<string, LeaderboardRow[]>> => {
+      if (gameIds.length === 0) return new Map()
       const results = await Promise.all(
-        leagueIds.map((id) =>
+        gameIds.map((id) =>
           supabase
-            .rpc("get_leaderboard", { p_league_id: id })
+            .rpc("get_leaderboard", { p_game_id: id })
             .then((res) => ({
               id,
               rows: res.error ? [] : ((res.data || []) as LeaderboardRow[]),
@@ -147,7 +147,7 @@ export default function ProfilePage() {
     const startIso = start.toISOString().slice(0, 10)
     const endIso = end.toISOString().slice(0, 10)
 
-    type LeagueEmbed = {
+    type GameEmbed = {
       id: string
       name: string
       course_name?: string | null
@@ -169,9 +169,9 @@ export default function ProfilePage() {
             match_date: string | null
             match_time: string | null
             status: string | null
-            league_id: string | null
+            game_id: string | null
             created_by: string | null
-            leagues: LeagueEmbed | null
+            games: GameEmbed | null
           }
         | null
     }
@@ -180,7 +180,7 @@ export default function ProfilePage() {
     const mineRes = await supabase
       .from("match_players")
       .select(
-        "match_id, matches!inner(id, course_name, match_date, match_time, status, league_id, created_by, leagues(id, name, course_name, status, max_players, scoring_cards_count, total_cards_count, invite_code, admin_id, start_date, end_date))",
+        "match_id, matches!inner(id, course_name, match_date, match_time, status, game_id, created_by, games(id, name, course_name, status, max_players, scoring_cards_count, total_cards_count, invite_code, admin_id, start_date, end_date))",
       )
       .eq("user_id", userId)
       .gte("matches.match_date", startIso)
@@ -188,7 +188,7 @@ export default function ProfilePage() {
 
     const mineRows = ((mineRes.data as unknown) as MineRow[]) || []
     const uniqueMatches: SharedMatch[] = []
-    const leaguesById = new Map<string, SharedLeague>()
+    const gamesById = new Map<string, SharedGame>()
     const seen = new Set<string>()
 
     for (const row of mineRows) {
@@ -197,20 +197,20 @@ export default function ProfilePage() {
       seen.add(m.id)
       uniqueMatches.push({
         id: m.id,
-        league_id: m.league_id ?? "",
+        game_id: m.game_id ?? "",
         course_name: m.course_name,
         match_date: m.match_date,
         match_time: m.match_time,
         status: m.status,
         created_by: m.created_by,
       })
-      if (m.leagues && !leaguesById.has(String(m.leagues.id))) {
-        leaguesById.set(String(m.leagues.id), m.leagues as SharedLeague)
+      if (m.games && !gamesById.has(String(m.games.id))) {
+        gamesById.set(String(m.games.id), m.games as SharedGame)
       }
     }
 
     setCalendarMatches(uniqueMatches)
-    setCalendarLeaguesById(leaguesById)
+    setCalendarGamesById(gamesById)
 
     if (uniqueMatches.length === 0) {
       setCalendarPlayersMap(new Map())
@@ -310,8 +310,8 @@ export default function ProfilePage() {
         const [profileRes, membershipsRes, scoresCountRes] = await Promise.all([
           supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
           supabase
-            .from("league_members")
-            .select("id, league_id, leagues(*)")
+            .from("game_members")
+            .select("id, game_id, games(*)")
             .eq("user_id", userId),
           supabase
             .from("scores")
@@ -323,7 +323,7 @@ export default function ProfilePage() {
         setProfile((profileRes.data || null) as Profile | null)
 
         if (membershipsRes.error) throw membershipsRes.error
-        const membershipData = (membershipsRes.data as unknown as LeagueMember[]) || []
+        const membershipData = (membershipsRes.data as unknown as GameMember[]) || []
         setMemberships(membershipData)
 
         // Dedupe memberships into the games-I-belong-to list. The
@@ -331,11 +331,11 @@ export default function ProfilePage() {
         // game — we only need the core game row here (name,
         // course, format, scoring config). Member rosters + period
         // info come from the leaderboard RPC directly.
-        const leagueMap = new Map<string, LeagueData>()
+        const gameMap = new Map<string, GameData>()
         for (const m of membershipData) {
-          const l = m.leagues as LeagueData | null
-          if (l && !leagueMap.has(String(l.id))) {
-            leagueMap.set(String(l.id), l)
+          const l = m.games as GameData | null
+          if (l && !gameMap.has(String(l.id))) {
+            gameMap.set(String(l.id), l)
           }
         }
         // Sort active games first (draft/active ahead of completed)
@@ -349,13 +349,13 @@ export default function ProfilePage() {
           draft: 1,
           completed: 2,
         }
-        const leagueList = Array.from(leagueMap.values()).sort((a, b) => {
+        const gameList = Array.from(gameMap.values()).sort((a, b) => {
           const ra = statusRank[a.status ?? "draft"] ?? 1
           const rb = statusRank[b.status ?? "draft"] ?? 1
           if (ra !== rb) return ra - rb
           return (b.start_date || "").localeCompare(a.start_date || "")
         })
-        setMyLeagues(leagueList)
+        setMyGames(gameList)
 
         // Scheduled + past match lists moved to /profile/matches —
         // reachable via the "My calendar →" link in MatchCalendarSection's
@@ -372,7 +372,7 @@ export default function ProfilePage() {
             supabase.rpc("get_profile_records", { p_user_id: userId }),
             supabase.rpc("get_user_honors", { p_user_id: userId }),
           ]),
-          loadLeaderboards(leagueList.map((l) => String(l.id))),
+          loadLeaderboards(gameList.map((l) => String(l.id))),
         ])
         if (!recordsRes.error && recordsRes.data) {
           setRecords(recordsRes.data as RecordsData)
@@ -386,7 +386,7 @@ export default function ProfilePage() {
         } else {
           setHonors((honorsRes.data || []) as UserHonorRow[])
         }
-        setLeaderboardsByLeague(lbMap)
+        setLeaderboardsByGame(lbMap)
 
         // Calendar data — the viewer's matches in a ±30 day window
         // around today, with rosters + scores + embedded game
@@ -414,13 +414,13 @@ export default function ProfilePage() {
    */
   const handleMatchRefresh = useCallback(async () => {
     if (!user) return
-    const leagueIds = myLeagues.map((l) => String(l.id))
+    const gameIds = myGames.map((l) => String(l.id))
     const [, lbMap] = await Promise.all([
       loadCalendar(user.id),
-      loadLeaderboards(leagueIds),
+      loadLeaderboards(gameIds),
     ])
-    setLeaderboardsByLeague(lbMap)
-  }, [user, myLeagues, loadCalendar, loadLeaderboards])
+    setLeaderboardsByGame(lbMap)
+  }, [user, myGames, loadCalendar, loadLeaderboards])
 
   // Realtime: mirror the game page so approvals / score edits /
   // new matches arriving from another device (or teammate) refresh
@@ -461,14 +461,14 @@ export default function ProfilePage() {
         { event: "*", schema: "public", table: "matches" },
         (payload) => {
           // Only bump for matches in games the viewer belongs to.
-          // The scoped filter (`league_id=in.(…)`) isn't supported on
+          // The scoped filter (`game_id=in.(…)`) isn't supported on
           // postgres_changes server-side, so we gate in JS against
-          // `calendarLeaguesById`.
-          const leagueId =
-            (payload.new as { league_id?: string })?.league_id ??
-            (payload.old as { league_id?: string })?.league_id
-          if (!leagueId) return
-          if (calendarLeaguesById.has(String(leagueId))) bump()
+          // `calendarGamesById`.
+          const gameId =
+            (payload.new as { game_id?: string })?.game_id ??
+            (payload.old as { game_id?: string })?.game_id
+          if (!gameId) return
+          if (calendarGamesById.has(String(gameId))) bump()
         },
       )
       .subscribe()
@@ -477,7 +477,7 @@ export default function ProfilePage() {
       if (timer) clearTimeout(timer)
       supabase.removeChannel(channel)
     }
-    // calendarPlayersMap + calendarLeaguesById are read in closures
+    // calendarPlayersMap + calendarGamesById are read in closures
     // for gating but intentionally omitted from deps — resubscribing
     // on every map change would churn the realtime connection. The
     // snapshot closure is good enough; newly-relevant matches will
@@ -789,8 +789,8 @@ export default function ProfilePage() {
             matches={calendarMatches}
             matchPlayersMap={calendarPlayersMap}
             currentUserId={user.id}
-            resolveLeague={(m) =>
-              calendarLeaguesById.get(String(m.league_id)) ?? null
+            resolveGame={(m) =>
+              calendarGamesById.get(String(m.game_id)) ?? null
             }
             onRefresh={handleMatchRefresh}
           />
@@ -805,7 +805,7 @@ export default function ProfilePage() {
         <MyHonorsCard honors={honors ?? []} loading={honors === null} />
 
         {/* Activity feed retired here — each game page now owns
-            its own scoped feed (see LeagueActivityCard). */}
+            its own scoped feed (see GameActivityCard). */}
 
         {/* Courses played card retired from /profile — the roll-up
             still lives on /players/[id] for visiting other players. */}
@@ -815,9 +815,9 @@ export default function ProfilePage() {
             (same component as the game page) so /profile is a
             single-screen snapshot of where they stand across every
             game they're in. */}
-        <MyLeaguesLeaderboards
-          games={myLeagues}
-          leaderboards={leaderboardsByLeague}
+        <MyGamesLeaderboards
+          games={myGames}
+          leaderboards={leaderboardsByGame}
           currentUserId={user.id}
         />
 
@@ -874,12 +874,12 @@ export default function ProfilePage() {
  * inside a card — the table's own wrapper supplies the chrome.
  */
 
-function MyLeaguesLeaderboards({
+function MyGamesLeaderboards({
   games,
   leaderboards,
   currentUserId,
 }: {
-  games: LeagueData[]
+  games: GameData[]
   leaderboards: Map<string, LeaderboardRow[]>
   currentUserId: string
 }) {
@@ -891,8 +891,8 @@ function MyLeaguesLeaderboards({
         <h2 className="mb-3 text-sm font-semibold text-primary">My Games</h2>
         <p className="mb-3 text-sm text-primary/70">No games joined yet.</p>
         <div className="flex gap-2">
-          <Link href="/leagues/create" className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-cream hover:bg-primary/90">Create Game</Link>
-          <Link href="/leagues/join" className="rounded-lg border border-primary/20 bg-cream px-3 py-2 text-xs font-medium text-primary hover:bg-primary/5">Join Game</Link>
+          <Link href="/games/create" className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-cream hover:bg-primary/90">Create Game</Link>
+          <Link href="/games/join" className="rounded-lg border border-primary/20 bg-cream px-3 py-2 text-xs font-medium text-primary hover:bg-primary/5">Join Game</Link>
         </div>
       </section>
     )
@@ -926,7 +926,7 @@ function MyLeaguesLeaderboards({
           <span className="h-8 w-8 shrink-0" aria-hidden="true" />
         )}
         <Link
-          href={`/leagues/${game.id}`}
+          href={`/games/${game.id}`}
           className="min-w-0 flex-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
         >
           <h2 className="truncate text-lg font-bold text-primary">{game.name}</h2>
@@ -966,7 +966,7 @@ function MyLeaguesLeaderboards({
         leaderboard={rows}
         currentUserId={currentUserId}
         scoringCardsCount={game.scoring_cards_count ?? null}
-        leagueFormat={format}
+        gameFormat={format}
       />
     </section>
   )

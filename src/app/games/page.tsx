@@ -6,34 +6,34 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 
-export default function LeaguesRedirect() {
+export default function GamesRedirect() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const [noLeagues, setNoLeagues] = useState(false)
+  const [noGames, setNoGames] = useState(false)
 
   useEffect(() => {
     if (authLoading || !user) return
 
     const redirect = async () => {
       const { data, error } = await supabase
-        .from("league_members")
-        .select("league_id")
+        .from("game_members")
+        .select("game_id")
         .eq("user_id", user.id)
         .limit(1)
         .maybeSingle()
 
       if (error || !data) {
-        setNoLeagues(true)
+        setNoGames(true)
         return
       }
 
-      router.replace(`/leagues/${data.league_id}`)
+      router.replace(`/games/${data.game_id}`)
     }
 
     redirect()
   }, [authLoading, user, router])
 
-  if (authLoading || (!noLeagues)) {
+  if (authLoading || (!noGames)) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <p className="text-primary/70">Loading games…</p>
@@ -51,13 +51,13 @@ export default function LeaguesRedirect() {
           </p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
             <Link
-              href="/leagues/create"
+              href="/games/create"
               className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream hover:bg-primary/90"
             >
               Create Game
             </Link>
             <Link
-              href="/leagues/join"
+              href="/games/join"
               className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-cream px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
             >
               Join Game

@@ -31,7 +31,7 @@ import {
   formatCopy,
   gapAhead,
   resolveFormat,
-} from "@/lib/leagueFormat"
+} from "@/lib/gameFormat"
 
 export const MAX_MATCH_PLAYERS = 4
 
@@ -75,7 +75,7 @@ interface MatchDetailCardProps {
    * profile / cross-game usage of this card doesn't have to supply
    * it — chip simply won't show.
    */
-  leagueHighlights?: {
+  gameHighlights?: {
     lowestRound?: {
       matchId: string
       userId: string
@@ -125,7 +125,7 @@ function ScoreEditor({
   error,
   onCancel,
   onSave,
-  leagueFormat = "stroke_play",
+  gameFormat = "stroke_play",
 }: {
   players: MatchPlayer[]
   initial: Record<string, { score: string; holes: 9 | 18 }>
@@ -133,7 +133,7 @@ function ScoreEditor({
   error: string | null
   onCancel: () => void
   onSave: (edits: Record<string, { score: string; holes: 9 | 18 }>) => void
-  leagueFormat?: import("@/components/match/types").LeagueFormat
+  gameFormat?: import("@/components/match/types").GameFormat
 }) {
   const [edits, setEdits] = useState(initial)
   // Input validation range widens for stableford (0 is a legal total
@@ -141,19 +141,19 @@ function ScoreEditor({
   // Stroke play stays as-is. Placeholder also nudges users toward
   // the right unit so first-time Stableford users don't type their
   // stroke count by accident.
-  const inputMin = leagueFormat === "stableford" ? 0 : 1
+  const inputMin = gameFormat === "stableford" ? 0 : 1
   // Stableford ceiling intentionally loose (150) — enhanced rulesets
   // and 36-hole events can comfortably push past a strict 90-point
   // cap; we'd rather accept odd-but-valid totals than block valid
   // submissions outright. Stroke play stays at 200 which covers any
   // plausible 18-hole round even for beginners.
-  const inputMax = leagueFormat === "stableford" ? 150 : 200
-  const inputPlaceholder = leagueFormat === "stableford" ? "pts" : "–"
+  const inputMax = gameFormat === "stableford" ? 150 : 200
+  const inputPlaceholder = gameFormat === "stableford" ? "pts" : "–"
 
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-primary/60">
-        {leagueFormat === "stableford"
+        {gameFormat === "stableford"
           ? "Enter your Stableford points total. Saving resets other players' approvals — they'll need to re-approve."
           : "Saving resets other players' approvals — they'll need to re-approve."}
       </p>
@@ -186,7 +186,7 @@ function ScoreEditor({
                 disabled={saving}
                 placeholder={inputPlaceholder}
                 aria-label={
-                  leagueFormat === "stableford"
+                  gameFormat === "stableford"
                     ? `${p.name} Stableford points`
                     : `${p.name} strokes`
                 }
@@ -259,7 +259,7 @@ export function MatchDetailCard({
   autoEdit = false,
   onAutoEditConsumed,
   context = "profile",
-  leagueHighlights,
+  gameHighlights,
 }: MatchDetailCardProps) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -319,12 +319,12 @@ export function MatchDetailCard({
   // Scoring direction comes from the parent game's format. Stroke
   // play sorts lowest-first; Stableford sorts highest-first. Unknown
   // formats fall back to stroke.
-  const leagueFormat = resolveFormat(game)
-  const fmtCopy = formatCopy(leagueFormat)
+  const gameFormat = resolveFormat(game)
+  const fmtCopy = formatCopy(gameFormat)
   const sorted =
     variant === "past"
       ? [...players].sort((a, b) =>
-          compareByTotal(a.score, b.score, leagueFormat),
+          compareByTotal(a.score, b.score, gameFormat),
         )
       : players
 
@@ -376,7 +376,7 @@ export function MatchDetailCard({
     match.status !== "cancelled" &&
     players.length < MAX_MATCH_PLAYERS
   // Request-to-join: viewer is a game member (guaranteed by
-  // privatize_leagues RLS — if they can see this card, they can see
+  // privatize_games RLS — if they can see this card, they can see
   // the game), but NOT a player in this match, AND the match has
   // an open slot, AND hasn't been finalized.
   const canRequestJoin =
@@ -770,7 +770,7 @@ export function MatchDetailCard({
             error={scoreError}
             onCancel={() => setEditing(false)}
             onSave={handleSave}
-            leagueFormat={leagueFormat}
+            gameFormat={gameFormat}
           />
         ) : (
           <div className="flex flex-col gap-1.5">
@@ -796,7 +796,7 @@ export function MatchDetailCard({
                 // both stroke and stableford) so the rendering below
                 // doesn't need a direction branch.
                 const margin = isWinner
-                  ? gapAhead(p.score, sorted[1]?.score, leagueFormat)
+                  ? gapAhead(p.score, sorted[1]?.score, gameFormat)
                   : null
                 // Recap text is now inline next to the name (not a
                 // subline), so keep it minimal — just the margin. The
@@ -860,14 +860,14 @@ export function MatchDetailCard({
                           whoever holds the best approved round in the
                           whole game, wherever that round happened.
                           Computed upstream (game page) and threaded
-                          in via `leagueHighlights` so we don't have to
+                          in via `gameHighlights` so we don't have to
                           re-scan every match's roster from inside the
                           card. */}
-                      {leagueHighlights?.lowestRound &&
-                        p.user_id === leagueHighlights.lowestRound.userId &&
+                      {gameHighlights?.lowestRound &&
+                        p.user_id === gameHighlights.lowestRound.userId &&
                         String(match.id) ===
-                          leagueHighlights.lowestRound.matchId &&
-                        p.score === leagueHighlights.lowestRound.score && (
+                          gameHighlights.lowestRound.matchId &&
+                        p.score === gameHighlights.lowestRound.score && (
                           <span
                             className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-300 to-red-500 text-white shadow-[0_1px_3px_rgba(239,68,68,0.35)] ring-[1.5px] ring-white"
                             aria-label="Lowest round in the game"

@@ -65,7 +65,7 @@ export async function GET(
   const [matchRes, playersRes, scoresRes] = await Promise.all([
     supabase
       .from("matches")
-      .select("id, course_name, match_date, league_id")
+      .select("id, course_name, match_date, game_id")
       .eq("id", matchId)
       .maybeSingle(),
     supabase
@@ -91,18 +91,18 @@ export async function GET(
     id: string
     course_name: string | null
     match_date: string | null
-    league_id: string | null
+    game_id: string | null
   }
 
   let game: { name: string; course_name: string | null } | null = null
-  if (match.league_id) {
-    const { data: leagueData } = await supabase
-      .from("leagues")
+  if (match.game_id) {
+    const { data: gameData } = await supabase
+      .from("games")
       .select("name, course_name")
-      .eq("id", match.league_id)
+      .eq("id", match.game_id)
       .maybeSingle()
-    if (leagueData) {
-      game = leagueData as { name: string; course_name: string | null }
+    if (gameData) {
+      game = gameData as { name: string; course_name: string | null }
     }
   }
 
@@ -141,7 +141,7 @@ export async function GET(
   })
 
   const courseName = match.course_name || game?.course_name || "Course"
-  const leagueName = game?.name || "Match"
+  const gameName = game?.name || "Match"
   const dateStr = match.match_date
     ? new Date(match.match_date).toLocaleDateString("en-US", {
         month: "long",
@@ -214,7 +214,7 @@ export async function GET(
               textTransform: "uppercase",
             }}
           >
-            {leagueName}
+            {gameName}
           </div>
           <div
             style={{

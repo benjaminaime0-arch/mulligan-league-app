@@ -17,16 +17,16 @@ type Game = {
   status?: string | null
 }
 
-type LeagueMembership = {
+type GameMembership = {
   id: string
-  league_id: string
+  game_id: string
   user_id: string
-  leagues: Game
+  games: Game
 }
 
 type MemberWithProfile = {
   id: string | number
-  league_id: string | number
+  game_id: string | number
   user_id: string
   profiles?: {
     username?: string | null
@@ -35,9 +35,9 @@ type MemberWithProfile = {
   } | null
 }
 
-type LeaguePeriod = {
+type GamePeriod = {
   id: string | number
-  league_id: string | number
+  game_id: string | number
   name?: string | null
   status?: string | null
 }
@@ -45,7 +45,7 @@ type LeaguePeriod = {
 function CreateMatchContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const preselectedLeagueId = searchParams.get("game")
+  const preselectedGameId = searchParams.get("game")
   // Optional date pre-fill from the calendar's empty-day CTA. Accepted
   // only if it looks like a `yyyy-mm-dd` string — anything else falls
   // back to today, so a malformed query param can't freeze the form.
@@ -56,13 +56,13 @@ function CreateMatchContent() {
   const { user, loading: authLoading } = useAuth()
 
   // User's games
-  const [userLeagues, setUserLeagues] = useState<Game[]>([])
-  const [leaguesLoading, setLeaguesLoading] = useState(true)
+  const [userGames, setUserGames] = useState<Game[]>([])
+  const [gamesLoading, setGamesLoading] = useState(true)
 
   // Selected game
-  const [selectedLeagueId, setSelectedLeagueId] = useState<string>(preselectedLeagueId || "")
+  const [selectedGameId, setSelectedGameId] = useState<string>(preselectedGameId || "")
   const [members, setMembers] = useState<MemberWithProfile[]>([])
-  const [activePeriod, setActivePeriod] = useState<LeaguePeriod | null>(null)
+  const [activePeriod, setActivePeriod] = useState<GamePeriod | null>(null)
   const [membersLoading, setMembersLoading] = useState(false)
 
   // Form — if the user came in from the calendar's empty-day CTA we
@@ -83,7 +83,7 @@ function CreateMatchContent() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const selectedLeague = userLeagues.find((l) => l.id === selectedLeagueId) || null
+  const selectedGame = userGames.find((l) => l.id === selectedGameId) || null
 
   // Load user's games once auth is ready
   useEffect(() => {
@@ -94,36 +94,36 @@ function CreateMatchContent() {
       // can filter out completed ones below — a finished game can't
       // accept new matches.
       const { data: memberships, error: memErr } = await supabase
-        .from("league_members")
-        .select("id, league_id, user_id, leagues(id, name, course_name, status)")
+        .from("game_members")
+        .select("id, game_id, user_id, games(id, name, course_name, status)")
         .eq("user_id", user.id)
 
       if (!memErr && memberships) {
-        const games = (memberships as unknown as LeagueMembership[])
-          .map((m) => m.leagues)
+        const games = (memberships as unknown as GameMembership[])
+          .map((m) => m.games)
           .filter(Boolean)
           // Drop completed games — they're read-only from here on.
           // If the user came in via `?game=<id>` pointing at a
           // completed game, the preselected branch below will miss
           // and the picker will fall back to "Choose a game…".
           .filter((l) => l.status !== "completed")
-        setUserLeagues(games)
+        setUserGames(games)
 
         // Pre-select if only one game or if game param provided
-        if (preselectedLeagueId && games.some((l) => l.id === preselectedLeagueId)) {
-          setSelectedLeagueId(preselectedLeagueId)
+        if (preselectedGameId && games.some((l) => l.id === preselectedGameId)) {
+          setSelectedGameId(preselectedGameId)
         } else if (games.length === 1) {
-          setSelectedLeagueId(games[0].id)
+          setSelectedGameId(games[0].id)
         }
       }
-      setLeaguesLoading(false)
+      setGamesLoading(false)
     }
     init()
-  }, [authLoading, user, preselectedLeagueId])
+  }, [authLoading, user, preselectedGameId])
 
   // Load members + period when game changes
   useEffect(() => {
-    if (!selectedLeagueId) {
+    if (!selectedGameId) {
       setMembers([])
       setActivePeriod(null)
       setSelectedPlayerIds([])
@@ -131,20 +131,20 @@ function CreateMatchContent() {
     }
 
     let cancelled = false
-    const loadLeagueData = async () => {
+    const loadGameData = async () => {
       setMembersLoading(true)
       setError(null)
 
       try {
         const [membersRes, periodRes] = await Promise.all([
           supabase
-            .from("league_members")
-            .select("id, league_id, user_id, profiles(username, first_name, last_name)")
-            .eq("league_id", selectedLeagueId),
+            .from("game_members")
+            .select("id, game_id, user_id, profiles(username, first_name, last_name)")
+            .eq("game_id", selectedGameId),
           supabase
-            .from("league_periods")
+            .from("game_periods")
             .select("*")
-            .eq("league_id", selectedLeagueId)
+            .eq("game_id", selectedGameId)
             .order("start_date", { ascending: true })
             .limit(1)
             .maybeSingle(),
@@ -159,7 +159,7 @@ function CreateMatchContent() {
         if (periodRes.error && periodRes.error.code !== "PGRST116") {
           throw periodRes.error
         }
-        setActivePeriod((periodRes.data as LeaguePeriod | null) ?? null)
+        setActivePeriod((periodRes.data as GamePeriod | null) ?? null)
 
         // Pre-select current user
         if (user) {
@@ -175,9 +175,9 @@ function CreateMatchContent() {
       }
     }
 
-    loadLeagueData()
+    loadGameData()
     return () => { cancelled = true }
-  }, [selectedLeagueId, user])
+  }, [selectedGameId, user])
 
   const isPlayerSelected = (userId: string) => selectedPlayerIds.includes(userId)
 
@@ -208,7 +208,7 @@ function CreateMatchContent() {
     if (!user) return
     setError(null)
 
-    if (!selectedLeagueId || !selectedLeague) {
+    if (!selectedGameId || !selectedGame) {
       setError("Please select a game.")
       return
     }
@@ -234,9 +234,9 @@ function CreateMatchContent() {
       const { data: match, error: matchError } = await supabase
         .from("matches")
         .insert({
-          league_id: selectedLeagueId,
+          game_id: selectedGameId,
           period_id: activePeriod.id,
-          course_name: selectedLeague.course_name || null,
+          course_name: selectedGame.course_name || null,
           match_date: date,
           match_time: time || null,
           created_by: user.id,
@@ -272,12 +272,12 @@ function CreateMatchContent() {
     return <LoadingSpinner message="Checking your session…" />
   }
   if (!user) return null
-  if (leaguesLoading) {
+  if (gamesLoading) {
     return <LoadingSpinner message="Loading your games…" />
   }
 
   // No games — show empty state
-  if (userLeagues.length === 0) {
+  if (userGames.length === 0) {
     return (
       <main className="min-h-screen px-4 py-8">
         <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-6 text-center">
@@ -287,13 +287,13 @@ function CreateMatchContent() {
           </p>
           <div className="flex gap-3">
             <Link
-              href="/leagues/create"
+              href="/games/create"
               className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream hover:bg-primary/90"
             >
               Create a Game
             </Link>
             <Link
-              href="/leagues/join"
+              href="/games/join"
               className="rounded-lg border border-primary/20 bg-white px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
             >
               Join a Game
@@ -331,13 +331,13 @@ function CreateMatchContent() {
             </label>
             <select
               id="game"
-              value={selectedLeagueId}
-              onChange={(e) => setSelectedLeagueId(e.target.value)}
+              value={selectedGameId}
+              onChange={(e) => setSelectedGameId(e.target.value)}
               className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               disabled={submitting}
             >
               <option value="">Choose a game…</option>
-              {userLeagues.map((game) => (
+              {userGames.map((game) => (
                 <option key={game.id} value={game.id}>
                   {game.name}
                 </option>
@@ -377,7 +377,7 @@ function CreateMatchContent() {
           </div>
 
           {/* Player Selection */}
-          {selectedLeagueId && (
+          {selectedGameId && (
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-medium text-primary">Players</p>
@@ -420,7 +420,7 @@ function CreateMatchContent() {
 
           <button
             type="submit"
-            disabled={submitting || !selectedLeagueId}
+            disabled={submitting || !selectedGameId}
             className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? "Creating match…" : "Create Match"}

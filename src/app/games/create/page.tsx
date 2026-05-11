@@ -7,17 +7,17 @@ import { useAuth } from "@/hooks/useAuth"
 
 // Only stroke play and Stableford have real calculation support in
 // the leaderboard + badges engines today (see `get_leaderboard` and
-// `get_league_badges`). Match play / Ryder / Foursome / etc. will
+// `get_game_badges`). Match play / Ryder / Foursome / etc. will
 // reappear here once per-hole scoring + opponent pairings are built
 // out. In the meantime, picking one of those silently falls back to
-// stroke-play math on the backend (see `sync_league_format` trigger)
+// stroke-play math on the backend (see `sync_game_format` trigger)
 // — which is misleading, so they're simply unavailable.
 const FORMATS: { value: string; label: string }[] = [
   { value: "stroke_play", label: "Stroke Play" },
   { value: "stableford", label: "Stableford" },
 ]
 
-export default function CreateLeaguePage() {
+export default function CreateGamePage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
 
@@ -33,7 +33,7 @@ export default function CreateLeaguePage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [inviteCode, setInviteCode] = useState<string | null>(null)
-  const [leagueId, setLeagueId] = useState<string | number | null>(null)
+  const [gameId, setGameId] = useState<string | number | null>(null)
   const [copied, setCopied] = useState(false)
 
   // Keep scoringCards <= totalCards
@@ -63,7 +63,7 @@ export default function CreateLeaguePage() {
 
     setSubmitting(true)
     try {
-      const { data, error: rpcError } = await supabase.rpc("create_league", {
+      const { data, error: rpcError } = await supabase.rpc("create_game", {
         p_name: name.trim(),
         p_course_name: course.trim(),
         p_max_players: players,
@@ -71,21 +71,21 @@ export default function CreateLeaguePage() {
         p_end_date: endDate,
         p_scoring_cards: scoringCards,
         p_total_cards: totalCards,
-        p_league_type: format,
+        p_game_type: format,
       })
 
       if (rpcError) throw rpcError
 
       const result = data as
-        | { success: boolean; league_id?: string | number; invite_code?: string; error?: string }
+        | { success: boolean; game_id?: string | number; invite_code?: string; error?: string }
         | null
 
-      if (!result || !result.success || !result.league_id || !result.invite_code) {
+      if (!result || !result.success || !result.game_id || !result.invite_code) {
         setError(result?.error || "Unable to create game. Please try again.")
         return
       }
 
-      setLeagueId(result.league_id)
+      setGameId(result.game_id)
       setInviteCode(result.invite_code)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.")
@@ -304,7 +304,7 @@ export default function CreateLeaguePage() {
           </button>
         </form>
 
-        {inviteCode && leagueId && (
+        {inviteCode && gameId && (
           <section className="space-y-4 rounded-xl border border-primary/20 bg-primary px-5 py-6 text-cream shadow-sm">
             <h2 className="text-lg font-semibold">Invite your players</h2>
             <p className="text-sm text-cream/80">
@@ -343,7 +343,7 @@ export default function CreateLeaguePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => router.push(`/leagues/${leagueId}`)}
+                  onClick={() => router.push(`/games/${gameId}`)}
                   className="flex-1 rounded-lg border border-cream/70 px-4 py-2.5 text-sm font-medium text-cream transition-all hover:bg-cream/10 active:scale-[0.98]"
                 >
                   Go to Game

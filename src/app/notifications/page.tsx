@@ -45,8 +45,8 @@ export default function NotificationsPage() {
 
     if (data.match_id) {
       router.push(`/matches/${data.match_id}`)
-    } else if (data.league_id) {
-      router.push(`/leagues/${data.league_id}`)
+    } else if (data.game_id) {
+      router.push(`/games/${data.game_id}`)
     } else if (data.new_member_id) {
       router.push(`/players/${data.new_member_id}`)
     }
@@ -169,7 +169,7 @@ function NotificationRow({
 
   const isClickable =
     isJoinRequest ||
-    !!(notification.data?.match_id || notification.data?.league_id)
+    !!(notification.data?.match_id || notification.data?.game_id)
 
   return (
     <button

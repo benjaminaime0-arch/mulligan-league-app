@@ -67,17 +67,17 @@ export function Navbar() {
             <span className="hidden sm:inline">Mulligan</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm font-medium">
-            <DesktopLink href="/leagues" label="Games" pathname={pathname} />
+            <DesktopLink href="/games" label="Games" pathname={pathname} />
             <DesktopLink href="/leaderboard" label="Leaderboard" pathname={pathname} />
             <DesktopLink href="/players" label="Players" pathname={pathname} />
             <Link
-              href="/leagues/create"
+              href="/games/create"
               className="rounded-lg border border-primary/30 bg-white px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/5"
             >
               Create Game
             </Link>
             <Link
-              href="/leagues/join"
+              href="/games/join"
               className="rounded-lg border border-primary/30 bg-white px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/5"
             >
               Join Game
@@ -106,9 +106,9 @@ export function Navbar() {
         <div className="mx-auto flex max-w-md items-end justify-between px-2 pt-1.5">
           {/* Games */}
           <MobileNavTab
-            href="/leagues"
+            href="/games"
             label="Games"
-            active={isActive("/leagues")}
+            active={isActive("/games")}
             icon={<TrophyIcon />}
             activeIcon={<TrophyIconFilled />}
           />
@@ -139,13 +139,13 @@ export function Navbar() {
                     onClick={() => setShowActions(false)}
                   />
                   <ActionMenuItem
-                    href="/leagues/create"
+                    href="/games/create"
                     label="Create Game"
                     icon={<PlusCircleIcon />}
                     onClick={() => setShowActions(false)}
                   />
                   <ActionMenuItem
-                    href="/leagues/join"
+                    href="/games/join"
                     label="Join Game"
                     icon={<JoinIcon />}
                     onClick={() => setShowActions(false)}

@@ -3,14 +3,14 @@
 // back-compat with this directory's existing imports.
 export type { Match, Game, MatchPlayer } from "@/components/match/types"
 
-export type UserLeague = {
+export type UserGame = {
   id: string | number
   name: string
 }
 
 export type MemberWithProfile = {
   id: string | number
-  league_id: string | number
+  game_id: string | number
   user_id: string
   profiles?: {
     id: string
@@ -20,9 +20,9 @@ export type MemberWithProfile = {
   } | null
 }
 
-export type LeaguePeriod = {
+export type GamePeriod = {
   id: string | number
-  league_id: string | number
+  game_id: string | number
   name?: string | null
   start_date?: string | null
   end_date?: string | null

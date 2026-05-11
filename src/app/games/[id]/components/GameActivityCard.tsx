@@ -3,7 +3,7 @@
 /**
  * Game-scoped activity feed. Shows recent events for THIS game
  * only (matches created, scores approved, members joining). Powered
- * by the `get_league_activity_feed` RPC which is SECURITY DEFINER
+ * by the `get_game_activity_feed` RPC which is SECURITY DEFINER
  * and gated on viewer-is-member so non-members can't peek.
  *
  * Layout: the card stays compact at rest (top 2 rows). The title
@@ -19,7 +19,7 @@ import { Avatar } from "@/components/Avatar"
 interface ActivityEvent {
   id: string
   event_type: string
-  league_id: string | null
+  game_id: string | null
   actor_id: string
   match_id: string | null
   metadata: Record<string, string | number | null>
@@ -28,8 +28,8 @@ interface ActivityEvent {
   actor_avatar_url: string | null
 }
 
-interface LeagueActivityCardProps {
-  leagueId: string
+interface GameActivityCardProps {
+  gameId: string
   /** Signal to refetch the feed after a mutation somewhere on the page. */
   refreshKey?: number
 }
@@ -37,7 +37,7 @@ interface LeagueActivityCardProps {
 const COLLAPSED_COUNT = 2
 const FETCH_LIMIT = 20
 
-export function LeagueActivityCard({ leagueId, refreshKey }: LeagueActivityCardProps) {
+export function GameActivityCard({ gameId, refreshKey }: GameActivityCardProps) {
   const [events, setEvents] = useState<ActivityEvent[] | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const router = useRouter()
@@ -45,13 +45,13 @@ export function LeagueActivityCard({ leagueId, refreshKey }: LeagueActivityCardP
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const { data, error } = await supabase.rpc("get_league_activity_feed", {
-        p_league_id: leagueId,
+      const { data, error } = await supabase.rpc("get_game_activity_feed", {
+        p_game_id: gameId,
         p_limit: FETCH_LIMIT,
       })
       if (cancelled) return
       if (error) {
-        console.error("[LeagueActivityCard] fetch failed", error)
+        console.error("[GameActivityCard] fetch failed", error)
         setEvents([])
         return
       }
@@ -60,7 +60,7 @@ export function LeagueActivityCard({ leagueId, refreshKey }: LeagueActivityCardP
       ).map((r) => ({
         id: r.out_id as string,
         event_type: r.out_event_type as string,
-        league_id: (r.out_league_id as string) || null,
+        game_id: (r.out_game_id as string) || null,
         actor_id: r.out_actor_id as string,
         match_id: (r.out_match_id as string) || null,
         metadata:
@@ -74,7 +74,7 @@ export function LeagueActivityCard({ leagueId, refreshKey }: LeagueActivityCardP
     return () => {
       cancelled = true
     }
-  }, [leagueId, refreshKey])
+  }, [gameId, refreshKey])
 
   const hasMore = events !== null && events.length > COLLAPSED_COUNT
 
@@ -176,12 +176,12 @@ function ActivityRow({
   /* ── Announcement rows ──────────────────────────────
    * Two special events don't follow the "{actor} verbed X" shape —
    * they read as standalone banners:
-   *   league_winner    → "Congrats {name} for the win"
-   *   league_completed → "All rounds completed"
+   *   game_winner    → "Congrats {name} for the win"
+   *   game_completed → "All rounds completed"
    * Rendered with a distinct emerald/amber tint so they pop in the
    * feed. Non-navigable; they're celebrations, not drill-ins.
    */
-  if (event.event_type === "league_winner") {
+  if (event.event_type === "game_winner") {
     const total = event.metadata?.total_score as number | undefined
     return (
       <li>
@@ -224,7 +224,7 @@ function ActivityRow({
     )
   }
 
-  if (event.event_type === "league_completed") {
+  if (event.event_type === "game_completed") {
     return (
       <li>
         {/* Emerald confirmation row — softer than the winner, reads
@@ -357,7 +357,7 @@ function ActivityFeedModal({
 function formatMessage(event: ActivityEvent): string {
   const meta = event.metadata || {}
   switch (event.event_type) {
-    case "player_joined_league":
+    case "player_joined_game":
       return "joined the game"
     case "match_created": {
       const date = meta.match_date
@@ -384,7 +384,7 @@ function eventHref(event: ActivityEvent): string | null {
   if (event.match_id && (event.event_type === "match_created" || event.event_type === "score_approved")) {
     return `/matches/${event.match_id}`
   }
-  if (event.event_type === "player_joined_league") {
+  if (event.event_type === "player_joined_game") {
     return `/players/${event.actor_id}`
   }
   return null

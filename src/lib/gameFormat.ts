@@ -6,7 +6,7 @@
  * skins…), extend here and every callsite picks it up automatically.
  */
 
-import type { Game, LeagueFormat } from "@/components/match/types"
+import type { Game, GameFormat } from "@/components/match/types"
 
 /**
  * Normalize the game's raw `format` column to a known enum. Treats
@@ -15,7 +15,7 @@ import type { Game, LeagueFormat } from "@/components/match/types"
  */
 export function resolveFormat(
   game: Pick<Game, "format"> | null | undefined,
-): LeagueFormat {
+): GameFormat {
   if (!game) return "stroke_play"
   return game.format === "stableford" ? "stableford" : "stroke_play"
 }
@@ -45,7 +45,7 @@ export interface FormatCopy {
   bestRoundLabel: string
 }
 
-export function formatCopy(format: LeagueFormat): FormatCopy {
+export function formatCopy(format: GameFormat): FormatCopy {
   if (format === "stableford") {
     return {
       betterIsLower: false,
@@ -73,7 +73,7 @@ export function formatCopy(format: LeagueFormat): FormatCopy {
 export function isBetter(
   a: number | null | undefined,
   b: number | null | undefined,
-  format: LeagueFormat,
+  format: GameFormat,
 ): boolean {
   if (a == null) return false
   if (b == null) return true
@@ -91,7 +91,7 @@ export function isBetter(
 export function gapAhead(
   you: number | null | undefined,
   them: number | null | undefined,
-  format: LeagueFormat,
+  format: GameFormat,
 ): number | null {
   if (you == null || them == null) return null
   return format === "stableford" ? you - them : them - you
@@ -105,7 +105,7 @@ export function gapAhead(
 export function compareByTotal(
   a: number | null | undefined,
   b: number | null | undefined,
-  format: LeagueFormat,
+  format: GameFormat,
 ): number {
   if (a == null && b == null) return 0
   if (a == null) return 1
@@ -119,7 +119,7 @@ export function compareByTotal(
  */
 export function formatScore(
   score: number | null | undefined,
-  format: LeagueFormat,
+  format: GameFormat,
 ): string {
   if (score == null) return "–"
   const unit = formatCopy(format).unit

@@ -3,8 +3,8 @@
 import Link from "next/link"
 import { Avatar } from "@/components/Avatar"
 import type { LeaderboardRow } from "../types"
-import type { LeagueFormat } from "@/components/match/types"
-import { formatCopy, gapAhead } from "@/lib/leagueFormat"
+import type { GameFormat } from "@/components/match/types"
+import { formatCopy, gapAhead } from "@/lib/gameFormat"
 
 interface LeaderboardTableProps {
   leaderboard: LeaderboardRow[]
@@ -25,7 +25,7 @@ interface LeaderboardTableProps {
    * the unit suffix on scores, and tooltip copy. Defaults to stroke
    * play if omitted.
    */
-  leagueFormat?: LeagueFormat
+  gameFormat?: GameFormat
 }
 
 export function LeaderboardTable({
@@ -33,9 +33,9 @@ export function LeaderboardTable({
   subtitle,
   currentUserId,
   scoringCardsCount,
-  leagueFormat = "stroke_play",
+  gameFormat = "stroke_play",
 }: LeaderboardTableProps) {
-  const copy = formatCopy(leagueFormat)
+  const copy = formatCopy(gameFormat)
   // Tooltip copy flexes with game config. When a `scoring_cards_count`
   // is set, every round played may not count toward Total — we
   // explain the "best N of M" rule. Otherwise the two numbers are
@@ -155,7 +155,7 @@ export function LeaderboardTable({
                 const gapToNext = gapAhead(
                   row.total_score as number | null | undefined,
                   nextActive?.total_score as number | null | undefined,
-                  leagueFormat,
+                  gameFormat,
                 )
 
                 // "Race to finish" provisional chip. Only when a
@@ -237,7 +237,7 @@ export function LeaderboardTable({
                         </Link>
                       ) : (
                         // Defensive fallback — `board CTE` in get_leaderboard
-                        // anchors on `league_members.user_id` (NOT NULL) so
+                        // anchors on `game_members.user_id` (NOT NULL) so
                         // `row.user_id` is always populated in practice.
                         // Keeping this branch in case the schema or RPC
                         // ever changes; it renders a non-tappable row
