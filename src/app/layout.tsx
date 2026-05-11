@@ -68,7 +68,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.className} min-h-screen bg-cream text-primary antialiased`}
+        className={`${inter.className} min-h-screen bg-white text-primary antialiased`}
       >
         {GA_MEASUREMENT_ID && (
           <>

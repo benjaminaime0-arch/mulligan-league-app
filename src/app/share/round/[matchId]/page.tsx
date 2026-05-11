@@ -58,7 +58,7 @@ export default function RoundSharePage({ params }: SharePageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-cream px-4 pb-16 pt-6">
+    <main className="min-h-screen px-4 pb-16 pt-6">
       <div className="mx-auto flex w-full max-w-md flex-col gap-5">
         <header className="flex items-center justify-between">
           <Link

@@ -10,14 +10,19 @@ import { useAuth } from "@/hooks/useAuth"
 // MatchCarousel/PastMatchCarousel components — those were replaced by
 // MatchCalendarSection (fetches full rosters inline) and removed.
 import { LoadingSpinner } from "@/components/LoadingSpinner"
-import { Avatar } from "@/components/Avatar"
 import AvatarCropModal from "@/components/AvatarCropModal"
 import { ConfirmModal } from "@/components/ConfirmModal"
 import { RecordsCard, type RecordsData } from "@/components/profile/RecordsCard"
+import {
+  MyHonorsCard,
+  type UserHonorRow,
+} from "@/components/profile/MyHonorsCard"
 import { MatchCalendarSection } from "@/components/match/MatchCalendarSection"
 import type { League as SharedLeague, Match as SharedMatch, MatchPlayer as SharedMatchPlayer } from "@/components/match/types"
-import { CoursesCard, type CoursePlay } from "@/components/profile/CoursesCard"
 import { ScoreTrendCard } from "@/components/profile/ScoreTrendCard"
+import { LeaderboardTable } from "@/app/leagues/[id]/components/LeaderboardTable"
+import type { LeaderboardRow } from "@/app/leagues/[id]/types"
+import { resolveFormat } from "@/lib/leagueFormat"
 
 type Profile = {
   id: string
@@ -47,48 +52,15 @@ type LeagueData = {
   total_cards_count?: number | null
   start_date?: string | null
   end_date?: string | null
-}
-
-type LeagueMemberProfile = {
-  user_id: string
-  profiles?: {
-    id: string
-    first_name?: string | null
-    last_name?: string | null
-    username?: string | null
-    avatar_url?: string | null
-  } | null
-}
-
-type PeriodData = {
-  id: string | number
-  league_id: string | number
-  name?: string | null
-  start_date?: string | null
-  end_date?: string | null
-  status?: string | null
-}
-
-type EnrichedLeague = LeagueData & {
-  members: LeagueMemberProfile[]
-  memberCount: number
-  activePeriod?: PeriodData | null
+  format?: string | null
 }
 
 // ScheduledMatch/PastMatch types removed with the retired carousels.
 // The /profile/matches page has its own copies for its full-list UI.
 
-type ActivityEvent = {
-  id: string
-  event_type: string
-  league_id: string | null
-  actor_id: string
-  match_id: string | null
-  metadata: Record<string, string | number | null>
-  created_at: string
-  actor_name: string
-  actor_avatar_url: string | null
-}
+// ActivityEvent / feed removed — the profile no longer shows a
+// cross-league activity feed. Each league page now carries its own
+// scoped feed via `LeagueActivityCard` + `get_league_activity_feed`.
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -96,11 +68,22 @@ export default function ProfilePage() {
 
   const [profile, setProfile] = useState<Profile | null>(null)
   const [memberships, setMemberships] = useState<LeagueMember[]>([])
-  const [enrichedLeagues, setEnrichedLeagues] = useState<EnrichedLeague[]>([])
-  // Scheduled + past matches moved to /profile/matches page
-  const [activityFeed, setActivityFeed] = useState<ActivityEvent[]>([])
+  // Leagues the viewer belongs to, deduped, used to drive the
+  // per-league leaderboard carousel at the bottom of /profile.
+  const [myLeagues, setMyLeagues] = useState<LeagueData[]>([])
+  // Leaderboard rows keyed by league id. Populated in parallel after
+  // memberships resolve — each league's leaderboard is a separate
+  // `get_leaderboard` RPC call (they're small and member-gated).
+  const [leaderboardsByLeague, setLeaderboardsByLeague] = useState<
+    Map<string, LeaderboardRow[]>
+  >(new Map())
+  // Scheduled + past matches moved to /profile/matches page.
+  // Activity feed moved to per-league (LeagueActivityCard).
   const [matchesPlayed, setMatchesPlayed] = useState(0)
   const [records, setRecords] = useState<RecordsData | null>(null)
+  // Cross-league honors — badges the viewer currently holds. Null
+  // while loading, empty array once loaded with nothing earned yet.
+  const [honors, setHonors] = useState<UserHonorRow[] | null>(null)
   // Viewer's matches within the calendar window (±30 days around
   // today) + lookups the MatchCalendarSection needs to render per-
   // match detail cards: `calendarMatches` is the raw list,
@@ -115,7 +98,6 @@ export default function ProfilePage() {
   const [calendarLeaguesById, setCalendarLeaguesById] = useState<
     Map<string, SharedLeague>
   >(new Map())
-  const [courses, setCourses] = useState<CoursePlay[] | null>(null)
   // ScoreTrendCard now owns its own trend state (fetched per range selection)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -137,6 +119,25 @@ export default function ProfilePage() {
    * Exposed as onRefresh to the section so inline mutations
    * (edit scores, approve, leave, delete) re-pull on success.
    */
+  const loadLeaderboards = useCallback(
+    async (leagueIds: string[]): Promise<Map<string, LeaderboardRow[]>> => {
+      if (leagueIds.length === 0) return new Map()
+      const results = await Promise.all(
+        leagueIds.map((id) =>
+          supabase
+            .rpc("get_leaderboard", { p_league_id: id })
+            .then((res) => ({
+              id,
+              rows: res.error ? [] : ((res.data || []) as LeaderboardRow[]),
+            })),
+        ),
+      )
+      const map = new Map<string, LeaderboardRow[]>()
+      for (const r of results) map.set(r.id, r.rows)
+      return map
+    },
+    [],
+  )
   const loadCalendar = useCallback(async (userId: string) => {
     const now = new Date()
     const start = new Date(now)
@@ -325,7 +326,11 @@ export default function ProfilePage() {
         const membershipData = (membershipsRes.data as unknown as LeagueMember[]) || []
         setMemberships(membershipData)
 
-        // Build enriched leagues for the carousel
+        // Dedupe memberships into the leagues-I-belong-to list. The
+        // bottom of /profile renders a switcher + LeaderboardTable per
+        // league — we only need the core league row here (name,
+        // course, format, scoring config). Member rosters + period
+        // info come from the leaderboard RPC directly.
         const leagueMap = new Map<string, LeagueData>()
         for (const m of membershipData) {
           const l = m.leagues as LeagueData | null
@@ -333,97 +338,55 @@ export default function ProfilePage() {
             leagueMap.set(String(l.id), l)
           }
         }
-        const leagueList = Array.from(leagueMap.values())
-
-        if (leagueList.length > 0) {
-          const leagueIds = leagueList.map((l) => l.id)
-          const [leagueMembersRes, periodsRes] = await Promise.all([
-            supabase
-              .from("league_members")
-              .select("league_id, user_id, profiles(id, first_name, last_name, username, avatar_url)")
-              .in("league_id", leagueIds),
-            supabase
-              .from("league_periods")
-              .select("*")
-              .in("league_id", leagueIds)
-              .order("start_date", { ascending: true }),
-          ])
-
-          const membersByLeague: Record<string, LeagueMemberProfile[]> = {}
-          for (const m of leagueMembersRes.data || []) {
-            const key = String(m.league_id)
-            if (!membersByLeague[key]) membersByLeague[key] = []
-            membersByLeague[key].push(m as unknown as LeagueMemberProfile)
-          }
-
-          const periodByLeague: Record<string, PeriodData> = {}
-          for (const p of (periodsRes.data || []) as PeriodData[]) {
-            const key = String(p.league_id)
-            if (!periodByLeague[key] || p.status === "active") {
-              periodByLeague[key] = p
-            }
-          }
-
-          const enriched: EnrichedLeague[] = leagueList.map((l) => {
-            const key = String(l.id)
-            const members = membersByLeague[key] || []
-            return {
-              ...l,
-              members,
-              memberCount: members.length,
-              activePeriod: periodByLeague[key] || null,
-            }
-          })
-          setEnrichedLeagues(enriched)
+        // Sort active leagues first (draft/active ahead of completed)
+        // so the carousel lands on a live league by default. Within
+        // each bucket, most-recently-started first — the user is most
+        // likely thinking about their newest league. Completed leagues
+        // stay reachable via the switcher; we don't filter them out
+        // because final standings are still useful history.
+        const statusRank: Record<string, number> = {
+          active: 0,
+          draft: 1,
+          completed: 2,
         }
+        const leagueList = Array.from(leagueMap.values()).sort((a, b) => {
+          const ra = statusRank[a.status ?? "draft"] ?? 1
+          const rb = statusRank[b.status ?? "draft"] ?? 1
+          if (ra !== rb) return ra - rb
+          return (b.start_date || "").localeCompare(a.start_date || "")
+        })
+        setMyLeagues(leagueList)
 
         // Scheduled + past match lists moved to /profile/matches —
         // reachable via the "My calendar →" link in MatchCalendarSection's
         // header. We no longer fetch or render those here on /profile.
 
-        // Fetch activity feed. Pull 30 so that after filtering out the
-        // viewer's own actions we still have a healthy carousel. (On your
-        // own profile we only show what OTHERS are doing in your leagues.)
-        const { data: activityData } = await supabase.rpc("get_activity_feed", {
-          p_user_id: userId,
-          p_limit: 30,
-        })
-        if (activityData) {
-          // Map out_ prefixed columns from RPC to clean names, and hide
-          // activity events authored by the current user.
-          const mapped = (activityData as Array<Record<string, unknown>>)
-            .map((r) => ({
-              id: r.out_id as string,
-              event_type: r.out_event_type as string,
-              league_id: (r.out_league_id as string) || null,
-              actor_id: r.out_actor_id as string,
-              match_id: (r.out_match_id as string) || null,
-              metadata: (r.out_metadata as Record<string, string | number | null>) || {},
-              created_at: r.out_created_at as string,
-              actor_name: r.out_actor_name as string,
-              actor_avatar_url: (r.out_actor_avatar_url as string) || null,
-            }))
-            .filter((ev) => ev.actor_id !== userId)
-            .slice(0, 20)
-          setActivityFeed(mapped)
-        }
+        // Activity feed retired at the profile level — each league
+        // page owns its own scoped feed now. No fetch needed here.
 
-        // Fetch dashboard stats in parallel: records + courses.
-        // (score trend is fetched inside ScoreTrendCard, which owns
-        // the range-selector state). get_profile_week is retired —
-        // the calendar block now pulls the viewer's actual matches
-        // with full rosters so it can host the inline detail card
-        // (see `loadCalendar` further down).
-        const [recordsRes, coursesRes] = await Promise.all([
-          supabase.rpc("get_profile_records", { p_user_id: userId }),
-          supabase.rpc("get_profile_courses", { p_user_id: userId }),
+        // Dashboard RPCs in parallel: records + honors + per-league
+        // leaderboards. Courses card was retired from /profile; the
+        // "courses played" roll-up still exists on /players/[id].
+        const [[recordsRes, honorsRes], lbMap] = await Promise.all([
+          Promise.all([
+            supabase.rpc("get_profile_records", { p_user_id: userId }),
+            supabase.rpc("get_user_honors", { p_user_id: userId }),
+          ]),
+          loadLeaderboards(leagueList.map((l) => String(l.id))),
         ])
         if (!recordsRes.error && recordsRes.data) {
           setRecords(recordsRes.data as RecordsData)
         }
-        if (!coursesRes.error && coursesRes.data) {
-          setCourses(coursesRes.data as CoursePlay[])
+        // Honors are non-critical — if the RPC isn't deployed yet or
+        // hits a transient issue, we fall back to an empty list so
+        // the rest of the profile still renders.
+        if (honorsRes.error) {
+          console.warn("get_user_honors failed", honorsRes.error)
+          setHonors([])
+        } else {
+          setHonors((honorsRes.data || []) as UserHonorRow[])
         }
+        setLeaderboardsByLeague(lbMap)
 
         // Calendar data — the viewer's matches in a ±30 day window
         // around today, with rosters + scores + embedded league
@@ -440,7 +403,87 @@ export default function ProfilePage() {
     }
 
     init()
-  }, [authLoading, user, loadCalendar])
+  }, [authLoading, user, loadCalendar, loadLeaderboards])
+
+  /**
+   * Composite refresh for the calendar section. Inline MatchDetailCard
+   * mutations (edit, approve, leave, delete) ripple into leaderboard
+   * standings — so refreshing the calendar alone would leave the
+   * per-league leaderboards stale until the next mount. We re-pull
+   * both here and keep them in sync.
+   */
+  const handleMatchRefresh = useCallback(async () => {
+    if (!user) return
+    const leagueIds = myLeagues.map((l) => String(l.id))
+    const [, lbMap] = await Promise.all([
+      loadCalendar(user.id),
+      loadLeaderboards(leagueIds),
+    ])
+    setLeaderboardsByLeague(lbMap)
+  }, [user, myLeagues, loadCalendar, loadLeaderboards])
+
+  // Realtime: mirror the league page so approvals / score edits /
+  // new matches arriving from another device (or teammate) refresh
+  // the calendar + leaderboards without a manual reload. We watch
+  // `scores` and `matches` — match_players is less useful here since
+  // the calendar already re-pulls rosters through its own fetch.
+  // Debounced through a 400ms timer so a burst of changes collapses
+  // into a single refetch.
+  useEffect(() => {
+    if (!user) return
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const bump = () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        timer = null
+        handleMatchRefresh()
+      }, 400)
+    }
+
+    const channel = supabase
+      .channel(`profile-${user.id}-live`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "scores" },
+        (payload) => {
+          // Only bump if the score belongs to a match we know about.
+          // Otherwise cross-league noise would churn the dashboard
+          // for players the viewer has no relationship with.
+          const matchId =
+            (payload.new as { match_id?: string })?.match_id ??
+            (payload.old as { match_id?: string })?.match_id
+          if (!matchId) return bump()
+          if (calendarPlayersMap.has(matchId)) bump()
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "matches" },
+        (payload) => {
+          // Only bump for matches in leagues the viewer belongs to.
+          // The scoped filter (`league_id=in.(…)`) isn't supported on
+          // postgres_changes server-side, so we gate in JS against
+          // `calendarLeaguesById`.
+          const leagueId =
+            (payload.new as { league_id?: string })?.league_id ??
+            (payload.old as { league_id?: string })?.league_id
+          if (!leagueId) return
+          if (calendarLeaguesById.has(String(leagueId))) bump()
+        },
+      )
+      .subscribe()
+
+    return () => {
+      if (timer) clearTimeout(timer)
+      supabase.removeChannel(channel)
+    }
+    // calendarPlayersMap + calendarLeaguesById are read in closures
+    // for gating but intentionally omitted from deps — resubscribing
+    // on every map change would churn the realtime connection. The
+    // snapshot closure is good enough; newly-relevant matches will
+    // be picked up on the next handleMatchRefresh cycle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, handleMatchRefresh])
 
   const handleLogout = async () => {
     setLogoutLoading(true)
@@ -601,7 +644,7 @@ export default function ProfilePage() {
     "Player"
 
   return (
-    <main className="min-h-screen bg-cream px-4 pb-6 pt-4">
+    <main className="min-h-screen px-4 pb-6 pt-4">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         {error && (
           <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -749,21 +792,34 @@ export default function ProfilePage() {
             resolveLeague={(m) =>
               calendarLeaguesById.get(String(m.league_id)) ?? null
             }
-            onRefresh={() => loadCalendar(user.id)}
+            onRefresh={handleMatchRefresh}
           />
         )}
 
         {/* 3. Records — best round, top rival, longest streak */}
         <RecordsCard records={records} />
 
-        {/* 4. Activity Feed — Carousel */}
-        <ActivityFeedCarousel events={activityFeed} />
+        {/* 3b. Your honors — cross-league trophy shelf. Renders its
+            own empty state, so we always include it; loading flag is
+            driven by the null sentinel while the RPC is in flight. */}
+        <MyHonorsCard honors={honors ?? []} loading={honors === null} />
 
-        {/* 5. Courses played — collection */}
-        <CoursesCard courses={courses} />
+        {/* Activity feed retired here — each league page now owns
+            its own scoped feed (see LeagueActivityCard). */}
 
-        {/* 8. My Leagues — Carousel */}
-        <LeagueCarousel leagues={enrichedLeagues} />
+        {/* Courses played card retired from /profile — the roll-up
+            still lives on /players/[id] for visiting other players. */}
+
+        {/* My Leagues — per-league leaderboard with a switcher. Each
+            league the viewer belongs to renders its live leaderboard
+            (same component as the league page) so /profile is a
+            single-screen snapshot of where they stand across every
+            league they're in. */}
+        <MyLeaguesLeaderboards
+          leagues={myLeagues}
+          leaderboards={leaderboardsByLeague}
+          currentUserId={user.id}
+        />
 
         {/* Notification prefs moved out of the profile — the bell icon
             and the /notifications page are the canonical surfaces now. */}
@@ -804,178 +860,30 @@ export default function ProfilePage() {
   )
 }
 
-/* ── Activity Feed Carousel ─────────────────────────────────── */
+/* ── My Leagues leaderboards ──────────────────────────────────
+ *
+ * Replaces the old metadata carousel (format / cards / duration /
+ * member row). The viewer already knows the meta for leagues they're
+ * in — the useful snapshot on /profile is "where do I stand?", which
+ * is exactly what LeaderboardTable shows on the league page itself.
+ *
+ * Layout: a small switcher header (league name + course + prev/next
+ * + dots) above the shared LeaderboardTable card. Tapping the name
+ * navigates to the full league page. We intentionally don't wrap
+ * this whole section in another card so we're not stacking a card
+ * inside a card — the table's own wrapper supplies the chrome.
+ */
 
-function activityIcon(eventType: string) {
-  switch (eventType) {
-    case "player_joined_league":
-      return (
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" />
-          </svg>
-        </div>
-      )
-    case "match_created":
-      return (
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-50">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-600">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-          </svg>
-        </div>
-      )
-    case "score_approved":
-      return (
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        </div>
-      )
-    default:
-      return (
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/5">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary/50">
-            <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
-        </div>
-      )
-  }
-}
-
-function activityMessage(event: ActivityEvent): { primary: string; secondary: string } {
-  const meta = event.metadata || {}
-  const name = event.actor_name || "Someone"
-
-  switch (event.event_type) {
-    case "player_joined_league":
-      return {
-        primary: `${name} joined`,
-        secondary: String(meta.league_name || "a league"),
-      }
-    case "match_created":
-      return {
-        primary: `${name} created a match`,
-        secondary: [meta.league_name, meta.course_name, meta.match_date ? formatDateShort(String(meta.match_date)) : null]
-          .filter(Boolean)
-          .join(" · "),
-      }
-    case "score_approved":
-      return {
-        primary: `${name} scored ${meta.score ?? "—"}`,
-        secondary: [meta.league_name, meta.course_name]
-          .filter(Boolean)
-          .join(" · "),
-      }
-    default:
-      return { primary: name, secondary: event.event_type }
-  }
-}
-
-function timeAgo(iso: string): string {
-  const now = Date.now()
-  const then = new Date(iso).getTime()
-  const diffSec = Math.floor((now - then) / 1000)
-  if (diffSec < 60) return "just now"
-  const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffHr = Math.floor(diffMin / 60)
-  if (diffHr < 24) return `${diffHr}h ago`
-  const diffDay = Math.floor(diffHr / 24)
-  if (diffDay < 7) return `${diffDay}d ago`
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
-}
-
-function ActivityFeedCarousel({ events }: { events: ActivityEvent[] }) {
+function MyLeaguesLeaderboards({
+  leagues,
+  leaderboards,
+  currentUserId,
+}: {
+  leagues: LeagueData[]
+  leaderboards: Map<string, LeaderboardRow[]>
+  currentUserId: string
+}) {
   const [idx, setIdx] = useState(0)
-  const router = useRouter()
-
-  if (events.length === 0) {
-    return (
-      <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 text-center text-sm font-semibold text-primary">Activity</h2>
-        <p className="text-center text-sm text-primary/70">No recent activity in your leagues.</p>
-      </section>
-    )
-  }
-
-  const event = events[idx]
-  const msg = activityMessage(event)
-  const hasPrev = idx > 0
-  const hasNext = idx < events.length - 1
-
-  const handleCardClick = () => {
-    if (event.event_type === "match_created" || event.event_type === "score_approved") {
-      if (event.match_id) router.push(`/matches/${event.match_id}`)
-    } else if (event.event_type === "player_joined_league") {
-      if (event.actor_id) router.push(`/players/${event.actor_id}`)
-    }
-  }
-
-  return (
-    <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-center text-sm font-semibold text-primary">Activity</h2>
-
-      <div className="flex items-center gap-2">
-        {/* Left arrow */}
-        <button
-          type="button"
-          onClick={() => setIdx((i) => i - 1)}
-          disabled={!hasPrev}
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary transition-opacity ${
-            hasPrev ? "hover:bg-primary/5" : "opacity-0 pointer-events-none"
-          }`}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
-        </button>
-
-        {/* Card */}
-        <div
-          onClick={handleCardClick}
-          className="min-w-0 flex-1 cursor-pointer rounded-lg bg-white px-4 py-4 text-center text-primary"
-        >
-          <div className="flex items-center justify-center gap-3">
-            {activityIcon(event.event_type)}
-            <Avatar src={event.actor_avatar_url} size={32} fallback={event.actor_name} />
-          </div>
-          <p className="mt-2 text-base font-semibold">{msg.primary}</p>
-          {msg.secondary && (
-            <p className="mt-0.5 text-xs text-primary/60">{msg.secondary}</p>
-          )}
-          <p className="mt-1 text-[10px] text-primary/40">{timeAgo(event.created_at)}</p>
-        </div>
-
-        {/* Right arrow */}
-        <button
-          type="button"
-          onClick={() => setIdx((i) => i + 1)}
-          disabled={!hasNext}
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary transition-opacity ${
-            hasNext ? "hover:bg-primary/5" : "opacity-0 pointer-events-none"
-          }`}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
-        </button>
-      </div>
-    </section>
-  )
-}
-
-/* ── League Carousel ─────────────────────────────────────────── */
-
-function formatLeagueType(type?: string | null): string {
-  if (!type) return "Standard"
-  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-function formatDateShort(iso?: string | null): string {
-  if (!iso) return "TBD"
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
-
-function LeagueCarousel({ leagues }: { leagues: EnrichedLeague[] }) {
-  const [idx, setIdx] = useState(0)
-  const router = useRouter()
 
   if (leagues.length === 0) {
     return (
@@ -990,148 +898,76 @@ function LeagueCarousel({ leagues }: { leagues: EnrichedLeague[] }) {
     )
   }
 
-  const league = leagues[idx]
+  // Clamp when membership count shrinks (e.g. after Leave) so the
+  // carousel never points past the end.
+  const safeIdx = Math.min(idx, leagues.length - 1)
+  const league = leagues[safeIdx]
+  const rows = leaderboards.get(String(league.id)) ?? []
+  const format = resolveFormat({ format: league.format ?? null })
 
   return (
-    <section
-      className="cursor-pointer rounded-xl border border-primary/15 bg-white p-5 shadow-sm"
-      onClick={() => router.push(`/leagues/${league.id}`)}
-    >
-      {/* League switcher header */}
+    <section className="flex flex-col gap-3">
+      {/* Switcher header — league name + course, with prev/next
+          controls and dot indicators when the viewer is in multiple
+          leagues. Name + course is a Link so tap = jump to league. */}
       <div className="flex items-center justify-between gap-2">
-        {leagues.length > 1 && (
-          <button type="button" onClick={(e) => { e.stopPropagation(); setIdx((i) => (i - 1 + leagues.length) % leagues.length) }}
+        {leagues.length > 1 ? (
+          <button
+            type="button"
+            onClick={() =>
+              setIdx((i) => (i - 1 + leagues.length) % leagues.length)
+            }
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-            aria-label="Previous league">
+            aria-label="Previous league"
+          >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
+        ) : (
+          <span className="h-8 w-8 shrink-0" aria-hidden="true" />
         )}
-        <div className="min-w-0 flex-1 text-center">
-          <h2 className="text-lg font-bold text-primary">{league.name}</h2>
-          <p className="text-xs uppercase tracking-[0.2em] text-primary/50">
+        <Link
+          href={`/leagues/${league.id}`}
+          className="min-w-0 flex-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
+        >
+          <h2 className="truncate text-lg font-bold text-primary">{league.name}</h2>
+          <p className="truncate text-xs uppercase tracking-[0.2em] text-primary/50">
             {league.course_name || "Course TBA"}
           </p>
-        </div>
-        {leagues.length > 1 && (
-          <button type="button" onClick={(e) => { e.stopPropagation(); setIdx((i) => (i + 1) % leagues.length) }}
+        </Link>
+        {leagues.length > 1 ? (
+          <button
+            type="button"
+            onClick={() => setIdx((i) => (i + 1) % leagues.length)}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-            aria-label="Next league">
+            aria-label="Next league"
+          >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
           </button>
+        ) : (
+          <span className="h-8 w-8 shrink-0" aria-hidden="true" />
         )}
       </div>
 
-      {/* Dot indicators */}
       {leagues.length > 1 && (
-        <div className="mt-2 flex items-center justify-center gap-1.5">
+        <div className="flex items-center justify-center gap-1.5">
           {leagues.map((l, i) => (
-            <button key={l.id} type="button" onClick={(e) => { e.stopPropagation(); setIdx(i) }}
-              className={`h-1.5 rounded-full transition-all ${i === idx ? "w-5 bg-primary" : "w-1.5 bg-primary/20 hover:bg-primary/40"}`}
-              aria-label={`View ${l.name}`} />
+            <button
+              key={l.id}
+              type="button"
+              onClick={() => setIdx(i)}
+              className={`h-1.5 rounded-full transition-all ${i === safeIdx ? "w-5 bg-primary" : "w-1.5 bg-primary/20 hover:bg-primary/40"}`}
+              aria-label={`View ${l.name}`}
+            />
           ))}
         </div>
       )}
 
-      {/* Status badge */}
-      <div className="mt-3">
-        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-          (league.status || "draft") === "active"
-            ? "bg-emerald-50 text-emerald-700"
-            : (league.status || "draft") === "completed"
-            ? "bg-primary/10 text-primary"
-            : "bg-amber-50 text-amber-700"
-        }`}>
-          {league.status || "draft"}
-        </span>
-      </div>
-
-      {/* Info grid */}
-      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
-        {/* Format */}
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/5">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary/50">
-              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Format</p>
-            <p className="text-xs font-semibold text-primary">{formatLeagueType(league.league_type)}</p>
-          </div>
-        </div>
-
-        {/* Cards counted */}
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/5">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary/50">
-              <rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Cards</p>
-            <p className="text-xs font-semibold text-primary">
-              {league.scoring_cards_count != null
-                ? `Best ${league.scoring_cards_count}${league.total_cards_count ? ` of ${league.total_cards_count}` : ""}`
-                : "All count"}
-            </p>
-          </div>
-        </div>
-
-        {/* Duration */}
-        <div className="col-span-2 flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/5">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary/50">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Duration</p>
-            <p className="text-xs font-semibold text-primary">
-              {league.start_date
-                ? `${formatDateShort(league.start_date)} – ${formatDateShort(league.end_date)}`
-                : "No season set"}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Players preview — each avatar is a button that stops
-          propagation so the parent LeagueCarousel card (which
-          navigates to /leagues/[id] on click) doesn't intercept.
-          Tapping a member avatar routes to that player's profile. */}
-      <div className="mt-4 flex flex-col items-center gap-2">
-        <div className="flex gap-2">
-          {league.members.slice(0, 5).map((m) => (
-            <button
-              type="button"
-              key={m.user_id}
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                router.push(`/players/${m.user_id}`)
-              }}
-              className="rounded-full transition-opacity hover:opacity-80"
-              aria-label={m.profiles?.username || m.profiles?.first_name || "Player"}
-            >
-              <Avatar
-                src={m.profiles?.avatar_url}
-                size={28}
-                fallback={m.profiles?.username || m.profiles?.first_name || "P"}
-              />
-            </button>
-          ))}
-          {league.memberCount > 5 && (
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary/60">
-              +{league.memberCount - 5}
-            </div>
-          )}
-        </div>
-        <span className="text-xs text-primary/60">
-          {league.max_players != null
-            ? `${league.memberCount}/${league.max_players} players`
-            : `${league.memberCount} player${league.memberCount !== 1 ? "s" : ""}`}
-        </span>
-      </div>
+      <LeaderboardTable
+        leaderboard={rows}
+        currentUserId={currentUserId}
+        scoringCardsCount={league.scoring_cards_count ?? null}
+        leagueFormat={format}
+      />
     </section>
   )
 }

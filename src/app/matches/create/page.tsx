@@ -11,6 +11,10 @@ type League = {
   id: string
   name: string
   course_name?: string | null
+  // `status` surfaces so we can filter out completed leagues from the
+  // create-match picker — you can't schedule new rounds in a league
+  // whose season is already wrapped.
+  status?: string | null
 }
 
 type LeagueMembership = {
@@ -42,6 +46,13 @@ function CreateMatchContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedLeagueId = searchParams.get("league")
+  // Optional date pre-fill from the calendar's empty-day CTA. Accepted
+  // only if it looks like a `yyyy-mm-dd` string — anything else falls
+  // back to today, so a malformed query param can't freeze the form.
+  const preselectedDate = (() => {
+    const raw = searchParams.get("date")
+    return raw && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null
+  })()
   const { user, loading: authLoading } = useAuth()
 
   // User's leagues
@@ -54,8 +65,18 @@ function CreateMatchContent() {
   const [activePeriod, setActivePeriod] = useState<LeaguePeriod | null>(null)
   const [membersLoading, setMembersLoading] = useState(false)
 
-  // Form
-  const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10))
+  // Form — if the user came in from the calendar's empty-day CTA we
+  // honor the `?date=` param; otherwise default to today. Local-date
+  // formatting (not toISOString) so the default matches the viewer's
+  // calendar day instead of UTC.
+  const [date, setDate] = useState<string>(() => {
+    if (preselectedDate) return preselectedDate
+    const d = new Date()
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, "0")
+    const day = String(d.getDate()).padStart(2, "0")
+    return `${y}-${m}-${day}`
+  })
   const [time, setTime] = useState<string>("")
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([])
 
@@ -69,16 +90,23 @@ function CreateMatchContent() {
     if (authLoading || !user) return
 
     const init = async () => {
-      // Load leagues the user belongs to
+      // Load leagues the user belongs to. `status` is fetched so we
+      // can filter out completed ones below — a finished league can't
+      // accept new matches.
       const { data: memberships, error: memErr } = await supabase
         .from("league_members")
-        .select("id, league_id, user_id, leagues(id, name, course_name)")
+        .select("id, league_id, user_id, leagues(id, name, course_name, status)")
         .eq("user_id", user.id)
 
       if (!memErr && memberships) {
         const leagues = (memberships as unknown as LeagueMembership[])
           .map((m) => m.leagues)
           .filter(Boolean)
+          // Drop completed leagues — they're read-only from here on.
+          // If the user came in via `?league=<id>` pointing at a
+          // completed league, the preselected branch below will miss
+          // and the picker will fall back to "Choose a league…".
+          .filter((l) => l.status !== "completed")
         setUserLeagues(leagues)
 
         // Pre-select if only one league or if league param provided
@@ -251,7 +279,7 @@ function CreateMatchContent() {
   // No leagues — show empty state
   if (userLeagues.length === 0) {
     return (
-      <main className="min-h-screen bg-cream px-4 py-8">
+      <main className="min-h-screen px-4 py-8">
         <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-6 text-center">
           <h1 className="text-2xl font-bold text-primary">Create Match</h1>
           <p className="text-sm text-primary/70">
@@ -277,7 +305,7 @@ function CreateMatchContent() {
   }
 
   return (
-    <main className="min-h-screen bg-cream px-4 py-6">
+    <main className="min-h-screen px-4 py-6">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
         <header>
           <h1 className="text-2xl font-bold text-primary">Create Match</h1>

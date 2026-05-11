@@ -207,7 +207,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
   // ── Loading ──
   if (authLoading || loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream">
+      <main className="flex min-h-screen items-center justify-center">
         <p className="text-primary/70">Loading match details…</p>
       </main>
     )
@@ -216,7 +216,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
   // ── Already requested ──
   if (alreadyRequested) {
     return (
-      <main className="min-h-screen bg-cream px-4 py-8">
+      <main className="min-h-screen px-4 py-8">
         <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6">
           <Link href="/" aria-label="Home">
             <Logo size={100} priority />
@@ -247,7 +247,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
   // ── Already in match ──
   if (alreadyInMatch) {
     return (
-      <main className="min-h-screen bg-cream px-4 py-8">
+      <main className="min-h-screen px-4 py-8">
         <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6">
           <Link href="/" aria-label="Home">
             <Logo size={100} priority />
@@ -278,7 +278,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
   // ── Success (request sent) ──
   if (success) {
     return (
-      <main className="min-h-screen bg-cream px-4 py-8">
+      <main className="min-h-screen px-4 py-8">
         <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6">
           <Link href="/" aria-label="Home">
             <Logo size={100} priority />
@@ -312,7 +312,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
   // ── Error only (no match to show) ──
   if (error && !match) {
     return (
-      <main className="min-h-screen bg-cream px-4 py-8">
+      <main className="min-h-screen px-4 py-8">
         <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6">
           <Link href="/" aria-label="Home">
             <Logo size={100} priority />
@@ -334,7 +334,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
 
   // ── Main join confirmation ──
   return (
-    <main className="min-h-screen bg-cream px-4 py-8">
+    <main className="min-h-screen px-4 py-8">
       <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6">
         <Link href="/" aria-label="Home">
           <Logo size={100} priority />

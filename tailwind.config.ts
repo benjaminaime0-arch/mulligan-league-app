@@ -15,6 +15,11 @@ const config: Config = {
         // the sage/green family — reads as a softer version, not a
         // palette change.
         cream: "#E3EDD6",
+        // Page-level background. Same green as the primary CTA so the
+        // app's surfaces and accents share a single brand green; the
+        // logo lockup was darker but reads as the same family in
+        // context. Used on every <main> container.
+        forest: "#0F3D2E",
       },
     },
   },

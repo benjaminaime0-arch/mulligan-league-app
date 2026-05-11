@@ -22,23 +22,23 @@ export default function Home() {
 
   if (checking) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+      <main className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cream/20 border-t-cream" />
       </main>
     )
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-cream px-4">
+    <main className="flex min-h-screen flex-col items-center justify-center px-4">
       <div className="mx-auto w-full max-w-md text-center">
         <div className="mx-auto mb-2 flex justify-center">
           <Logo size={200} priority />
         </div>
         <h1 className="sr-only">Mulligan League</h1>
-        <p className="mt-3 text-lg text-primary/70">
+        <p className="mt-3 text-lg text-cream/90">
           Your weekend golf crew, organized.
         </p>
-        <p className="mt-1 text-sm text-primary/50">
+        <p className="mt-1 text-sm text-cream/60">
           Leagues, scores, bragging rights — all in one place.
         </p>
 

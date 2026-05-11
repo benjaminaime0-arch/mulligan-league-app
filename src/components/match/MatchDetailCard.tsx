@@ -26,6 +26,12 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Avatar } from "@/components/Avatar"
 import type { League, Match, MatchPlayer } from "./types"
+import {
+  compareByTotal,
+  formatCopy,
+  gapAhead,
+  resolveFormat,
+} from "@/lib/leagueFormat"
 
 export const MAX_MATCH_PLAYERS = 4
 
@@ -62,6 +68,20 @@ interface MatchDetailCardProps {
    *    approved/submitted without extra taps.
    */
   context?: "league" | "profile"
+  /**
+   * League-wide "best moment" pointers. When this card's match is the
+   * one holding the lowest approved round in the league, we render a
+   * "Lowest of league" flame chip next to that score. Optional so the
+   * profile / cross-league usage of this card doesn't have to supply
+   * it — chip simply won't show.
+   */
+  leagueHighlights?: {
+    lowestRound?: {
+      matchId: string
+      userId: string
+      score: number
+    } | null
+  } | null
 }
 
 /* ── Sub-bits ──────────────────────────────────────────── */
@@ -105,6 +125,7 @@ function ScoreEditor({
   error,
   onCancel,
   onSave,
+  leagueFormat = "stroke_play",
 }: {
   players: MatchPlayer[]
   initial: Record<string, { score: string; holes: 9 | 18 }>
@@ -112,14 +133,29 @@ function ScoreEditor({
   error: string | null
   onCancel: () => void
   onSave: (edits: Record<string, { score: string; holes: 9 | 18 }>) => void
+  leagueFormat?: import("@/components/match/types").LeagueFormat
 }) {
   const [edits, setEdits] = useState(initial)
+  // Input validation range widens for stableford (0 is a legal total
+  // — means every hole was a blob) and tightens on the top end.
+  // Stroke play stays as-is. Placeholder also nudges users toward
+  // the right unit so first-time Stableford users don't type their
+  // stroke count by accident.
+  const inputMin = leagueFormat === "stableford" ? 0 : 1
+  // Stableford ceiling intentionally loose (150) — enhanced rulesets
+  // and 36-hole events can comfortably push past a strict 90-point
+  // cap; we'd rather accept odd-but-valid totals than block valid
+  // submissions outright. Stroke play stays at 200 which covers any
+  // plausible 18-hole round even for beginners.
+  const inputMax = leagueFormat === "stableford" ? 150 : 200
+  const inputPlaceholder = leagueFormat === "stableford" ? "pts" : "–"
 
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-primary/60">
-        Saving resets other players&apos; approvals — they&apos;ll need to
-        re-approve.
+        {leagueFormat === "stableford"
+          ? "Enter your Stableford points total. Saving resets other players' approvals — they'll need to re-approve."
+          : "Saving resets other players' approvals — they'll need to re-approve."}
       </p>
 
       <div className="flex flex-col gap-2">
@@ -138,8 +174,8 @@ function ScoreEditor({
               <input
                 type="number"
                 inputMode="numeric"
-                min={1}
-                max={200}
+                min={inputMin}
+                max={inputMax}
                 value={e.score}
                 onChange={(ev) =>
                   setEdits((prev) => ({
@@ -148,7 +184,12 @@ function ScoreEditor({
                   }))
                 }
                 disabled={saving}
-                placeholder="–"
+                placeholder={inputPlaceholder}
+                aria-label={
+                  leagueFormat === "stableford"
+                    ? `${p.name} Stableford points`
+                    : `${p.name} strokes`
+                }
                 className="w-16 rounded-md border border-primary/20 bg-white px-2 py-1 text-center text-sm tabular-nums text-primary focus:border-primary focus:outline-none"
               />
               <div className="inline-flex overflow-hidden rounded-md border border-primary/20 text-xs">
@@ -218,6 +259,7 @@ export function MatchDetailCard({
   autoEdit = false,
   onAutoEditConsumed,
   context = "profile",
+  leagueHighlights,
 }: MatchDetailCardProps) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -229,6 +271,26 @@ export function MatchDetailCard({
   const [deleting, setDeleting] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState<"leave" | "delete" | null>(null)
+  // Request-to-join state for non-player viewers (league members who
+  // aren't in this specific match). States:
+  //   idle:   show "Request to Join" button
+  //   sending: disabled + spinner
+  //   sent:    button replaced with "Request sent — waiting for admin"
+  const [joinRequestState, setJoinRequestState] = useState<
+    "idle" | "sending" | "sent"
+  >("idle")
+  const [joinRequestError, setJoinRequestError] = useState<string | null>(null)
+  // Admin-side: pending join requests for this match that the viewer
+  // (as match creator) needs to approve or reject. Fetched on mount
+  // for creators only.
+  type PendingRequest = {
+    id: string
+    requester_id: string
+    name: string
+    avatar_url: string | null
+  }
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
+  const [requestActionId, setRequestActionId] = useState<string | null>(null)
 
   // Reset "Copied!" feedback after a moment so the button goes back
   // to its normal label.
@@ -254,14 +316,16 @@ export function MatchDetailCard({
   const courseLabel = match.course_name || league.course_name
 
   const players = matchPlayers ?? []
+  // Scoring direction comes from the parent league's format. Stroke
+  // play sorts lowest-first; Stableford sorts highest-first. Unknown
+  // formats fall back to stroke.
+  const leagueFormat = resolveFormat(league)
+  const fmtCopy = formatCopy(leagueFormat)
   const sorted =
     variant === "past"
-      ? [...players].sort((a, b) => {
-          if (a.score == null && b.score == null) return 0
-          if (a.score == null) return 1
-          if (b.score == null) return -1
-          return a.score - b.score
-        })
+      ? [...players].sort((a, b) =>
+          compareByTotal(a.score, b.score, leagueFormat),
+        )
       : players
 
   const viewerIsPlayer =
@@ -303,10 +367,20 @@ export function MatchDetailCard({
   // to avoid competing CTAs.
   const canApprove =
     viewerIsPlayer && hasAnyScore && !viewerApproved && !editing
-  // Invite: any non-finalized match with an open slot, irrespective
-  // of match_date. Users still iterate on rosters after the nominal
-  // date (reschedules, late joiners).
+  // Invite: only shown to viewers who are ALREADY in the match.
+  // Non-members see "Request to Join" instead (see canRequestJoin).
+  // Any non-finalized match with an open slot.
   const canInvite =
+    viewerIsPlayer &&
+    match.status !== "completed" &&
+    match.status !== "cancelled" &&
+    players.length < MAX_MATCH_PLAYERS
+  // Request-to-join: viewer is a league member (guaranteed by
+  // privatize_leagues RLS — if they can see this card, they can see
+  // the league), but NOT a player in this match, AND the match has
+  // an open slot, AND hasn't been finalized.
+  const canRequestJoin =
+    !viewerIsPlayer &&
     match.status !== "completed" &&
     match.status !== "cancelled" &&
     players.length < MAX_MATCH_PLAYERS
@@ -314,6 +388,83 @@ export function MatchDetailCard({
   // matches are shareable (users want to brag before full approval).
   // Only hide for cancelled or no-score-yet matches.
   const canShareRound = hasAnyScore && match.status !== "cancelled"
+
+  // If the viewer already has a pending request for this match,
+  // flip the button to "Request sent" on mount. Keeps the state
+  // correct across refreshes without a server-side idempotency
+  // dance. Only runs for non-players to avoid wasted queries.
+  useEffect(() => {
+    if (!currentUserId || viewerIsPlayer) return
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase
+        .from("join_requests")
+        .select("id")
+        .eq("requester_id", currentUserId)
+        .eq("target_type", "match")
+        .eq("target_id", match.id)
+        .eq("status", "pending")
+        .maybeSingle()
+      if (!cancelled && data) setJoinRequestState("sent")
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [currentUserId, viewerIsPlayer, match.id])
+
+  // Admin-side fetch: pending join requests for this match. Runs
+  // only for the match creator (who can approve/reject). Two-query
+  // shape because join_requests.requester_id FKs to auth.users, so
+  // we can't embed `profiles(...)` directly through PostgREST.
+  useEffect(() => {
+    if (!viewerIsCreator) return
+    let cancelled = false
+    ;(async () => {
+      const { data: requests } = await supabase
+        .from("join_requests")
+        .select("id, requester_id")
+        .eq("target_type", "match")
+        .eq("target_id", match.id)
+        .eq("status", "pending")
+      if (cancelled) return
+      if (!requests || requests.length === 0) {
+        setPendingRequests([])
+        return
+      }
+      const requesterIds = requests.map((r) => r.requester_id as string)
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, username, first_name, avatar_url")
+        .in("id", requesterIds)
+      if (cancelled) return
+      type Req = { id: string; requester_id: string }
+      type Prof = {
+        id: string
+        username: string | null
+        first_name: string | null
+        avatar_url: string | null
+      }
+      const byId = new Map<string, Prof>()
+      for (const p of (profiles || []) as Prof[]) byId.set(p.id, p)
+      setPendingRequests(
+        (requests as Req[]).map((r) => {
+          const p = byId.get(r.requester_id)
+          return {
+            id: r.id,
+            requester_id: r.requester_id,
+            name:
+              p?.username || p?.first_name || "Player",
+            avatar_url: p?.avatar_url ?? null,
+          }
+        }),
+      )
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [viewerIsCreator, match.id, matchPlayers])
+  // ^ matchPlayers in deps so that after parent onRefresh() the
+  //   list re-pulls (new player row → one fewer pending request).
 
   /* ── Mutations ──────────────────────────────────────── */
 
@@ -437,6 +588,84 @@ export function MatchDetailCard({
     }
   }
 
+  const handleRequestJoin = async () => {
+    setJoinRequestState("sending")
+    setJoinRequestError(null)
+    try {
+      const { data, error: rpcError } = await supabase.rpc(
+        "request_join_match",
+        { p_match_id: match.id },
+      )
+      if (rpcError) throw rpcError
+      const result = data as { success: boolean; error?: string }
+      if (!result.success) {
+        // "already requested" → treat as sent. Any other reason →
+        // bubble the message up.
+        if (result.error && /already/i.test(result.error)) {
+          setJoinRequestState("sent")
+          return
+        }
+        setJoinRequestError(result.error || "Failed to send request.")
+        setJoinRequestState("idle")
+        return
+      }
+      setJoinRequestState("sent")
+    } catch (err) {
+      setJoinRequestError(
+        err instanceof Error ? err.message : "Failed to send request.",
+      )
+      setJoinRequestState("idle")
+    }
+  }
+
+  const handleApproveRequest = async (requestId: string) => {
+    setRequestActionId(requestId)
+    setActionError(null)
+    try {
+      const { data, error: rpcError } = await supabase.rpc(
+        "approve_join_request",
+        { p_request_id: requestId },
+      )
+      if (rpcError) throw rpcError
+      const result = data as { success: boolean; error?: string }
+      if (!result.success) {
+        setActionError(result.error || "Failed to approve request.")
+        return
+      }
+      // Optimistic: drop from the local list so the UI updates before
+      // the parent's onRefresh round-trips back.
+      setPendingRequests((prev) => prev.filter((r) => r.id !== requestId))
+      await onRefresh()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to approve request.")
+    } finally {
+      setRequestActionId(null)
+    }
+  }
+
+  const handleRejectRequest = async (requestId: string) => {
+    setRequestActionId(requestId)
+    setActionError(null)
+    try {
+      const { data, error: rpcError } = await supabase.rpc(
+        "reject_join_request",
+        { p_request_id: requestId },
+      )
+      if (rpcError) throw rpcError
+      const result = data as { success: boolean; error?: string }
+      if (!result.success) {
+        setActionError(result.error || "Failed to reject request.")
+        return
+      }
+      setPendingRequests((prev) => prev.filter((r) => r.id !== requestId))
+      // No onRefresh needed — rejecting doesn't change match state.
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to reject request.")
+    } finally {
+      setRequestActionId(null)
+    }
+  }
+
   const handleLeave = async () => {
     if (!currentUserId) return
     // Admin-with-others scenario is still punted to the full match
@@ -541,6 +770,7 @@ export function MatchDetailCard({
             error={scoreError}
             onCancel={() => setEditing(false)}
             onSave={handleSave}
+            leagueFormat={leagueFormat}
           />
         ) : (
           <div className="flex flex-col gap-1.5">
@@ -551,14 +781,46 @@ export function MatchDetailCard({
             ) : (
               sorted.map((p, i) => {
                 const isMe = !!currentUserId && p.user_id === currentUserId
+                // Winner treatment inlines the former standalone banner:
+                // emerald bg + trophy badge + recap subline ("+M ahead ·
+                // course"). Only fires when the match is fully completed
+                // and this row has a score. Runner-up margin derived from
+                // sorted[1] (next-best score), falling back silently when
+                // it's a solo round or a tie.
+                const isWinner =
+                  match.status === "completed" &&
+                  i === 0 &&
+                  p.score != null
+                // Format-aware margin. `gapAhead` returns a positive
+                // number when the winner is actually ahead (works for
+                // both stroke and stableford) so the rendering below
+                // doesn't need a direction branch.
+                const margin = isWinner
+                  ? gapAhead(p.score, sorted[1]?.score, leagueFormat)
+                  : null
+                // Recap text is now inline next to the name (not a
+                // subline), so keep it minimal — just the margin. The
+                // course is already shown in the card header, so
+                // repeating it per row was noise.
+                const winnerRecap = isWinner
+                  ? margin != null && margin > 0
+                    ? `+${margin} ahead`
+                    : margin === 0
+                      ? "countback win"
+                      : null
+                  : null
                 const rowClass = `flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors ${
-                  isMe ? "bg-cream/50" : "hover:bg-cream/40"
+                  isWinner
+                    ? "bg-emerald-50/70 ring-1 ring-emerald-200/60"
+                    : isMe
+                      ? "bg-cream/50"
+                      : "hover:bg-cream/40"
                 }`
                 const body = (
                   <>
                     <div className="relative shrink-0">
                       <Avatar src={p.avatar_url} size={28} fallback={p.name} />
-                      {p.isBestScore && (
+                      {p.isBestScore && !isWinner && (
                         <span
                           className="absolute -right-0.5 -top-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-emerald-500 text-white"
                           aria-label="Counts toward leaderboard"
@@ -580,25 +842,81 @@ export function MatchDetailCard({
                         </span>
                       )}
                     </div>
-                    <span className="min-w-0 flex-1 truncate text-sm">
-                      {p.name}
+                    <span className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
+                      <span className="truncate">{p.name}</span>
                       {isMe && (
-                        <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary/60">
+                        <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary/60">
                           you
+                        </span>
+                      )}
+                      {winnerRecap && (
+                        <span className="shrink-0 text-[11px] font-medium text-emerald-700/80">
+                          {winnerRecap}
                         </span>
                       )}
                     </span>
                     <div className="flex shrink-0 items-center gap-2">
+                      {/* "Lowest of league" flame chip — appears on
+                          whoever holds the best approved round in the
+                          whole league, wherever that round happened.
+                          Computed upstream (league page) and threaded
+                          in via `leagueHighlights` so we don't have to
+                          re-scan every match's roster from inside the
+                          card. */}
+                      {leagueHighlights?.lowestRound &&
+                        p.user_id === leagueHighlights.lowestRound.userId &&
+                        String(match.id) ===
+                          leagueHighlights.lowestRound.matchId &&
+                        p.score === leagueHighlights.lowestRound.score && (
+                          <span
+                            className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-300 to-red-500 text-white shadow-[0_1px_3px_rgba(239,68,68,0.35)] ring-[1.5px] ring-white"
+                            aria-label="Lowest round in the league"
+                            title="Lowest round in the league"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                              aria-hidden="true"
+                            >
+                              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+                            </svg>
+                          </span>
+                        )}
+                      {isWinner && (
+                        <span
+                          className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 shadow-[0_1px_3px_rgba(180,83,9,0.35)] ring-[1.5px] ring-white"
+                          aria-label="Match winner"
+                          title="Match winner"
+                        >
+                          {/* Modern gold medal — solid amber disc with a
+                              filled 5-point star. Sits just left of the
+                              score so the medal and the winning number
+                              read as a single "trophy + stat" unit. */}
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="11"
+                            height="11"
+                            viewBox="0 0 24 24"
+                            fill="#fff"
+                            aria-hidden="true"
+                          >
+                            <path d="M12 3.2l2.47 5.01 5.53.8-4 3.9.94 5.5L12 15.8l-4.94 2.6.94-5.5-4-3.9 5.53-.8L12 3.2z" />
+                          </svg>
+                        </span>
+                      )}
                       <span
                         className={`text-sm tabular-nums ${
                           p.score == null
                             ? "text-primary/30"
-                            : p.isBestScore
+                            : isWinner || p.isBestScore
                               ? "font-bold text-emerald-600"
                               : "font-semibold text-primary/80"
                         }`}
                       >
-                        {p.score ?? "–"}
+                        {p.score != null ? `${p.score}${fmtCopy.unit}` : "–"}
                       </span>
                       {/* Per-player status pill dropped on both
                           contexts — the match-level approval badge in
@@ -634,6 +952,19 @@ export function MatchDetailCard({
         )}
       </div>
 
+      {/* "Waiting on…" footer — surfaces the specific blocker for
+          any past or in-progress match. Shows a compact amber line
+          listing players pending submission or approval. Hidden for
+          editor mode, completed matches (no one waiting), and
+          future matches (too early to nag). */}
+      {!editing && match.status !== "completed" && match.status !== "cancelled" && (
+        <WaitingOnFooter
+          players={players}
+          match={match}
+          currentUserId={currentUserId}
+        />
+      )}
+
       {/* Approve CTA — only when viewer has reviewing work. Emerald to
           distinguish from primary Edit action. */}
       {canApprove && (
@@ -650,17 +981,18 @@ export function MatchDetailCard({
         </button>
       )}
 
-      {/* Action grid. Two rows, each pairs a primary action (flex-1)
-          with an optional destructive icon button on the right. Using
-          `items-stretch` so each icon button auto-grows to match its
-          row's primary button height — Leave is tall (matches Edit
-          scores), Delete is shorter (matches Invite/Share). Keeps
-          everything visually flush without committing to a single
-          uniform button height.
-          Row 1 = Edit scores + Leave. Row 2 = Invite / Share + Delete.
-          When a row has no primary action but still has an icon, we
-          render a flex-1 placeholder so the icon doesn't snap
-          left-aligned. */}
+      {/* Action grid. Up to two rows; each pairs a primary action
+          (flex-1) with destructive icon button(s) on the right.
+          `items-stretch` lets icon buttons auto-match the row height.
+
+          Row 1 (only when Edit is available) = Edit scores + Leave.
+          Row 2 = Invite / Share + [Leave when not on row 1] + Delete.
+
+          When Edit is unavailable (completed match, etc.), Leave
+          collapses down into row 2 so the whole action block stays
+          on a single line. Share label shortens to "Share card" when
+          both Leave and Delete sit on the same row, to keep it from
+          truncating at 400px. */}
       {!editing &&
         (canEnterScores ||
           canInvite ||
@@ -668,27 +1000,22 @@ export function MatchDetailCard({
           viewerIsPlayer ||
           viewerIsCreator) && (
           <div className="mt-3 flex flex-col gap-2">
-            {/* Row 1: Edit scores + Leave icon */}
-            {(canEnterScores || viewerIsPlayer) && (
+            {/* Row 1: Edit scores + Leave icon — only rendered when
+                Edit is actually available. If not, Leave drops down
+                into row 2 instead of floating on its own line. */}
+            {canEnterScores && (
               <div className="flex items-stretch gap-2">
-                {canEnterScores ? (
-                  <button
-                    type="button"
-                    onClick={handleOpenEditor}
-                    // Height matches the row 2 buttons (Invite / Share)
-                    // so the two-row action block reads as a paired
-                    // unit. text-sm keeps the primary visual weight.
-                    className="flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-cream hover:bg-primary/90"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 20h9" />
-                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                    </svg>
-                    {hasAnyScore ? "Edit scores" : "Enter scores"}
-                  </button>
-                ) : (
-                  <div className="flex-1" />
-                )}
+                <button
+                  type="button"
+                  onClick={handleOpenEditor}
+                  className="flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-cream hover:bg-primary/90"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                  </svg>
+                  {hasAnyScore ? "Edit scores" : "Enter scores"}
+                </button>
                 {viewerIsPlayer && (
                   <button
                     type="button"
@@ -707,60 +1034,183 @@ export function MatchDetailCard({
               </div>
             )}
 
-            {/* Row 2: Invite (or Share) + Delete icon */}
-            {(canInvite || canShareRound || viewerIsCreator) && (
-              <div className="flex items-stretch gap-2">
-                {canInvite ? (
-                  <button
-                    type="button"
-                    onClick={handleInvite}
-                    className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-primary/20 bg-white px-2.5 text-xs font-medium text-primary hover:bg-cream/40"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <line x1="19" y1="8" x2="19" y2="14" />
-                      <line x1="22" y1="11" x2="16" y2="11" />
-                    </svg>
-                    {inviteCopied
-                      ? "Link copied!"
-                      : `Invite (${players.length}/${MAX_MATCH_PLAYERS})`}
-                  </button>
-                ) : canShareRound ? (
-                  <button
-                    type="button"
-                    onClick={handleShareRound}
-                    className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-primary/20 bg-white px-2.5 text-xs font-medium text-primary hover:bg-cream/40"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
-                    </svg>
-                    {shareCopied ? "Link copied!" : "Share score card"}
-                  </button>
-                ) : (
-                  <div className="flex-1" />
-                )}
-                {viewerIsCreator && (
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirm("delete")}
-                    aria-label="Delete this match"
-                    title="Delete this match"
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                      <path d="M10 11v6" />
-                      <path d="M14 11v6" />
-                      <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            )}
+            {/* Row 2: Share / Invite then destructive icons clustered
+                on the right — Leave sits immediately to the right of
+                the primary button, Delete last. Leave only appears
+                here when Edit didn't render on row 1; otherwise it
+                stays up there next to Edit. */}
+            {(() => {
+              const leaveOnThisRow = viewerIsPlayer && !canEnterScores
+              if (
+                !canInvite &&
+                !canShareRound &&
+                !viewerIsCreator &&
+                !leaveOnThisRow
+              ) {
+                return null
+              }
+              // Trim the share label when this row carries two icons —
+              // "Share score card" + Leave + Delete flirts with 400px
+              // truncation otherwise.
+              const compactShare = leaveOnThisRow && viewerIsCreator
+              return (
+                <div className="flex items-stretch gap-2">
+                  {canInvite ? (
+                    <button
+                      type="button"
+                      onClick={handleInvite}
+                      className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-primary/20 bg-white px-2.5 text-xs font-medium text-primary hover:bg-cream/40"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <line x1="19" y1="8" x2="19" y2="14" />
+                        <line x1="22" y1="11" x2="16" y2="11" />
+                      </svg>
+                      {inviteCopied
+                        ? "Link copied!"
+                        : `Invite (${players.length}/${MAX_MATCH_PLAYERS})`}
+                    </button>
+                  ) : canShareRound ? (
+                    <button
+                      type="button"
+                      onClick={handleShareRound}
+                      className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-primary/20 bg-white px-2.5 text-xs font-medium text-primary hover:bg-cream/40"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+                      </svg>
+                      {shareCopied
+                        ? "Link copied!"
+                        : compactShare
+                          ? "Share card"
+                          : "Share score card"}
+                    </button>
+                  ) : (
+                    <div className="flex-1" />
+                  )}
+                  {leaveOnThisRow && (
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm("leave")}
+                      aria-label="Leave this match"
+                      title="Leave this match"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                      </svg>
+                    </button>
+                  )}
+                  {viewerIsCreator && (
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm("delete")}
+                      aria-label="Delete this match"
+                      title="Delete this match"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                        <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         )}
+
+      {/* Pending join requests — admin-only section. Shown to the
+          match creator when at least one league member has tapped
+          Request to Join. Approve adds them to match_players and
+          closes the request; Reject leaves the match untouched. */}
+      {!editing && viewerIsCreator && pendingRequests.length > 0 && (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-amber-700">
+            {pendingRequests.length} pending request
+            {pendingRequests.length === 1 ? "" : "s"}
+          </p>
+          <div className="flex flex-col gap-2">
+            {pendingRequests.map((r) => (
+              <div
+                key={r.id}
+                className="flex items-center gap-2 rounded-md bg-white p-2"
+              >
+                <Avatar
+                  src={r.avatar_url}
+                  size={28}
+                  fallback={r.name}
+                />
+                <span className="min-w-0 flex-1 truncate text-sm text-primary">
+                  {r.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleApproveRequest(r.id)}
+                  disabled={requestActionId === r.id}
+                  className="rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+                >
+                  {requestActionId === r.id ? "\u2026" : "Approve"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRejectRequest(r.id)}
+                  disabled={requestActionId === r.id}
+                  className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+                >
+                  Reject
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Request to Join — renders for league members who AREN'T in
+          this match. Sent via `request_join_match` RPC; admin gets a
+          notification and approves/rejects from the section above.
+          Request becomes "pending" UI while awaiting. Rendered
+          OUTSIDE the action grid so it stands alone without an
+          icon column. */}
+      {!editing && canRequestJoin && joinRequestState !== "sent" && (
+        <button
+          type="button"
+          onClick={handleRequestJoin}
+          disabled={joinRequestState === "sending"}
+          className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-cream hover:bg-primary/90 disabled:opacity-60"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <line x1="19" y1="8" x2="19" y2="14" />
+            <line x1="22" y1="11" x2="16" y2="11" />
+          </svg>
+          {joinRequestState === "sending"
+            ? "Sending\u2026"
+            : `Request to join (${players.length}/${MAX_MATCH_PLAYERS})`}
+        </button>
+      )}
+      {!editing && joinRequestState === "sent" && !viewerIsPlayer && (
+        <div className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          Request pending — waiting for match admin
+        </div>
+      )}
+      {!editing && joinRequestError && (
+        <p className="mt-2 text-xs text-red-600" role="alert">
+          {joinRequestError}
+        </p>
+      )}
 
       {/* Confirm row — pops below the action grid when a destructive
           icon is tapped. Spans full width so the Yes/Cancel buttons
@@ -814,4 +1264,102 @@ export function MatchDetailCard({
       )}
     </div>
   )
+}
+
+/* ── Phase 2 helpers ──────────────────────────────────── */
+
+/**
+ * Compact amber footer line under the roster when a past (or
+ * in-progress) match has players blocking its completion. We
+ * distinguish two states — "to submit" and "to approve" — because
+ * they each need a different action from the listed players:
+ *
+ *   No score row yet        → waiting on them to submit.
+ *   Score row but approved_at is null for any player → waiting
+ *                             on those players to approve.
+ *
+ * Submission blockers outrank approval blockers: if anyone still
+ * owes a score, we say "to submit" (the match literally can't be
+ * fully approved until those scores exist). Only when every
+ * player has submitted do we flip to "to approve".
+ *
+ * Name list is truncated to the first two names + "+N" suffix so
+ * the line stays on one row at 400px.
+ */
+function WaitingOnFooter({
+  players,
+  match,
+  currentUserId,
+}: {
+  players: MatchPlayer[]
+  match: Match
+  currentUserId?: string | null
+}) {
+  const todayIso = useLocalTodayIso()
+  if (players.length === 0) return null
+
+  // Filter out the viewer themselves. If they're the one blocking,
+  // the primary CTA (Approve Scores / Edit scores) is already
+  // surfaced above — a redundant "Waiting on [you]" line is noise,
+  // not a nudge.
+  const others = currentUserId
+    ? players.filter((p) => p.user_id !== currentUserId)
+    : players
+  const pendingSubmitters = others.filter((p) => p.status == null)
+  const pendingApprovers = others.filter(
+    (p) => p.status != null && p.approved_at == null,
+  )
+
+  // Suppress "to submit" for matches that haven't happened yet — too
+  // early to nag about scores that can't exist yet. "To approve" is
+  // always surfaced when present: if a score has been entered and
+  // is awaiting sign-off, that's real pending work for someone
+  // regardless of match date.
+  const matchInFuture =
+    match.status !== "in_progress" &&
+    match.match_date != null &&
+    match.match_date > todayIso
+
+  // Pick which set to surface. Submitters first because their
+  // scores must exist before approval can even begin — but only once
+  // the match date has arrived.
+  const which =
+    !matchInFuture && pendingSubmitters.length > 0
+      ? { bucket: "submit" as const, list: pendingSubmitters }
+      : pendingApprovers.length > 0
+        ? { bucket: "approve" as const, list: pendingApprovers }
+        : null
+  if (!which) return null
+
+  const names = which.list.map((p) => p.name)
+  const displayed = names.slice(0, 2)
+  const extra = names.length - displayed.length
+  const nameStr =
+    extra > 0 ? `${displayed.join(", ")} +${extra}` : displayed.join(", ")
+  const verb = which.bucket === "submit" ? "to submit" : "to approve"
+
+  return (
+    <p className="mt-2 flex items-center gap-1.5 text-[11px] text-amber-700">
+      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+      Waiting on <span className="font-semibold">{nameStr}</span> {verb}
+    </p>
+  )
+}
+
+// Local-date ISO string — same helper the calendar section uses.
+// Inlined here to keep WaitingOnFooter pure/self-contained. Memoized
+// so many re-renders during the same mount don't reconstruct Dates.
+function useLocalTodayIso(): string {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const [iso] = useState(() => {
+    const d = new Date()
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, "0")
+    const day = String(d.getDate()).padStart(2, "0")
+    return `${y}-${m}-${day}`
+  })
+  return iso
 }

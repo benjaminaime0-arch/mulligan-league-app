@@ -19,25 +19,40 @@ import { LeaderboardTable } from "./components/LeaderboardTable"
 import { MatchCalendarSection } from "@/components/match/MatchCalendarSection"
 import { LeagueInviteCode } from "./components/LeagueInviteCode"
 import { DraftGuide } from "./components/DraftGuide"
+import { LeagueActivityCard } from "./components/LeagueActivityCard"
+import { BadgesCard, type BadgeRow } from "./components/BadgesCard"
+import {
+  formatCopy,
+  isBetter,
+  resolveFormat,
+} from "@/lib/leagueFormat"
 
 interface LeaguePageProps {
   params: { id: string }
 }
 
 /**
- * Builds the "Stroke Play · Best 3 of 5 cards" tagline shown below
+ * Builds the "Stroke play · Best 3 of 5 cards" tagline shown below
  * the league name on the detail page. Returns null when there's
  * nothing meaningful to show.
+ *
+ * Format is surfaced explicitly — "Stroke play" or "Stableford" —
+ * so viewers of a Stableford league know at a glance that scores
+ * higher=better without having to dig into the leaderboard rules.
+ * Falls back to `league_type` when `format` is missing (legacy
+ * rows), and omits the format segment entirely when neither is set.
  */
 function formatSubtitle(league: {
   league_type?: string | null
   scoring_cards_count?: number | null
   total_cards_count?: number | null
+  format?: string | null
 }): string | null {
   const parts: string[] = []
-  if (league.league_type) {
+  const fmt = league.format || league.league_type
+  if (fmt) {
     parts.push(
-      league.league_type
+      fmt
         .replace(/_/g, " ")
         .replace(/\b\w/g, (c) => c.toUpperCase()),
     )
@@ -55,18 +70,14 @@ function formatSubtitle(league: {
 function StatusChip({ status }: { status: string | null | undefined }) {
   const s = (status || "").toLowerCase()
 
-  // Active is the default/expected state — showing a chip for it is noise.
-  // Only surface a chip when the league is in a non-standard state (Draft
-  // or Completed) that the user would want to notice at a glance.
-  if (s === "active") return null
+  // Active and completed are both hidden here — active is the
+  // default (no signal worth a chip) and completed is already
+  // announced by the emerald "Completed" progress bar below the
+  // header. Only surface the chip for Draft (and any other
+  // non-standard state), where the user genuinely needs the
+  // heads-up that the league isn't live yet.
+  if (s === "active" || s === "completed") return null
 
-  if (s === "completed") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary/50">
-        Completed
-      </span>
-    )
-  }
   // Draft / any other non-active non-completed state
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
@@ -111,6 +122,10 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   const [members, setMembers] = useState<MemberWithProfile[]>([])
   const [currentPeriod, setCurrentPeriod] = useState<LeaguePeriod | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([])
+  // Honors / badges list. 0–3 rows depending on how much has been
+  // played in the league. Computed on read by `get_league_badges` —
+  // never persisted.
+  const [badges, setBadges] = useState<BadgeRow[]>([])
 
   const [periodMatches, setPeriodMatches] = useState<Match[]>([])
   const [matchPlayersMap, setMatchPlayersMap] = useState<Map<string | number, MatchPlayer[]>>(new Map())
@@ -150,7 +165,14 @@ export default function LeaguePage({ params }: LeaguePageProps) {
         setLoading(true)
         setError(null)
 
-        const [leagueRes, membersRes, periodRes, leaderboardRes, userLeaguesRes] = await Promise.all([
+        const [
+          leagueRes,
+          membersRes,
+          periodRes,
+          leaderboardRes,
+          userLeaguesRes,
+          badgesRes,
+        ] = await Promise.all([
           supabase.from("leagues").select("*").eq("id", leagueId).single(),
           supabase.from("league_members").select("*, profiles(*)").eq("league_id", leagueId),
           supabase
@@ -164,6 +186,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             .from("league_members")
             .select("league_id, leagues(id, name)")
             .eq("user_id", user.id),
+          supabase.rpc("get_league_badges", { p_league_id: leagueId }),
         ])
 
         if (leagueRes.error) throw leagueRes.error
@@ -339,6 +362,17 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
         if (leaderboardRes.error) throw leaderboardRes.error
         setLeaderboard((leaderboardRes.data || []) as LeaderboardRow[])
+
+        // Badges are non-critical — if the RPC errors for any reason
+        // (e.g. migration not yet applied, transient DB hiccup) we
+        // fall back to an empty list rather than failing the whole
+        // page. The badges section renders its own empty state.
+        if (badgesRes.error) {
+          console.warn("get_league_badges failed", badgesRes.error)
+          setBadges([])
+        } else {
+          setBadges((badgesRes.data || []) as BadgeRow[])
+        }
       } catch (err) {
         // Supabase PostgrestErrors aren't Error instances — they're
         // plain `{ message, code, details, hint }` objects. A bare
@@ -368,6 +402,120 @@ export default function LeaguePage({ params }: LeaguePageProps) {
     if (authLoading || !user) return
     loadData()
   }, [authLoading, user, loadData])
+
+  // League-wide "best moment" pointers for the match cards. Scans
+  // every match's player list once to find the *best* approved score
+  // (lowest in stroke play, highest in stableford). The owning match
+  // card then lights up a flame chip on the exact row that holds it.
+  // Computed here (not per-card) so each card doesn't re-scan the
+  // full league set on every render.
+  //
+  // Tiebreak: earliest match_date, then user_id asc, so the chip
+  // awards the *first* player to hit the mark when two scores tie.
+  //
+  // The result's field name stays `lowestRound` for backward
+  // compatibility with the prop wiring — semantically it's now "best
+  // round" regardless of format, but renaming ripples through a
+  // handful of type bounds and doesn't earn its keep.
+  const leagueHighlights = useMemo(() => {
+    type Best = { matchId: string; userId: string; score: number; date: string }
+    let best: Best | null = null
+    const fmt = resolveFormat(league)
+    const matchById = new Map(periodMatches.map((m) => [m.id, m]))
+    for (const [matchId, players] of Array.from(matchPlayersMap.entries())) {
+      const match = matchById.get(matchId)
+      const date = match?.match_date ?? "9999-99-99"
+      for (const p of players) {
+        if (!p.user_id || p.score == null) continue
+        if (p.approved_at == null) continue // approved only
+        const cand: Best = {
+          matchId: String(matchId),
+          userId: p.user_id,
+          score: p.score,
+          date,
+        }
+        // `isBetter` flips direction per format. When scores tie we
+        // fall through to the date/user_id tiebreak (same as before).
+        const strictlyBetter = best
+          ? isBetter(cand.score, best.score, fmt)
+          : true
+        if (
+          !best ||
+          strictlyBetter ||
+          (cand.score === best.score && cand.date < best.date) ||
+          (cand.score === best.score &&
+            cand.date === best.date &&
+            cand.userId < best.userId)
+        ) {
+          best = cand
+        }
+      }
+    }
+    return {
+      lowestRound: best
+        ? {
+            matchId: best.matchId,
+            userId: best.userId,
+            score: best.score,
+          }
+        : null,
+    }
+  }, [periodMatches, matchPlayersMap, league])
+
+  // Live leaderboard: subscribe to score + match_player changes so
+  // approvals landing in other tabs / other players' devices refresh
+  // this page without a manual reload. Scoped as tightly as RLS
+  // allows: postgres_changes has no server-side `WHERE match.league_id
+  // = X` filter on the scores table (scores only carries match_id),
+  // so we subscribe broadly and filter in JS by cross-referencing
+  // `matchPlayersMap`, which is already this league's matches.
+  //
+  // Debounced through a 400ms timer so a burst of approvals (the
+  // approve_match_scores RPC flips multiple rows in one call) only
+  // triggers a single refetch.
+  useEffect(() => {
+    if (!user || !leagueId) return
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const bump = () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        timer = null
+        loadData()
+      }, 400)
+    }
+
+    const channel = supabase
+      .channel(`league-${leagueId}-live`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "scores" },
+        (payload) => {
+          // Only refetch when the score belongs to a match we know
+          // about in this league. Prevents cross-league noise.
+          const matchId =
+            (payload.new as { match_id?: string })?.match_id ??
+            (payload.old as { match_id?: string })?.match_id
+          if (!matchId) return bump()
+          if (matchPlayersMap.has(matchId)) bump()
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "matches", filter: `league_id=eq.${leagueId}` },
+        () => bump(),
+      )
+      .subscribe()
+
+    return () => {
+      if (timer) clearTimeout(timer)
+      supabase.removeChannel(channel)
+    }
+    // matchPlayersMap is read inside but we intentionally omit it
+    // from deps — resubscribing on every map change would churn the
+    // realtime connection. The snapshot closure is fine; new matches
+    // will be picked up on the next loadData cycle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, leagueId, loadData])
 
   const isAdmin = league && user && league.admin_id === user.id
   const isMember = user && members.some((m) => {
@@ -464,7 +612,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
   if (authLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream">
+      <main className="flex min-h-screen items-center justify-center">
         <p className="text-primary/70">Checking your session…</p>
       </main>
     )
@@ -474,7 +622,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream">
+      <main className="flex min-h-screen items-center justify-center">
         <p className="text-primary/70">Loading league…</p>
       </main>
     )
@@ -482,7 +630,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
   if (error || !league) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream px-4">
+      <main className="flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-md rounded-xl border border-red-200 bg-white p-6 text-center shadow-sm">
           <p className="text-sm text-red-700">
             {error || "We couldn\u2019t find this league."}
@@ -502,7 +650,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   const isDraft = league.status !== "active" && league.status !== "completed"
 
   return (
-    <main className="min-h-screen bg-cream px-4 pb-6 pt-4">
+    <main className="min-h-screen px-4 pb-6 pt-4">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-5">
         {/* Header */}
         <header>
@@ -568,15 +716,18 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             )}
           </div>
 
-          {/* Period progress bar — only when the league is actively
-              running and we have both start/end dates. Gives every
-              visit a narrative ("Day 6 of 15, 60% through"). */}
+          {/* Period progress bar — active leagues show days-in /
+              days-left ticking; completed leagues (all members hit
+              cap with approved scores) show a filled emerald bar
+              labelled "Completed" so the header stops pretending the
+              season is still running. */}
           {league.status === "active" && (
             <PeriodProgress
               startDate={league.start_date}
               endDate={league.end_date}
             />
           )}
+          {league.status === "completed" && <PeriodCompleted />}
         </header>
 
         {/* Draft guide for admins */}
@@ -634,25 +785,48 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             them right now (play a round, submit a score, etc.). Only
             shows up for members; skipped for draft leagues since the
             Start-League CTA already covers that state. */}
-        {isMember && league.status === "active" && (
-          <NextStepBanner
+        {isMember &&
+          (league.status === "active" || league.status === "completed") && (
+          <YourStatusCard
             userId={user.id}
             leagueId={leagueId}
             periodMatches={periodMatches}
             matchPlayersMap={matchPlayersMap}
             mySubmittedMatchIds={mySubmittedMatchIds}
+            leaderboard={leaderboard}
+            league={league}
           />
         )}
 
-        {/* Leaderboard + Matches */}
+        {/* Activity → Leaderboard → Matches.
+            Activity sits at the TOP of the body so the page feels
+            alive — members see what's happening first, then drill
+            into standings and matches. */}
         <section className="flex flex-col gap-6">
+          {/* League activity feed — scoped to THIS league only via
+              the get_league_activity_feed RPC. */}
+          {isMember && <LeagueActivityCard leagueId={leagueId} />}
+
           {/* Format info (Stroke Play · Best 3 of 5 cards) moved to the
               page header, so the Leaderboard card doesn't duplicate it. */}
           <LeaderboardTable
             leaderboard={leaderboard}
             currentUserId={user.id}
             scoringCardsCount={league.scoring_cards_count ?? null}
+            leagueFormat={resolveFormat(league)}
           />
+
+          {/* Honors — compact achievements strip. Hidden entirely for
+              draft leagues (nothing has happened yet); once the
+              league is active, BadgesCard renders its own empty
+              state, so we don't duplicate that logic here. */}
+          {league.status !== "draft" && (
+            <BadgesCard
+              badges={badges}
+              currentUserId={user.id}
+              leagueFormat={resolveFormat(league)}
+            />
+          )}
 
           {/* Always render when there are any matches in the league,
               even if the active period has ended or isn't set yet.
@@ -669,6 +843,13 @@ export default function LeaguePage({ params }: LeaguePageProps) {
               autoEdit={autoEdit}
               onFocusConsumed={handleFocusConsumed}
               context="league"
+              // Empty-day CTA deep-links into match-create with this
+              // league pre-selected + the tapped day pre-filled.
+              defaultLeagueId={league.id}
+              // Forwarded to each rendered MatchDetailCard so the
+              // "Lowest of league" flame chip lights up on the row
+              // that holds the best approved round in this league.
+              leagueHighlights={leagueHighlights}
             />
           )}
         </section>
@@ -851,246 +1032,393 @@ function PeriodProgress({
   )
 }
 
-/* ── NextStepBanner ────────────────────────────────────── */
 /**
- * A single-row pill card that tells the viewer what they owe the
- * league *right now*. The point is to make the league page feel like
- * a to-do list, not a museum — every visit should either have a
- * prompt or a satisfying "you're caught up" confirmation.
- *
- * Priority (first match wins):
- *  1. You have a scheduled match whose date has passed but your score
- *     isn't approved yet → "Submit your score".
- *  2. You have an upcoming match (today or future) → "Play your round".
- *  3. Nothing pending → "You're all caught up".
- *
- * Pending-score detection is approximate: we check whether your score
- * on each past match in matchPlayersMap is null (null means no
- * approved score). False negatives (you've submitted pending and are
- * waiting for others) will show up as "submit your score" — still
- * directs you to the match page where the real state is clearer.
+ * Completed-league replacement for the active-period progress bar.
+ * Filled emerald bar + single caption. The "Day X of N · M days
+ * left" pair stops making sense once the league is decided — every
+ * member has filled their card allowance — so we swap it for a
+ * single celebratory line that matches the footer badge on the
+ * match cards ("Completed").
  */
-function NextStepBanner({
+function PeriodCompleted() {
+  return (
+    <div className="mt-3">
+      <div className="h-1 w-full overflow-hidden rounded-full bg-emerald-100">
+        <div className="h-full w-full rounded-full bg-emerald-500" />
+      </div>
+      <div className="mt-1 flex items-center justify-center gap-1 text-[10px] font-medium uppercase tracking-wide text-emerald-700">
+        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        Completed
+      </div>
+    </div>
+  )
+}
+
+/* ── YourStatusCard ────────────────────────────────────── */
+/**
+ * "Your status" block under the league header. Gives the viewer an
+ * instant read of where they stand and what to do next, without
+ * scanning the whole page:
+ *   - Rank (or "Leading" if #1)
+ *   - Strokes behind the leader (omitted when #1)
+ *   - Cards submitted (e.g. "3/5") + best round
+ *   - Next action — priority-ordered tactical nudge that deep-links
+ *     into the relevant match card
+ *
+ * Priority for the Next line (first match wins):
+ *   1. A past match where I haven't submitted → "Submit your score"
+ *   2. A match where scores are submitted but I haven't approved → "Approve scores"
+ *   3. An upcoming match I haven't submitted → "Play your round"
+ *   4. Counted < cap → "Submit 1 more card to stay competitive"
+ *   5. else → "You're all caught up"
+ */
+type ActionTone = "primary" | "amber" | "emerald"
+type Action = {
+  tone: ActionTone
+  icon: React.ReactNode
+  title: string
+  subtitle: string
+  href?: string
+}
+
+function YourStatusCard({
   userId,
   leagueId,
   periodMatches,
   matchPlayersMap,
   mySubmittedMatchIds,
+  leaderboard,
+  league,
 }: {
   userId: string
-  /** Used to build the banner's same-page navigation URL. */
   leagueId: string
   periodMatches: Match[]
   matchPlayersMap: Map<string | number, MatchPlayer[]>
-  /**
-   * Ids of matches where the viewer has *any* score row (pending,
-   * approved, or rejected). Used to skip the "Submit your score"
-   * nudge after the viewer has already submitted — otherwise the
-   * banner keeps harassing them while their card is pending approval.
-   */
   mySubmittedMatchIds: Set<string>
+  leaderboard: LeaderboardRow[]
+  league: League
 }) {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
 
-  // Matches where the viewer is a participant. We read player rows
-  // from matchPlayersMap since it's already keyed by match id.
-  const myMatches = periodMatches.filter((m) => {
-    const players = matchPlayersMap.get(m.id) || []
-    return players.some((p) => p.user_id === userId)
-  })
+  /* ── Status metrics ─────────────────────────────────── */
+  const myRow = leaderboard.find((r) => r.user_id === userId) ?? null
+  const rank = myRow?.position ?? null
+  const myTotal = myRow?.total_score ?? 0
+  const myBest = myRow?.best_score ?? null
+  const myCounted = myRow?.rounds_counted ?? 0
+  // rounds_played is the count of eligible cards (capped at
+  // total_cards_count by the leaderboard RPC). When it equals cap,
+  // the viewer has filled their card allowance regardless of whether
+  // all of them are among the best-N — so no more submissions needed.
+  const myPlayed = myRow?.rounds_played ?? 0
+  const leader = leaderboard[0] ?? null
+  const leaderName = leader?.player_name ?? "the leader"
+  // Format-aware gap. `gap` is always a positive number when you're
+  // TRAILING the leader, 0 when you are the leader (or no leader
+  // exists). Stroke play: you-trail when your total is higher than
+  // the leader's; Stableford: you-trail when your total is lower.
+  const fmt = resolveFormat(league)
+  const fmtCopy = formatCopy(fmt)
+  const leaderTotal = leader?.total_score ?? null
+  const gap =
+    leader && rank !== null && rank > 1 && leaderTotal != null
+      ? fmt === "stableford"
+        ? leaderTotal - myTotal
+        : myTotal - leaderTotal
+      : 0
+  const cap = league.total_cards_count ?? null
+  // Best-of-N threshold. When set, a viewer isn't "ranked for real"
+  // until their counted-round bucket hits this number. Surfaces as a
+  // qualification nudge before the generic "X/N played" progress pill.
+  const scoringCards = league.scoring_cards_count ?? null
 
-  // 1. A past match where I haven't submitted a score yet at all.
-  // Critically: "haven't submitted" means no score row exists —
-  // matchPlayersMap only surfaces approved scores, so we can't rely
-  // on it alone (a pending card would look like "no score" and the
-  // banner would nag us to re-submit what we already sent).
-  const pendingPast = myMatches
-    .filter((m) => m.match_date != null && m.match_date < today)
-    .filter((m) => !mySubmittedMatchIds.has(String(m.id)))
-    .sort((a, b) => (b.match_date || "").localeCompare(a.match_date || ""))
-    .map((m) => ({ m }))[0]
+  /* ── Next-action decision ───────────────────────────── */
+  const action = useMemo<Action>(() => {
+    // Matches where the viewer is a participant
+    const myMatches = periodMatches.filter((m) => {
+      const players = matchPlayersMap.get(m.id) || []
+      return players.some((p) => p.user_id === userId)
+    })
 
-  if (pendingPast) {
-    const dateLabel = pendingPast.m.match_date
-      ? new Date(pendingPast.m.match_date).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        })
-      : "this match"
-    return (
-      <NextStepRow
-        // Jump to this same league page with ?match + ?edit flags —
-        // the inline MatchDetailCard picks up the autoEdit intent
-        // and opens its editor on mount. We route to the *same*
-        // route (just with new params) so it's a client-side nav
-        // with no redirect hop.
-        href={`/leagues/${leagueId}?match=${pendingPast.m.id}&edit=1`}
-        tone="amber"
-        icon={
+    // 1. Unsubmitted past match
+    const pendingPast = myMatches
+      .filter((m) => m.match_date != null && m.match_date < today)
+      .filter((m) => !mySubmittedMatchIds.has(String(m.id)))
+      .sort((a, b) => (b.match_date || "").localeCompare(a.match_date || ""))[0]
+    if (pendingPast) {
+      const dateLabel = pendingPast.match_date
+        ? new Date(pendingPast.match_date).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })
+        : "this match"
+      return {
+        tone: "amber",
+        icon: (
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <polyline points="14 2 14 8 20 8" />
             <line x1="9" y1="15" x2="15" y2="15" />
           </svg>
-        }
-        title="Submit your score"
-        subtitle={`${dateLabel} — your card isn't approved yet`}
-      />
-    )
-  }
+        ),
+        title: "Submit your score",
+        subtitle: `${dateLabel} — your card isn't submitted yet`,
+        href: `/leagues/${leagueId}?match=${pendingPast.id}&edit=1`,
+      }
+    }
 
-  // 2. Approvals pending — the viewer is a player in a match that
-  // has scores submitted, and their approved_at is still null.
-  // Teammates are literally waiting on them; this outranks "play
-  // your round" (a softer, forward-looking nudge) but sits below
-  // "submit your score" which blocks the match entirely.
-  const pendingApproval = myMatches
-    .map((m) => {
-      if (m.status === "completed" || m.status === "cancelled") return null
-      const players = matchPlayersMap.get(m.id) || []
-      const me = players.find((p) => p.user_id === userId)
-      if (!me) return null
-      // Need at least one submitted score on the match — otherwise
-      // there's nothing to approve.
-      const hasScores = players.some((p) => p.status != null)
-      if (!hasScores) return null
-      // Already approved? nothing to do.
-      if (me.approved_at != null) return null
-      return m
-    })
-    .filter((m): m is Match => m != null)
-    // Most recent first so the nudge tracks the latest submission.
-    .sort((a, b) => (b.match_date || "").localeCompare(a.match_date || ""))[0]
-
-  if (pendingApproval) {
-    const dateLabel = pendingApproval.match_date
-      ? new Date(pendingApproval.match_date).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        })
-      : "this match"
-    const others = (matchPlayersMap.get(pendingApproval.id) || []).filter(
-      (p) => p.user_id !== userId && p.status != null,
-    ).length
-    return (
-      <NextStepRow
-        href={`/leagues/${leagueId}?match=${pendingApproval.id}`}
-        tone="primary"
-        icon={
+    // 2. Pending approval
+    const pendingApproval = myMatches
+      .map((m) => {
+        if (m.status === "completed" || m.status === "cancelled") return null
+        const players = matchPlayersMap.get(m.id) || []
+        const me = players.find((p) => p.user_id === userId)
+        if (!me) return null
+        const hasScores = players.some((p) => p.status != null)
+        if (!hasScores) return null
+        if (me.approved_at != null) return null
+        return m
+      })
+      .filter((m): m is Match => m != null)
+      .sort((a, b) => (b.match_date || "").localeCompare(a.match_date || ""))[0]
+    if (pendingApproval) {
+      const dateLabel = pendingApproval.match_date
+        ? new Date(pendingApproval.match_date).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })
+        : "this match"
+      const others = (matchPlayersMap.get(pendingApproval.id) || []).filter(
+        (p) => p.user_id !== userId && p.status != null,
+      ).length
+      return {
+        tone: "primary",
+        icon: (
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="20 6 9 17 4 12" />
           </svg>
-        }
-        title="Approve scores"
-        subtitle={`${dateLabel} — ${others} teammate${others === 1 ? "" : "s"} waiting on you`}
-      />
-    )
-  }
+        ),
+        title: "Approve scores",
+        subtitle: `${dateLabel} — ${others} teammate${others === 1 ? "" : "s"} waiting on you`,
+        href: `/leagues/${leagueId}?match=${pendingApproval.id}`,
+      }
+    }
 
-  // 3. Upcoming match I haven't submitted yet. Same rationale as
-  // pendingPast: if I've already sent a score for my next scheduled
-  // match (it can happen on the match day itself), don't keep telling
-  // me to "play" it.
-  const upcoming = myMatches
-    .filter((m) => m.status !== "completed" && (!m.match_date || m.match_date >= today))
-    .filter((m) => !mySubmittedMatchIds.has(String(m.id)))
-    .sort((a, b) => (a.match_date || "").localeCompare(b.match_date || ""))[0]
-
-  if (upcoming) {
-    const dateLabel = upcoming.match_date
-      ? new Date(upcoming.match_date).toLocaleDateString("en-US", {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-        })
-      : "TBA"
-    return (
-      <NextStepRow
-        // Jump in place: league URL with ?match so the carousel
-        // seeks to the right card. No ?edit because "Play your
-        // round" isn't a score-entry action — it's a reminder.
-        href={`/leagues/${leagueId}?match=${upcoming.id}`}
-        tone="primary"
-        icon={
+    // 3. Upcoming match I haven't submitted yet
+    const upcoming = myMatches
+      .filter((m) => m.status !== "completed" && (!m.match_date || m.match_date >= today))
+      .filter((m) => !mySubmittedMatchIds.has(String(m.id)))
+      .sort((a, b) => (a.match_date || "").localeCompare(b.match_date || ""))[0]
+    if (upcoming) {
+      const dateLabel = upcoming.match_date
+        ? new Date(upcoming.match_date).toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+          })
+        : "TBA"
+      return {
+        tone: "primary",
+        icon: (
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M4 22V6l6-4 6 4v16" />
             <path d="M4 22h16" />
           </svg>
-        }
-        title="Play your round"
-        subtitle={`${dateLabel}${upcoming.match_time ? ` · ${upcoming.match_time.slice(0, 5)}` : ""}${upcoming.course_name ? ` · ${upcoming.course_name}` : ""}`}
-      />
-    )
-  }
+        ),
+        title: "Play your round",
+        subtitle: `${dateLabel}${upcoming.match_time ? ` · ${upcoming.match_time.slice(0, 5)}` : ""}${upcoming.course_name ? ` · ${upcoming.course_name}` : ""}`,
+        href: `/leagues/${leagueId}?match=${upcoming.id}`,
+      }
+    }
 
-  // 3. Caught up
-  return (
-    <NextStepRow
-      tone="emerald"
-      icon={
+    // 4a. Qualification nudge. When a `scoring_cards_count` rule is
+    // in play and the viewer's counted bucket is still below it,
+    // their rank on the board is PROVISIONAL — their total will
+    // almost certainly drop as they swap in better rounds. "Lock
+    // your rank" frames the next round as the thing that makes
+    // their position real, which is a stronger motivator than just
+    // counting cards. Takes precedence over the generic cap pill
+    // below, since qualification is the narrower and more urgent
+    // milestone.
+    if (scoringCards != null && myCounted < scoringCards) {
+      const toGo = scoringCards - myCounted
+      return {
+        tone: "amber",
+        icon: (
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 8v4l2 2" />
+          </svg>
+        ),
+        title:
+          toGo === 1
+            ? "1 more round to lock your rank"
+            : `${toGo} more rounds to lock your rank`,
+        subtitle: "",
+        href: `/matches/create?league=${leagueId}`,
+      }
+    }
+
+    // 4b. Cap progress pill. Once qualified, this is a softer nudge
+    // — playing more rounds can still improve the total by replacing
+    // a higher-counted score, but rank is locked. In-progress =
+    // amber, filled = emerald.
+    if (cap != null && myPlayed < cap) {
+      return {
+        tone: "amber",
+        icon: (
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        ),
+        title: `${myPlayed}/${cap} played`,
+        subtitle: "",
+        // Amber pill is tappable — taking the user to match-create
+        // prefilled with this league is the natural next step when
+        // they have rounds left in the allowance. The filled
+        // counterpart stays informational (no href) since there's
+        // nothing to do at cap.
+        href: `/matches/create?league=${leagueId}`,
+      }
+    }
+    if (cap != null && myPlayed >= cap) {
+      return {
+        tone: "emerald",
+        icon: (
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        ),
+        title: `${cap}/${cap} cards filled`,
+        subtitle: "",
+      }
+    }
+
+    // 5. Caught up
+    return {
+      tone: "emerald",
+      icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polyline points="20 6 9 17 4 12" />
         </svg>
-      }
-      title="You're all caught up"
-      subtitle="No pending rounds. Check back when the next match is scheduled."
-    />
-  )
-}
+      ),
+      title: "You're all caught up",
+      subtitle: "No pending rounds. Check back when the next match is scheduled.",
+    }
+  }, [
+    userId,
+    leagueId,
+    periodMatches,
+    matchPlayersMap,
+    mySubmittedMatchIds,
+    today,
+    cap,
+    myPlayed,
+    myCounted,
+    scoringCards,
+  ])
 
-function NextStepRow({
-  href,
-  tone,
-  icon,
-  title,
-  subtitle,
-}: {
-  href?: string
-  tone: "primary" | "amber" | "emerald"
-  icon: React.ReactNode
-  title: string
-  subtitle: string
-}) {
+  /* ── Tone-dependent classes for the action strip ────── */
   const toneClasses = {
-    primary: "border-primary/15 bg-white",
-    amber: "border-amber-200 bg-amber-50",
-    emerald: "border-emerald-200 bg-emerald-50/50",
-  }[tone]
+    primary: "bg-primary/5",
+    amber: "bg-amber-50",
+    emerald: "bg-emerald-50/70",
+  }[action.tone]
   const iconToneClasses = {
     primary: "bg-primary/10 text-primary",
     amber: "bg-amber-100 text-amber-700",
     emerald: "bg-emerald-100 text-emerald-700",
-  }[tone]
+  }[action.tone]
 
-  const body = (
-    <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 shadow-sm ${toneClasses}`}>
-      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${iconToneClasses}`}>
-        {icon}
+  /* ── Copy helpers ───────────────────────────────────── */
+  const leading = rank === 1
+
+  // Compact action pill for the right column. Subtitle is dropped
+  // here — the title + icon + chevron carry enough signal; detail
+  // context lives on the destination match card. Keeps the whole
+  // YourStatusCard to a single vertical band (~3 text rows).
+  const compactActionBody = (
+    <div className={`flex items-center gap-2 rounded-lg px-3 py-2 ${toneClasses}`}>
+      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${iconToneClasses}`}>
+        {action.icon}
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-primary">{title}</p>
-        <p className="mt-0.5 truncate text-[11px] text-primary/60">{subtitle}</p>
-      </div>
-      {href && (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-primary/40" aria-hidden="true">
+      <p className="min-w-0 truncate text-sm font-semibold text-primary">
+        {action.title}
+      </p>
+      {action.href && (
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-primary/40" aria-hidden="true">
           <polyline points="9 18 15 12 9 6" />
         </svg>
       )}
     </div>
   )
 
-  if (href) {
-    // Hard <a> (not <Link>) so the CTA bypasses the modal-preview
-    // interception and takes the user to the full match page —
-    // appropriate for "Submit your score" / "Play your round" where
-    // they expect to act, not preview. When the banner's target is a
-    // pending-past match we append `?edit=1` so the full page auto-
-    // opens the score editor on mount.
-    return (
-      <a href={href} className="block transition-transform active:scale-[0.99]">
-        {body}
-      </a>
-    )
-  }
-  return body
+  return (
+    <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
+      {/* Horizontal layout: status block on the left, action pill on
+          the right at position-row level. Shrinks the card's vertical
+          footprint vs. the old stacked layout. */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary/50">
+            Your status
+          </p>
+
+          {/* Rank + Best on the primary row; strokes-behind drops to
+              a subline below. Keeps the eye-catching numbers (#2,
+              Best 89) close together visually and the narrative
+              context ("behind will") subordinated. */}
+          <div className="mt-1.5 flex items-baseline gap-3">
+            {rank === null ? (
+              <span className="text-2xl font-bold text-primary/40">Unranked</span>
+            ) : leading ? (
+              <span className="text-2xl font-bold text-primary">Leading</span>
+            ) : (
+              <span className="text-2xl font-bold text-primary">#{rank}</span>
+            )}
+            {myBest != null && (
+              <span className="text-xs text-primary/60">
+                Best{" "}
+                <span className="font-semibold tabular-nums text-primary/80">
+                  {myBest}
+                  {fmtCopy.unit}
+                </span>
+              </span>
+            )}
+          </div>
+
+          {/* Subline: narrative. For non-leaders, shows the gap;
+              for leaders, a simple "the league" affirmation. Noun
+              flips per format ("strokes" / "points"). */}
+          {rank !== null && !leading && gap > 0 && (
+            <p className="mt-1 truncate text-[11px] text-primary/60">
+              {gap} {gap === 1 ? fmtCopy.nounSingular : fmtCopy.noun} behind {leaderName}
+            </p>
+          )}
+          {leading && (
+            <p className="mt-1 text-[11px] text-primary/60">the league</p>
+          )}
+        </div>
+
+        {/* Action pill — right-aligned, self-centered against the
+            status block. Capped so a long title doesn't steal from
+            the rank column on narrow viewports. */}
+        <div className="shrink-0 self-center max-w-[60%]">
+          {action.href ? (
+            <a
+              href={action.href}
+              className="block transition-transform active:scale-[0.99]"
+            >
+              {compactActionBody}
+            </a>
+          ) : (
+            compactActionBody
+          )}
+        </div>
+      </div>
+    </section>
+  )
 }

@@ -73,7 +73,7 @@ export default function MatchRedirectPage() {
 
   if (error) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream px-4">
+      <main className="flex min-h-screen items-center justify-center px-4">
         <div className="max-w-md rounded-xl border border-red-200 bg-white p-5 text-center shadow-sm">
           <p className="text-sm text-red-700">{error}</p>
           <button

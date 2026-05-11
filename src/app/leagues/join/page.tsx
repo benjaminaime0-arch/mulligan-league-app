@@ -9,7 +9,7 @@ export default function JoinLeaguePage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-cream">
+        <main className="flex min-h-screen items-center justify-center">
           <p className="text-primary/70">Loading…</p>
         </main>
       }
@@ -101,7 +101,7 @@ function JoinLeagueContent() {
 
   if (authLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream">
+      <main className="flex min-h-screen items-center justify-center">
         <p className="text-primary/70">Checking your session…</p>
       </main>
     )
@@ -114,7 +114,7 @@ function JoinLeagueContent() {
   // Success state — replace entire form with success card
   if (leagueId) {
     return (
-      <main className="min-h-screen bg-cream px-4 py-8">
+      <main className="min-h-screen px-4 py-8">
         <div className="mx-auto flex w-full max-w-md flex-col gap-8">
           <div className="rounded-2xl border border-primary/15 bg-white p-8 text-center shadow-sm">
             {/* Checkmark */}
@@ -159,7 +159,7 @@ function JoinLeagueContent() {
   }
 
   return (
-    <main className="min-h-screen bg-cream px-4 py-8">
+    <main className="min-h-screen px-4 py-8">
       <div className="mx-auto flex w-full max-w-md flex-col gap-8">
         <header className="text-center">
           <h1 className="text-2xl font-bold text-primary">Join a League</h1>

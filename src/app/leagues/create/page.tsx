@@ -5,14 +5,16 @@ import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 
-const FORMATS = [
+// Only stroke play and Stableford have real calculation support in
+// the leaderboard + badges engines today (see `get_leaderboard` and
+// `get_league_badges`). Match play / Ryder / Foursome / etc. will
+// reappear here once per-hole scoring + opponent pairings are built
+// out. In the meantime, picking one of those silently falls back to
+// stroke-play math on the backend (see `sync_league_format` trigger)
+// — which is misleading, so they're simply unavailable.
+const FORMATS: { value: string; label: string }[] = [
   { value: "stroke_play", label: "Stroke Play" },
   { value: "stableford", label: "Stableford" },
-  { value: "match_play", label: "Match Play" },
-  { value: "ryder_cup", label: "Ryder Cup" },
-  { value: "foursome", label: "Foursome" },
-  { value: "greensome", label: "Greensome" },
-  { value: "fourball", label: "Four-Ball" },
 ]
 
 export default function CreateLeaguePage() {
@@ -106,7 +108,7 @@ export default function CreateLeaguePage() {
 
   if (authLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream">
+      <main className="flex min-h-screen items-center justify-center">
         <p className="text-primary/70">Checking your session…</p>
       </main>
     )
@@ -115,7 +117,7 @@ export default function CreateLeaguePage() {
   if (!user) return null
 
   return (
-    <main className="min-h-screen bg-cream px-4 py-8">
+    <main className="min-h-screen px-4 py-8">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-8">
         <header>
           <h1 className="text-2xl font-bold text-primary">Create a League</h1>
@@ -286,6 +288,11 @@ export default function CreateLeaguePage() {
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-xs text-primary/50">
+              {format === "stableford"
+                ? "Stableford — enter your points total per round. Highest wins."
+                : "Stroke play — enter your total strokes per round. Lowest wins."}
+            </p>
           </div>
 
           <button

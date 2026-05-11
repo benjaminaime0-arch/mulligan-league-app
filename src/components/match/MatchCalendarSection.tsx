@@ -57,6 +57,27 @@ export interface MatchCalendarSectionProps {
   daysAfter?: number
   /** Forwarded to the inline MatchDetailCard — see its docstring. */
   context?: "league" | "profile"
+  /**
+   * League id used only by the empty-day CTA to deep-link into the
+   * match-create form with a pre-selected league. On league page this
+   * is the current league's id; on profile page leave unset and the
+   * CTA will open the create page without pre-selecting a league
+   * (user picks one there).
+   */
+  defaultLeagueId?: string | number | null
+  /**
+   * Forwarded to each rendered MatchDetailCard. Lets the "Lowest of
+   * league" flame chip show up on the specific card/row that holds
+   * the league-wide best approved round. Computed once upstream so
+   * per-card rendering doesn't re-scan the full match set.
+   */
+  leagueHighlights?: {
+    lowestRound?: {
+      matchId: string
+      userId: string
+      score: number
+    } | null
+  } | null
 }
 
 const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"]
@@ -84,6 +105,8 @@ export function MatchCalendarSection({
   daysBefore = 15,
   daysAfter = 15,
   context = "profile",
+  defaultLeagueId = null,
+  leagueHighlights = null,
 }: MatchCalendarSectionProps) {
   const todayIso = useMemo(() => toIso(new Date()), [])
 
@@ -202,15 +225,18 @@ export function MatchCalendarSection({
 
   return (
     <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-      {/* Heading = link. Tapping it jumps to /profile/matches — the
-          viewer's full tabbed Past/Scheduled list across leagues.
-          Label flips by context so the section identity reads right:
-          - league page → "League calendar" (scoped strip + details)
-          - profile page → "My calendar" (cross-league)
-          Destination is the same full-list page either way. */}
+      {/* Heading = link to the full tabbed Past/Scheduled list.
+          On the league page we pass `?league=<id>` so the list is
+          scoped to that league only (and relabels itself "League
+          calendar" there). On /profile we send the bare path so the
+          list stays cross-league ("My calendar"). */}
       <h2 className="mb-3">
         <Link
-          href="/profile/matches"
+          href={
+            context === "league" && defaultLeagueId != null
+              ? `/profile/matches?league=${encodeURIComponent(String(defaultLeagueId))}`
+              : "/profile/matches"
+          }
           className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary/70"
           aria-label={
             context === "league"
@@ -239,26 +265,46 @@ export function MatchCalendarSection({
               const isToday = iso === todayIso
               const isSelected = iso === selectedDate
               const isPast = iso < todayIso
-              const hasMatch = matchesByDate.has(iso)
+              const matchesOnDay = matchesByDate.get(iso) ?? []
 
-              // Circle style: green for has-match, different tints for
-              // past vs upcoming, ring when selected.
-              const circleClass = [
-                "flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-all",
-                hasMatch
-                  ? isSelected
-                    ? "bg-emerald-500 text-white ring-2 ring-emerald-500/40 ring-offset-2"
-                    : isPast
-                      ? "bg-emerald-500/70 text-white hover:bg-emerald-500"
-                      : "bg-emerald-500 text-white hover:bg-emerald-600"
-                  : isSelected
-                    ? "border border-primary/40 bg-white text-primary ring-2 ring-primary/20 ring-offset-2"
-                    : isToday
-                      ? "border border-primary/30 bg-white text-primary"
-                      : isPast
-                        ? "bg-primary/[0.03] text-primary/30"
-                        : "bg-primary/5 text-primary/40",
-              ].join(" ")
+              // Is the viewer rostered on at least one of today's
+              // matches? Drives the "joinable" status — when the
+              // answer is no and the day is today/future, we surface
+              // the opportunity in a distinct color. We check against
+              // `matchPlayersMap` (approved roster only is fine here;
+              // if you're approved you're already "in it"; if you
+              // still have a pending request the day will stay
+              // "joinable" which is the right nudge).
+              const viewerIsInAnyMatch = matchesOnDay.some((m) =>
+                (matchPlayersMap.get(m.id) ?? []).some(
+                  (p) => p.user_id === currentUserId,
+                ),
+              )
+
+              // Compute a semantic status per day. Six buckets:
+              //   empty      — no match scheduled
+              //   future     — match in a future date, viewer is in it
+              //   today      — match today (calls attention), viewer is in it
+              //   joinable   — today/future match viewer isn't in yet
+              //   completed  — past match, all scores approved
+              //   awaiting   — past match, some scores still missing
+              //                / pending (the "what happened?" state)
+              const dayStatus = computeDayStatus(
+                matchesOnDay,
+                isToday,
+                isPast,
+                viewerIsInAnyMatch,
+              )
+
+              // Map status → Tailwind classes. Selected overrides with
+              // a ring. "empty" past days get a dimmer wash so the eye
+              // skips over them quickly.
+              const circleClass = dayCircleClasses({
+                status: dayStatus,
+                isSelected,
+                isPast,
+                isToday,
+              })
 
               const labelClass = `text-[10px] font-medium uppercase tracking-wide ${
                 isToday ? "text-primary" : "text-primary/40"
@@ -274,11 +320,31 @@ export function MatchCalendarSection({
                   <button
                     type="button"
                     onClick={() => setSelectedDate(iso)}
-                    className={`${circleClass} focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}
-                    aria-label={`${d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}${hasMatch ? " — match" : ""}`}
+                    className={`relative ${circleClass} focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}
+                    aria-label={`${d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}${dayStatus !== "empty" ? ` — ${dayStatusLabel(dayStatus)}` : ""}`}
                     aria-pressed={isSelected}
                   >
                     {num}
+                    {/* Tiny check overlay on completed past matches —
+                        distinguishes them from future matches at a
+                        glance without needing to read the color. */}
+                    {dayStatus === "completed" && !isSelected && (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="9"
+                        height="9"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white p-0.5 text-emerald-600"
+                        aria-hidden="true"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
                   </button>
                 </div>
               )
@@ -324,7 +390,11 @@ export function MatchCalendarSection({
           buttons into view without requiring the user to scroll. */}
       <div ref={detailRef} className="mt-4">
         {matchesOnSelected.length === 0 ? (
-          <EmptyTile iso={selectedDate} todayIso={todayIso} />
+          <EmptyTile
+            iso={selectedDate}
+            todayIso={todayIso}
+            defaultLeagueId={defaultLeagueId}
+          />
         ) : (
           <DayMatchesCarousel
             key={selectedDate /* reset index when date changes */}
@@ -338,11 +408,137 @@ export function MatchCalendarSection({
             onFocusConsumed={onFocusConsumed}
             todayIso={todayIso}
             context={context}
+            leagueHighlights={leagueHighlights}
           />
         )}
       </div>
     </section>
   )
+}
+
+/* ── Day-status helpers ──────────────────────────────── */
+
+type DayStatus =
+  | "empty"
+  | "future"
+  | "today"
+  | "completed"
+  | "awaiting"
+  | "joinable"
+
+/**
+ * Translate a day's matches + where the day sits on the timeline
+ * into a single status enum that drives the circle's visual style.
+ *
+ *   empty      — no match on this day
+ *   today      — at least one match scheduled for today (gets a
+ *                special ring to pull the eye). If the viewer isn't
+ *                in today's match yet, `joinable` still wins so they
+ *                notice the open seat.
+ *   future     — match on a future date, viewer is already in it
+ *   joinable   — match today/future, viewer is NOT in ANY of the
+ *                day's matches. Surfaces open rounds they could ask
+ *                to join with a distinct color.
+ *   completed  — past date, every match status === 'completed'
+ *   awaiting   — past date, at least one match not completed
+ *                (scores missing, pending approval, or overdue)
+ *
+ * Doesn't use match_date vs today internally — the caller already
+ * computed isToday / isPast and passes them in. Keeps this function
+ * pure and easy to unit-test.
+ */
+function computeDayStatus(
+  matches: Match[],
+  isToday: boolean,
+  isPast: boolean,
+  viewerIsInAnyMatch: boolean,
+): DayStatus {
+  if (matches.length === 0) return "empty"
+  if (isPast) {
+    return matches.every((m) => m.status === "completed")
+      ? "completed"
+      : "awaiting"
+  }
+  // Today/future. If the viewer has no seat in any of the day's
+  // matches, this is a joining opportunity — highlight it even on
+  // today, so the "open seat" signal isn't swallowed by the today
+  // ring.
+  if (!viewerIsInAnyMatch) return "joinable"
+  if (isToday) return "today"
+  return "future"
+}
+
+function dayStatusLabel(status: DayStatus): string {
+  switch (status) {
+    case "today":
+      return "match today"
+    case "future":
+      return "match scheduled"
+    case "joinable":
+      return "open match — tap to view"
+    case "completed":
+      return "completed"
+    case "awaiting":
+      return "awaiting scores"
+    default:
+      return ""
+  }
+}
+
+/**
+ * Tailwind class string for the day circle, driven by status +
+ * selection/past/today context. Kept verbose rather than clever so
+ * the mapping between status and color is obvious to a future reader.
+ */
+function dayCircleClasses({
+  status,
+  isSelected,
+  isPast,
+  isToday,
+}: {
+  status: DayStatus
+  isSelected: boolean
+  isPast: boolean
+  isToday: boolean
+}): string {
+  const base =
+    "flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-all"
+
+  // Selection ring color tracks the status — emerald for match
+  // days, primary for empty days.
+  const ringMatch = "ring-2 ring-emerald-400/60 ring-offset-2"
+  const ringEmpty = "ring-2 ring-primary/20 ring-offset-2"
+
+  if (status === "today") {
+    // Today always stands out — filled emerald + a subtler ring
+    // even when not selected so the eye finds it.
+    return `${base} bg-emerald-600 text-white ${isSelected ? ringMatch : "ring-2 ring-emerald-300"}`
+  }
+  if (status === "future") {
+    return `${base} bg-emerald-500 text-white hover:bg-emerald-600 ${isSelected ? ringMatch : ""}`
+  }
+  if (status === "joinable") {
+    // Outlined, not filled — distinguishes "match exists but not
+    // yours" from "your match" without stealing the emerald accent.
+    // Amber-adjacent so it reads as an opportunity / call-to-action
+    // instead of an error (which awaiting's amber-500 owns).
+    return `${base} border-2 border-emerald-500 bg-white text-emerald-600 hover:bg-emerald-50 ${isSelected ? ringMatch : ""}`
+  }
+  if (status === "completed") {
+    return `${base} bg-emerald-500/70 text-white hover:bg-emerald-500 ${isSelected ? ringMatch : ""}`
+  }
+  if (status === "awaiting") {
+    return `${base} bg-amber-500 text-white hover:bg-amber-600 ${isSelected ? "ring-2 ring-amber-400/60 ring-offset-2" : ""}`
+  }
+  // empty — dimmer for past, slightly more present for today/future
+  const emptyBg = isSelected
+    ? `border border-primary/40 bg-white text-primary ${ringEmpty}`
+    : isToday
+      ? "border border-primary/30 bg-white text-primary"
+      : isPast
+        ? "bg-primary/[0.03] text-primary/30"
+        : "bg-primary/5 text-primary/40"
+  return `${base} ${emptyBg}`
 }
 
 /* ── Same-day match carousel ──────────────────────────── */
@@ -367,6 +563,7 @@ function DayMatchesCarousel({
   onFocusConsumed,
   todayIso,
   context,
+  leagueHighlights,
 }: {
   matches: Match[]
   matchPlayersMap: Map<string | number, MatchPlayer[]>
@@ -378,6 +575,13 @@ function DayMatchesCarousel({
   onFocusConsumed?: () => void
   todayIso: string
   context: "league" | "profile"
+  leagueHighlights?: {
+    lowestRound?: {
+      matchId: string
+      userId: string
+      score: number
+    } | null
+  } | null
 }) {
   const initialIndex = focusMatchId
     ? Math.max(
@@ -463,6 +667,7 @@ function DayMatchesCarousel({
             }
             onAutoEditConsumed={onFocusConsumed}
             context={context}
+            leagueHighlights={leagueHighlights}
           />
         )}
 
@@ -515,19 +720,62 @@ function DayMatchesCarousel({
   )
 }
 
-function EmptyTile({ iso, todayIso }: { iso: string; todayIso: string }) {
+function EmptyTile({
+  iso,
+  todayIso,
+  defaultLeagueId,
+}: {
+  iso: string
+  todayIso: string
+  defaultLeagueId: string | number | null
+}) {
   const d = new Date(iso)
   const isToday = iso === todayIso
-  const label = isToday
-    ? "No match today"
-    : `No match on ${d.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "short",
-        day: "numeric",
-      })}`
+  const isPast = iso < todayIso
+  const dayLabel = d.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  })
+
+  // Past empty days are read-only — you can't retroactively create a
+  // round that never happened. Fall back to a quiet "nothing here"
+  // tile so the day is still explorable from the strip without
+  // dangling a misleading CTA.
+  if (isPast) {
+    return (
+      <div className="flex items-center justify-center rounded-lg border border-dashed border-primary/15 bg-cream/20 px-4 py-4 text-center">
+        <p className="text-xs text-primary/50">No match on {dayLabel}</p>
+      </div>
+    )
+  }
+
+  // Today / future → active CTA that deep-links into the match-create
+  // form with date + league pre-filled.
+  const params = new URLSearchParams({ date: iso })
+  if (defaultLeagueId != null) params.set("league", String(defaultLeagueId))
+  const href = `/matches/create?${params.toString()}`
+
   return (
-    <div className="flex items-center justify-center rounded-lg border border-dashed border-primary/15 bg-cream/30 px-4 py-4 text-center">
-      <p className="text-xs text-primary/50">{label}</p>
-    </div>
+    <Link
+      href={href}
+      className="group flex items-center justify-center gap-3 rounded-lg border border-dashed border-primary/20 bg-cream/20 px-4 py-5 text-center transition-colors hover:border-primary/40 hover:bg-cream/40"
+      aria-label={`Create a match for ${isToday ? "today" : dayLabel}`}
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-cream shadow-sm transition-transform group-hover:scale-105">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </span>
+      <span className="flex flex-col text-left">
+        <span className="text-sm font-semibold text-primary">
+          Create match
+        </span>
+        <span className="text-[11px] text-primary/60">
+          {isToday ? "today" : `on ${dayLabel}`}
+        </span>
+      </span>
+    </Link>
   )
 }

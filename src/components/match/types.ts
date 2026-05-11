@@ -39,6 +39,19 @@ export type Match = {
   created_by?: string | null
 }
 
+/**
+ * League format — scoring model. Drives the direction of everything
+ * downstream (leaderboard sort, winner = min/max, "strokes" vs
+ * "points" copy, best-of-N which-end-is-best selection).
+ *
+ *   stroke_play — classical golf. Lowest total wins. Best-of-N picks
+ *                 the lowest N scores.
+ *   stableford  — points-based. Highest total wins. Best-of-N picks
+ *                 the highest N scores. Pre-calculated totals entered
+ *                 per round — no per-hole data required in v1.
+ */
+export type LeagueFormat = "stroke_play" | "stableford"
+
 export type League = {
   id: string | number
   name: string
@@ -52,4 +65,9 @@ export type League = {
   total_cards_count?: number | null
   start_date?: string | null
   end_date?: string | null
+  /**
+   * Scoring model. Defaults to "stroke_play" on the server for
+   * existing rows, so treat missing/unknown values as stroke play.
+   */
+  format?: LeagueFormat | string | null
 }

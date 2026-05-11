@@ -35,14 +35,14 @@ export default function LeaguesRedirect() {
 
   if (authLoading || (!noLeagues)) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream">
+      <main className="flex min-h-screen items-center justify-center">
         <p className="text-primary/70">Loading leagues…</p>
       </main>
     )
   }
 
   return (
-    <main className="min-h-screen bg-cream px-4 pb-6 pt-4">
+    <main className="min-h-screen px-4 pb-6 pt-4">
       <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 pt-16">
         <section className="w-full rounded-xl border border-dashed border-primary/20 bg-white p-6 text-center shadow-sm">
           <h2 className="text-base font-semibold text-primary">No leagues yet</h2>

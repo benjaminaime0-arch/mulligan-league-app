@@ -127,7 +127,7 @@ export default function LeaderboardPage() {
 
   if (authLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream">
+      <main className="flex min-h-screen items-center justify-center">
         <p className="text-primary/70">Checking your session…</p>
       </main>
     )
@@ -139,7 +139,7 @@ export default function LeaderboardPage() {
 
   if (loading && leagues.length === 0) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream">
+      <main className="flex min-h-screen items-center justify-center">
         <p className="text-primary/70">Loading leaderboard…</p>
       </main>
     )
@@ -148,7 +148,7 @@ export default function LeaderboardPage() {
   const currentLeague = leagues[leagueIndex]
 
   return (
-    <main className="min-h-screen bg-cream px-4 pb-6 pt-4">
+    <main className="min-h-screen px-4 pb-6 pt-4">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
         <header>
           <h1 className="text-2xl font-bold text-primary">Leaderboard</h1>

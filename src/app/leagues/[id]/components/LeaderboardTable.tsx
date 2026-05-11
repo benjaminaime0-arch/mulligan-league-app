@@ -3,6 +3,8 @@
 import Link from "next/link"
 import { Avatar } from "@/components/Avatar"
 import type { LeaderboardRow } from "../types"
+import type { LeagueFormat } from "@/components/match/types"
+import { formatCopy, gapAhead } from "@/lib/leagueFormat"
 
 interface LeaderboardTableProps {
   leaderboard: LeaderboardRow[]
@@ -18,6 +20,12 @@ interface LeaderboardTableProps {
    * explain the "Counted" column via a title tooltip.
    */
   scoringCardsCount?: number | null
+  /**
+   * League scoring model. Drives direction of "+N ahead" gap math,
+   * the unit suffix on scores, and tooltip copy. Defaults to stroke
+   * play if omitted.
+   */
+  leagueFormat?: LeagueFormat
 }
 
 export function LeaderboardTable({
@@ -25,10 +33,28 @@ export function LeaderboardTable({
   subtitle,
   currentUserId,
   scoringCardsCount,
+  leagueFormat = "stroke_play",
 }: LeaderboardTableProps) {
+  const copy = formatCopy(leagueFormat)
+  // Tooltip copy flexes with league config. When a `scoring_cards_count`
+  // is set, every round played may not count toward Total — we
+  // explain the "best N of M" rule. Otherwise the two numbers are
+  // always equal, so we label the column for what it is.
   const countedTitle = scoringCardsCount
     ? `Counted / Played — best ${scoringCardsCount} of all rounds played count toward Total`
-    : "Rounds counted / played"
+    : "Rounds played in this league"
+
+  // Defensive sort — the RPC already returns rows in the right order,
+  // but the `+N ahead` gap calculation below reads `rows[idx + 1]`
+  // directly. If some future caller ever filters or re-maps the array
+  // before handing it in, we'd silently lie about margins. Sorting by
+  // position here costs nothing at 8-player leagues and guarantees
+  // the invariant rows.map() relies on.
+  const rows = [...leaderboard].sort((a, b) => {
+    const pa = a.position ?? Number.MAX_SAFE_INTEGER
+    const pb = b.position ?? Number.MAX_SAFE_INTEGER
+    return pa - pb
+  })
 
   return (
     <div className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
@@ -38,7 +64,7 @@ export function LeaderboardTable({
           <p className="shrink-0 text-[10px] text-primary/40">{subtitle}</p>
         )}
       </div>
-      {leaderboard.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-4 text-center">
           <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/5">
             <svg
@@ -62,11 +88,15 @@ export function LeaderboardTable({
               <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
             </svg>
           </div>
+          {/* This branch only fires when the league has zero members
+              — after the show_all_members RPC change, every member
+              appears even at zero rounds. So the copy addresses the
+              "roster is empty" case, not "nobody has played yet". */}
           <p className="text-sm font-medium text-primary/70">
-            The board is empty
+            No players yet
           </p>
           <p className="mt-0.5 text-xs text-primary/40">
-            Be the first to post a score and claim the top spot.
+            Invite your first players to start the board.
           </p>
         </div>
       ) : (
@@ -78,13 +108,13 @@ export function LeaderboardTable({
                 <th className="py-2 pr-3 font-medium">Player</th>
                 <th
                   className="py-2 pr-3 text-right font-medium"
-                  title="Sum of your counted rounds"
+                  title={`Sum of your counted ${copy.noun} rounds`}
                 >
                   Total
                 </th>
                 <th
                   className="py-2 pr-3 text-right font-medium"
-                  title="Lowest single round this league"
+                  title={`${copy.superlative} single round this league`}
                 >
                   Best
                 </th>
@@ -97,11 +127,55 @@ export function LeaderboardTable({
               </tr>
             </thead>
             <tbody>
-              {leaderboard.map((row, idx) => {
+              {rows.map((row, idx) => {
                 const position = row.position ?? idx + 1
                 const medal = getMedal(position)
                 const isMe = !!currentUserId && row.user_id === currentUserId
                 const isLeader = position === 1
+                // Gap to the next ACTIVE row below. Skipping inactive
+                // rows (rounds_counted === 0, total_score coalesced to
+                // 0 by the RPC) keeps the leader from looking unranked
+                // when everyone else is still at zero — otherwise
+                // `next.total - current.total` goes negative and the
+                // `> 0` guard hides the chip. We only emit "+N ahead"
+                // when there's a real competitor to be ahead of.
+                //
+                // `gapAhead` from the format helper returns a signed
+                // number that's positive when `row` is ahead of
+                // `nextActive` regardless of format — so the
+                // `> 0` guard below works for both stroke and
+                // stableford without per-format branches here.
+                const hasCountedRounds = (r: LeaderboardRow | undefined) =>
+                  !!r && (r.rounds_counted ?? 0) > 0
+                const nextActive = hasCountedRounds(row)
+                  ? rows
+                      .slice(idx + 1)
+                      .find((r) => hasCountedRounds(r))
+                  : undefined
+                const gapToNext = gapAhead(
+                  row.total_score as number | null | undefined,
+                  nextActive?.total_score as number | null | undefined,
+                  leagueFormat,
+                )
+
+                // "Race to finish" provisional chip. Only when a
+                // `scoring_cards_count` rule is in play AND this row
+                // has at least one counted round but not enough to
+                // fill the scoring set. In that window, their total
+                // is likely to *drop* (they'll replace their worst
+                // counted score) so showing +N to go keeps the
+                // leaderboard honest — a leader with 1 of 3 counted
+                // rounds deserves a different visual cue than one
+                // who's locked in. Zero-round members are signaled by
+                // position alone (bottom of board); chip would be
+                // noise there.
+                const counted = row.rounds_counted ?? 0
+                const toGoForRank =
+                  scoringCardsCount != null &&
+                  counted > 0 &&
+                  counted < scoringCardsCount
+                    ? scoringCardsCount - counted
+                    : null
 
                 // Row bg: viewer gets a cream wash + left border; leader gets
                 // a subtle emerald wash so "who's winning" reads instantly.
@@ -137,35 +211,76 @@ export function LeaderboardTable({
                           className="flex items-center gap-2 rounded text-sm text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                         >
                           <Avatar src={row.avatar_url} size={24} fallback={row.player_name || "P"} />
-                          <span className="font-medium">
-                            {row.player_name || "Player"}
-                            {isMe && (
-                              <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary/60">
-                                you
+                          <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                            <span className="truncate font-medium">
+                              {row.player_name || "Player"}
+                            </span>
+                            {/* "YOU" pill dropped — the row already
+                                carries a cream bg + left primary border
+                                when isMe, which reads plenty on its
+                                own. Redundant chip was stealing space
+                                from the leader-gap text. */}
+                            {gapToNext != null && gapToNext > 0 && (
+                              <span className="shrink-0 text-[10px] font-medium text-emerald-700/80">
+                                +{gapToNext} ahead
+                              </span>
+                            )}
+                            {toGoForRank != null && (
+                              <span
+                                className="shrink-0 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                                title={`Provisional — needs ${toGoForRank} more counted round${toGoForRank === 1 ? "" : "s"} to lock this total`}
+                              >
+                                +{toGoForRank} to go
                               </span>
                             )}
                           </span>
                         </Link>
                       ) : (
+                        // Defensive fallback — `board CTE` in get_leaderboard
+                        // anchors on `league_members.user_id` (NOT NULL) so
+                        // `row.user_id` is always populated in practice.
+                        // Keeping this branch in case the schema or RPC
+                        // ever changes; it renders a non-tappable row
+                        // instead of crashing.
                         <div className="flex items-center gap-2 text-sm text-primary">
                           <Avatar src={row.avatar_url} size={24} fallback={row.player_name || "P"} />
-                          <span className="font-medium">{row.player_name || "Player"}</span>
+                          <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                            <span className="truncate font-medium">
+                              {row.player_name || "Player"}
+                            </span>
+                            {gapToNext != null && gapToNext > 0 && (
+                              <span className="shrink-0 text-[10px] font-medium text-emerald-700/80">
+                                +{gapToNext} ahead
+                              </span>
+                            )}
+                            {toGoForRank != null && (
+                              <span
+                                className="shrink-0 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                                title={`Provisional — needs ${toGoForRank} more counted round${toGoForRank === 1 ? "" : "s"} to lock this total`}
+                              >
+                                +{toGoForRank} to go
+                              </span>
+                            )}
+                          </span>
                         </div>
                       )}
                     </td>
 
-                    {/* Total — dominant number; bump size for the leader */}
+                    {/* Total — dominant number; bump size for the leader.
+                        Unit suffix is format-aware ("82" vs "37 pts"). */}
                     <td
                       className={`py-3 pr-3 text-right tabular-nums text-primary ${
                         isLeader ? "text-lg font-extrabold" : "text-base font-bold"
                       }`}
                     >
-                      {row.total_score ?? "–"}
+                      {row.total_score != null ? `${row.total_score}${copy.unit}` : "–"}
                     </td>
 
-                    {/* Best — secondary */}
+                    {/* Best — secondary. Same unit flip so stableford
+                        shows "18 pts" instead of a bare 18 that reads
+                        like a stroke score. */}
                     <td className="py-3 pr-3 text-right text-xs tabular-nums text-primary/60">
-                      {row.best_score ?? "–"}
+                      {row.best_score != null ? `${row.best_score}${copy.unit}` : "–"}
                     </td>
 
                     {/* Counted — secondary. Rendered as "counted / played"
