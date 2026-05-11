@@ -30,7 +30,7 @@ export default function TermsPage() {
           </h2>
           <p>
             Mulligan is a free platform that allows golfers to create
-            private tournaments, log scores, track leaderboards, and organize
+            private games, log scores, track leaderboards, and organize
             weekly matches with their golf group.
           </p>
         </section>
@@ -53,7 +53,7 @@ export default function TermsPage() {
           </h2>
           <p>
             You agree to use Mulligan for its intended purpose —
-            organizing and tracking golf tournaments. You may not use the service
+            organizing and tracking golf games. You may not use the service
             for any unlawful purpose, spam other users, or attempt to interfere
             with the platform&apos;s operation.
           </p>
@@ -66,7 +66,7 @@ export default function TermsPage() {
           <p>
             You are responsible for the accuracy of the scores and information
             you submit. Mulligan is not responsible for disputes between
-            tournament members regarding scores or standings.
+            game members regarding scores or standings.
           </p>
         </section>
 

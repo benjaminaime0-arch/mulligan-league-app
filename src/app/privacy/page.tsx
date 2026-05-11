@@ -20,8 +20,8 @@ export default function PrivacyPage() {
           <p>
             When you create an account on Mulligan, we collect your name,
             email address, and any profile information you choose to provide. We
-            also collect data about your tournament activity, including scores,
-            match results, and tournament memberships.
+            also collect data about your game activity, including scores,
+            match results, and game memberships.
           </p>
         </section>
 
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
           <p>
             We use your information to operate and improve Mulligan,
             including managing your account, displaying leaderboards, tracking
-            match results, and communicating with you about your tournaments. We do
+            match results, and communicating with you about your games. We do
             not sell your personal information to third parties.
           </p>
         </section>

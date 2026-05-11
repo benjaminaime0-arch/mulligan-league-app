@@ -1,19 +1,19 @@
 "use client"
 
 /**
- * Cross-tournament match list. Shows every match the viewer is rostered
+ * Cross-game match list. Shows every match the viewer is rostered
  * on — split into Past / Scheduled tabs — rendered with the same
- * `MatchDetailCard` the tournament page uses.
+ * `MatchDetailCard` the game page uses.
  *
  * Rendering every row as MatchDetailCard (not a compact summary row)
  * keeps interactions uniform across surfaces: the winner medal row,
  * "YOU" tag, approval state, edit/approve/share/leave/delete actions
- * you get on a tournament calendar card all work here too. No navigating
+ * you get on a game calendar card all work here too. No navigating
  * to `/matches/[id]` just to approve a score or copy the share link.
  *
  * Data model mirrors `loadCalendar` on /profile/page.tsx — a single
  * `match_players!inner` fan-out to pull the viewer's matches with
- * embedded tournament data, then batch rosters + scores for those
+ * embedded game data, then batch rosters + scores for those
  * matches. No date window here: the whole history is in scope so the
  * tabs can split it locally.
  */
@@ -26,7 +26,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 import { MatchDetailCard } from "@/components/match/MatchDetailCard"
 import type {
-  Tournament as SharedLeague,
+  Game as SharedLeague,
   Match as SharedMatch,
   MatchPlayer as SharedMatchPlayer,
 } from "@/components/match/types"
@@ -59,10 +59,10 @@ export default function AllMatchesPage() {
 function AllMatchesInner() {
   const { user, loading: authLoading } = useAuth()
   const searchParams = useSearchParams()
-  // When present, scopes the list to a single tournament — the "Tournament
-  // calendar" link on the tournament page passes this. Absent → cross-
-  // tournament "My calendar" mode (from /profile).
-  const scopedLeagueId = searchParams.get("tournament")
+  // When present, scopes the list to a single game — the "Game
+  // calendar" link on the game page passes this. Absent → cross-
+  // game "My calendar" mode (from /profile).
+  const scopedLeagueId = searchParams.get("game")
   const [tab, setTab] = useState<Tab>("scheduled")
   const [matches, setMatches] = useState<SharedMatch[]>([])
   const [leaguesById, setLeaguesById] = useState<
@@ -76,7 +76,7 @@ function AllMatchesInner() {
   /**
    * Pulls every match the viewer is rostered on plus full rosters +
    * scores. When `leagueId` is set the fetch is scoped to that
-   * tournament; otherwise the full cross-tournament list is returned.
+   * game; otherwise the full cross-game list is returned.
    * Exposed as `onRefresh` so any MatchDetailCard mutation (score
    * edit, approval, leave, delete) re-pulls fresh data in place
    * without navigating.
@@ -107,7 +107,7 @@ function AllMatchesInner() {
             status: string | null
             league_id: string | null
             created_by: string | null
-            tournaments: LeagueEmbed | null
+            leagues: LeagueEmbed | null
           }
         | null
     }
@@ -121,7 +121,7 @@ function AllMatchesInner() {
     if (leagueId) {
       // Filter on the embedded `matches.league_id` so we only get
       // the viewer's match_players rows that belong to the scoped
-      // tournament. Supabase supports dotted paths on `!inner` joins.
+      // game. Supabase supports dotted paths on `!inner` joins.
       mineQ = mineQ.eq("matches.league_id", leagueId)
     }
     const mineRes = await mineQ
@@ -144,8 +144,8 @@ function AllMatchesInner() {
         status: m.status,
         created_by: m.created_by,
       })
-      if (m.tournaments && !lMap.has(String(m.tournaments.id))) {
-        lMap.set(String(m.tournaments.id), m.tournaments as SharedLeague)
+      if (m.leagues && !lMap.has(String(m.leagues.id))) {
+        lMap.set(String(m.leagues.id), m.leagues as SharedLeague)
       }
     }
 
@@ -269,9 +269,9 @@ function AllMatchesInner() {
         "postgres_changes",
         { event: "*", schema: "public", table: "matches" },
         (payload) => {
-          // Scoped mode: only bump if the event's tournament matches our
+          // Scoped mode: only bump if the event's game matches our
           // filter. Unscoped mode: gate on whether we already know
-          // the tournament (viewer is a member).
+          // the game (viewer is a member).
           const leagueId =
             (payload.new as { league_id?: string })?.league_id ??
             (payload.old as { league_id?: string })?.league_id
@@ -317,21 +317,21 @@ function AllMatchesInner() {
 
   const list = tab === "scheduled" ? scheduled : past
 
-  // When scoped to a tournament, Back jumps to that tournament's page and
-  // the title relabels to the tournament's name (falling back to
-  // "Tournament calendar" until the fetch lands). Cross-tournament default
+  // When scoped to a game, Back jumps to that game's page and
+  // the title relabels to the game's name (falling back to
+  // "Game calendar" until the fetch lands). Cross-game default
   // stays on /profile with "My calendar".
   const backHref = scopedLeagueId ? `/leagues/${scopedLeagueId}` : "/profile"
   const scopedLeague = scopedLeagueId
     ? leaguesById.get(scopedLeagueId) ?? null
     : null
   const pageTitle = scopedLeagueId
-    ? scopedLeague?.name || "Tournament calendar"
+    ? scopedLeague?.name || "Game calendar"
     : "My calendar"
 
-  // Scoped mode, load completed, but the tournament didn't land in
+  // Scoped mode, load completed, but the game didn't land in
   // `leaguesById` — viewer isn't a member (RLS blocked the join) or
-  // the tournament id is bogus. Either way the "no matches" empty state
+  // the game id is bogus. Either way the "no matches" empty state
   // would be misleading, so we surface an explicit access notice
   // with a path back to their own calendar.
   const scopedAccessDenied =
@@ -361,10 +361,10 @@ function AllMatchesInner() {
               </svg>
             </div>
             <p className="text-sm font-medium text-primary/70">
-              You&rsquo;re not a member of this tournament
+              You&rsquo;re not a member of this game
             </p>
             <p className="mb-3 mt-0.5 text-xs text-primary/40">
-              Join the tournament to see its calendar, or head back to your own.
+              Join the game to see its calendar, or head back to your own.
             </p>
             <Link
               href="/profile/matches"
@@ -411,18 +411,18 @@ function AllMatchesInner() {
         ) : (
           <div className="flex flex-col gap-3">
             {list.map((m) => {
-              const tournament = leaguesById.get(String(m.league_id)) ?? null
-              if (!tournament) return null
+              const game = leaguesById.get(String(m.league_id)) ?? null
+              if (!game) return null
               return (
                 <MatchDetailCard
                   key={m.id}
                   match={m}
-                  tournament={tournament}
+                  game={game}
                   matchPlayers={playersByMatch.get(m.id)}
                   currentUserId={user.id}
                   variant={tab === "scheduled" ? "scheduled" : "past"}
                   onRefresh={() => load(user.id, scopedLeagueId)}
-                  context={scopedLeagueId ? "tournament" : "profile"}
+                  context={scopedLeagueId ? "game" : "profile"}
                 />
               )
             })}
@@ -490,7 +490,7 @@ function EmptyState({ tab }: { tab: Tab }) {
       </p>
       <p className="mt-0.5 text-xs text-primary/40">
         {tab === "scheduled"
-          ? "Create one from a tournament to get rolling."
+          ? "Create one from a game to get rolling."
           : "Results will appear here once scores are approved."}
       </p>
     </div>

@@ -74,7 +74,7 @@ export default function LeagueListPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
 
-  const [tournaments, setLeagues] = useState<EnrichedLeague[]>([])
+  const [games, setLeagues] = useState<EnrichedLeague[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -87,17 +87,17 @@ export default function LeagueListPage() {
         setLoading(true)
         setError(null)
 
-        // Get user's tournaments with full details
+        // Get user's games with full details
         const { data: memberRows, error: memberError } = await supabase
           .from("league_members")
-          .select("*, tournaments(*)")
+          .select("*, leagues(*)")
           .eq("user_id", user.id)
 
         if (memberError) throw memberError
 
         const leagueMap = new Map<string, LeagueData>()
         for (const m of memberRows || []) {
-          const l = m.tournaments as LeagueData | null
+          const l = m.leagues as LeagueData | null
           if (l && !leagueMap.has(String(l.id))) {
             leagueMap.set(String(l.id), l)
           }
@@ -124,7 +124,7 @@ export default function LeagueListPage() {
             .order("start_date", { ascending: true }),
         ])
 
-        // Group members by tournament
+        // Group members by game
         const membersByLeague: Record<string, MemberProfile[]> = {}
         for (const m of membersResult.data || []) {
           const key = String(m.league_id)
@@ -132,7 +132,7 @@ export default function LeagueListPage() {
           membersByLeague[key].push(m as unknown as MemberProfile)
         }
 
-        // Find active or latest period per tournament
+        // Find active or latest period per game
         const periodByLeague: Record<string, PeriodData> = {}
         for (const p of (periodsResult.data || []) as PeriodData[]) {
           const key = String(p.league_id)
@@ -142,7 +142,7 @@ export default function LeagueListPage() {
           }
         }
 
-        // Build enriched tournaments
+        // Build enriched games
         const enriched: EnrichedLeague[] = leagueList.map((l) => {
           const key = String(l.id)
           const members = membersByLeague[key] || []
@@ -156,7 +156,7 @@ export default function LeagueListPage() {
 
         setLeagues(enriched)
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load tournaments.")
+        setError(err instanceof Error ? err.message : "Failed to load games.")
       } finally {
         setLoading(false)
       }
@@ -166,12 +166,12 @@ export default function LeagueListPage() {
   }, [authLoading, user])
 
   const goNext = useCallback(() => {
-    setCurrentIndex((i) => (i + 1) % tournaments.length)
-  }, [tournaments.length])
+    setCurrentIndex((i) => (i + 1) % games.length)
+  }, [games.length])
 
   const goPrev = useCallback(() => {
-    setCurrentIndex((i) => (i - 1 + tournaments.length) % tournaments.length)
-  }, [tournaments.length])
+    setCurrentIndex((i) => (i - 1 + games.length) % games.length)
+  }, [games.length])
 
   // Swipe support
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
@@ -201,22 +201,22 @@ export default function LeagueListPage() {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-primary/70">Loading tournaments…</p>
+        <p className="text-primary/70">Loading games…</p>
       </main>
     )
   }
 
-  const tournament = tournaments[currentIndex]
+  const game = games[currentIndex]
 
   return (
     <main className="min-h-screen px-4 pb-6 pt-4">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
         <header>
-          <h1 className="text-2xl font-bold text-primary">Your Tournaments</h1>
+          <h1 className="text-2xl font-bold text-primary">Your Games</h1>
           <p className="mt-1 text-sm text-primary/70">
-            {tournaments.length === 0
-              ? "Join or create a tournament to get started."
-              : `${tournaments.length} tournament${tournaments.length !== 1 ? "s" : ""}`}
+            {games.length === 0
+              ? "Join or create a game to get started."
+              : `${games.length} game${games.length !== 1 ? "s" : ""}`}
           </p>
         </header>
 
@@ -229,46 +229,46 @@ export default function LeagueListPage() {
           </div>
         )}
 
-        {tournaments.length === 0 && !error ? (
+        {games.length === 0 && !error ? (
           <section className="mt-4 rounded-xl border border-dashed border-primary/20 bg-white p-6 text-center shadow-sm">
-            <h2 className="text-base font-semibold text-primary">No tournaments yet</h2>
+            <h2 className="text-base font-semibold text-primary">No games yet</h2>
             <p className="mt-2 text-sm text-primary/70">
-              Start a tournament for your crew, or ask a buddy for their invite code.
+              Start a game for your crew, or ask a buddy for their invite code.
             </p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Link
                 href="/leagues/create"
                 className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream hover:bg-primary/90"
               >
-                Create Tournament
+                Create Game
               </Link>
               <Link
                 href="/leagues/join"
                 className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-cream px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
               >
-                Join Tournament
+                Join Game
               </Link>
             </div>
           </section>
         ) : null}
 
-        {tournament && (
+        {game && (
           <section>
-            {/* Tournament card */}
+            {/* Game card */}
             <div
               className="cursor-pointer rounded-2xl border border-primary/15 bg-white shadow-sm transition-colors hover:bg-cream/30"
               onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}
-              onClick={() => router.push(`/leagues/${tournament.id}`)}
+              onClick={() => router.push(`/leagues/${game.id}`)}
             >
-              {/* Tournament switcher header */}
+              {/* Game switcher header */}
               <div className="flex items-center justify-between gap-2 px-4 pt-4">
-                {tournaments.length > 1 && (
+                {games.length > 1 && (
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); goPrev() }}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-                    aria-label="Previous tournament"
+                    aria-label="Previous game"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="15 18 9 12 15 6" />
@@ -277,18 +277,18 @@ export default function LeagueListPage() {
                 )}
                 <div className="min-w-0 flex-1 text-center">
                   <h2 className="text-lg font-bold text-primary">
-                    {tournament.name}
+                    {game.name}
                   </h2>
                   <p className="text-xs uppercase tracking-[0.2em] text-primary/50">
-                    {tournament.course_name || "Course TBA"}
+                    {game.course_name || "Course TBA"}
                   </p>
                 </div>
-                {tournaments.length > 1 && (
+                {games.length > 1 && (
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); goNext() }}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-                    aria-label="Next tournament"
+                    aria-label="Next game"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="9 18 15 12 9 6" />
@@ -298,9 +298,9 @@ export default function LeagueListPage() {
               </div>
 
               {/* Dot indicators */}
-              {tournaments.length > 1 && (
+              {games.length > 1 && (
                 <div className="mt-2 flex items-center justify-center gap-1.5">
-                  {tournaments.map((l, idx) => (
+                  {games.map((l, idx) => (
                     <button
                       key={l.id}
                       type="button"
@@ -320,14 +320,14 @@ export default function LeagueListPage() {
               <div className="mt-3 px-5">
                 <span
                   className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                    (tournament.status || "draft") === "active"
+                    (game.status || "draft") === "active"
                       ? "bg-emerald-50 text-emerald-700"
-                      : (tournament.status || "draft") === "completed"
+                      : (game.status || "draft") === "completed"
                       ? "bg-primary/10 text-primary"
                       : "bg-amber-50 text-amber-700"
                   }`}
                 >
-                  {tournament.status || "draft"}
+                  {game.status || "draft"}
                 </span>
               </div>
 
@@ -342,7 +342,7 @@ export default function LeagueListPage() {
                     </div>
                     <div>
                       <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Format</p>
-                      <p className="text-xs font-semibold text-primary">{formatLeagueType(tournament.league_type)}</p>
+                      <p className="text-xs font-semibold text-primary">{formatLeagueType(game.league_type)}</p>
                     </div>
                   </div>
 
@@ -356,8 +356,8 @@ export default function LeagueListPage() {
                     <div>
                       <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Cards</p>
                       <p className="text-xs font-semibold text-primary">
-                        {tournament.scoring_cards_count != null
-                          ? `Best ${tournament.scoring_cards_count}${tournament.total_cards_count ? ` of ${tournament.total_cards_count}` : ""}`
+                        {game.scoring_cards_count != null
+                          ? `Best ${game.scoring_cards_count}${game.total_cards_count ? ` of ${game.total_cards_count}` : ""}`
                           : "All count"}
                       </p>
                     </div>
@@ -373,8 +373,8 @@ export default function LeagueListPage() {
                     <div>
                       <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Duration</p>
                       <p className="text-xs font-semibold text-primary">
-                        {tournament.start_date
-                          ? `${formatDateShort(tournament.start_date)} – ${formatDateShort(tournament.end_date)}`
+                        {game.start_date
+                          ? `${formatDateShort(game.start_date)} – ${formatDateShort(game.end_date)}`
                           : "No season set"}
                       </p>
                     </div>
@@ -383,11 +383,11 @@ export default function LeagueListPage() {
 
               {/* Players preview — each avatar is a button that
                   stops propagation so tapping a member opens their
-                  profile instead of the enclosing tournament card's
+                  profile instead of the enclosing game card's
                   navigation target. */}
               <div className="flex flex-col items-center gap-2 px-5 py-4">
                 <div className="flex gap-2">
-                  {tournament.members.slice(0, 5).map((m) => (
+                  {game.members.slice(0, 5).map((m) => (
                     <button
                       type="button"
                       key={m.user_id}
@@ -406,16 +406,16 @@ export default function LeagueListPage() {
                       />
                     </button>
                   ))}
-                  {tournament.memberCount > 5 && (
+                  {game.memberCount > 5 && (
                     <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary/60">
-                      +{tournament.memberCount - 5}
+                      +{game.memberCount - 5}
                     </div>
                   )}
                 </div>
                 <span className="text-xs text-primary/60">
-                  {tournament.max_players != null
-                    ? `${tournament.memberCount}/${tournament.max_players} players`
-                    : `${tournament.memberCount} player${tournament.memberCount !== 1 ? "s" : ""}`}
+                  {game.max_players != null
+                    ? `${game.memberCount}/${game.max_players} players`
+                    : `${game.memberCount} player${game.memberCount !== 1 ? "s" : ""}`}
                 </span>
               </div>
             </div>

@@ -9,7 +9,7 @@ export function DraftGuide() {
         </li>
         <li className="flex items-start gap-2">
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-xs font-semibold text-emerald-800">2</span>
-          <span>Start the tournament — this generates weekly match periods.</span>
+          <span>Start the game — this generates weekly match periods.</span>
         </li>
         <li className="flex items-start gap-2">
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-xs font-semibold text-emerald-800">3</span>

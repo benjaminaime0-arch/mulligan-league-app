@@ -94,7 +94,7 @@ export async function GET(
     league_id: string | null
   }
 
-  let tournament: { name: string; course_name: string | null } | null = null
+  let game: { name: string; course_name: string | null } | null = null
   if (match.league_id) {
     const { data: leagueData } = await supabase
       .from("leagues")
@@ -102,7 +102,7 @@ export async function GET(
       .eq("id", match.league_id)
       .maybeSingle()
     if (leagueData) {
-      tournament = leagueData as { name: string; course_name: string | null }
+      game = leagueData as { name: string; course_name: string | null }
     }
   }
 
@@ -140,8 +140,8 @@ export async function GET(
     return a.score - b.score
   })
 
-  const courseName = match.course_name || tournament?.course_name || "Course"
-  const leagueName = tournament?.name || "Match"
+  const courseName = match.course_name || game?.course_name || "Course"
+  const leagueName = game?.name || "Match"
   const dateStr = match.match_date
     ? new Date(match.match_date).toLocaleDateString("en-US", {
         month: "long",

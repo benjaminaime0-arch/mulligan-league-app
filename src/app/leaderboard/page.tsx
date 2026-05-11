@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { Avatar } from "@/components/Avatar"
 
-type Tournament = {
+type Game = {
   id: string | number
   name: string
   course_name?: string | null
@@ -17,7 +17,7 @@ type MemberWithLeague = {
   id: string | number
   league_id: string | number
   user_id: string
-  tournaments?: Tournament | null
+  leagues?: Game | null
 }
 
 type LeaderboardRow = {
@@ -35,7 +35,7 @@ export default function LeaderboardPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
 
-  const [tournaments, setLeagues] = useState<Tournament[]>([])
+  const [games, setLeagues] = useState<Game[]>([])
   const [leagueIndex, setLeagueIndex] = useState(0)
 
   const [rows, setRows] = useState<LeaderboardRow[]>([])
@@ -70,16 +70,16 @@ export default function LeaderboardPage() {
 
         const { data: memberRows, error: memberError } = await supabase
           .from("league_members")
-          .select("*, tournaments(*)")
+          .select("*, leagues(*)")
           .eq("user_id", user.id)
 
         if (memberError) throw memberError
 
         const typedMembers = (memberRows || []) as MemberWithLeague[]
-        const leagueMap = new Map<string | number, Tournament>()
+        const leagueMap = new Map<string | number, Game>()
         for (const m of typedMembers) {
-          if (m.tournaments && !leagueMap.has(m.tournaments.id)) {
-            leagueMap.set(m.tournaments.id, m.tournaments)
+          if (m.leagues && !leagueMap.has(m.leagues.id)) {
+            leagueMap.set(m.leagues.id, m.leagues)
           }
         }
 
@@ -102,16 +102,16 @@ export default function LeaderboardPage() {
   }, [authLoading, user, loadLeaderboard])
 
   const goNext = useCallback(async () => {
-    const next = (leagueIndex + 1) % tournaments.length
+    const next = (leagueIndex + 1) % games.length
     setLeagueIndex(next)
-    await loadLeaderboard(tournaments[next].id)
-  }, [leagueIndex, tournaments, loadLeaderboard])
+    await loadLeaderboard(games[next].id)
+  }, [leagueIndex, games, loadLeaderboard])
 
   const goPrev = useCallback(async () => {
-    const prev = (leagueIndex - 1 + tournaments.length) % tournaments.length
+    const prev = (leagueIndex - 1 + games.length) % games.length
     setLeagueIndex(prev)
-    await loadLeaderboard(tournaments[prev].id)
-  }, [leagueIndex, tournaments, loadLeaderboard])
+    await loadLeaderboard(games[prev].id)
+  }, [leagueIndex, games, loadLeaderboard])
 
   const highlightUserRow = (row: LeaderboardRow) =>
     !!user && row.user_id != null && row.user_id === user.id
@@ -137,7 +137,7 @@ export default function LeaderboardPage() {
     return null
   }
 
-  if (loading && tournaments.length === 0) {
+  if (loading && games.length === 0) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <p className="text-primary/70">Loading leaderboard…</p>
@@ -145,7 +145,7 @@ export default function LeaderboardPage() {
     )
   }
 
-  const currentLeague = tournaments[leagueIndex]
+  const currentLeague = games[leagueIndex]
 
   return (
     <main className="min-h-screen px-4 pb-6 pt-4">
@@ -157,24 +157,24 @@ export default function LeaderboardPage() {
           </p>
         </header>
 
-        {tournaments.length === 0 && !error ? (
+        {games.length === 0 && !error ? (
           <section className="rounded-xl border border-dashed border-primary/20 bg-white p-6 text-center shadow-sm">
-            <h2 className="text-base font-semibold text-primary">No tournaments yet</h2>
+            <h2 className="text-base font-semibold text-primary">No games yet</h2>
             <p className="mt-2 text-sm text-primary/70">
-              Join a tournament to see where you rank.
+              Join a game to see where you rank.
             </p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Link
                 href="/leagues/create"
                 className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream hover:bg-primary/90"
               >
-                Create Tournament
+                Create Game
               </Link>
               <Link
                 href="/leagues/join"
                 className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-cream px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
               >
-                Join Tournament
+                Join Game
               </Link>
             </div>
           </section>
@@ -191,14 +191,14 @@ export default function LeaderboardPage() {
 
         {currentLeague && (
           <section className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
-            {/* Tournament switcher header */}
+            {/* Game switcher header */}
             <div className="mb-3 flex items-center justify-between gap-2">
-              {tournaments.length > 1 && (
+              {games.length > 1 && (
                 <button
                   type="button"
                   onClick={goPrev}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-                  aria-label="Previous tournament"
+                  aria-label="Previous game"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="15 18 9 12 15 6" />
@@ -216,12 +216,12 @@ export default function LeaderboardPage() {
                   {currentLeague.course_name || "Course TBA"}
                 </p>
               </div>
-              {tournaments.length > 1 && (
+              {games.length > 1 && (
                 <button
                   type="button"
                   onClick={goNext}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-                  aria-label="Next tournament"
+                  aria-label="Next game"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="9 18 15 12 9 6" />
@@ -231,9 +231,9 @@ export default function LeaderboardPage() {
             </div>
 
             {/* Dot indicators */}
-            {tournaments.length > 1 && (
+            {games.length > 1 && (
               <div className="mb-3 flex items-center justify-center gap-1.5">
-                {tournaments.map((l, idx) => (
+                {games.map((l, idx) => (
                   <button
                     key={l.id}
                     type="button"

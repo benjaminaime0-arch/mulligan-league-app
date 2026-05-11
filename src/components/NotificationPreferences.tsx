@@ -23,24 +23,24 @@ const PREFERENCE_META: Record<NotificationType, { label: string; description: st
     description: "When all players approve and a match is final",
   },
   member_joined: {
-    label: "New tournament member",
-    description: "When a new player joins one of your tournaments",
+    label: "New game member",
+    description: "When a new player joins one of your games",
   },
   match_scheduled: {
     label: "Added to a match",
-    description: "When you're added to a scheduled tournament match",
+    description: "When you're added to a scheduled game match",
   },
   join_request: {
     label: "Join request (admin)",
-    description: "When someone wants to join your tournament or match",
+    description: "When someone wants to join your game or match",
   },
   join_approved: {
     label: "Your request approved",
-    description: "When a tournament/match admin accepts your request",
+    description: "When a game/match admin accepts your request",
   },
   join_rejected: {
     label: "Your request declined",
-    description: "When a tournament/match admin declines your request",
+    description: "When a game/match admin declines your request",
   },
 }
 

@@ -67,20 +67,20 @@ export function Navbar() {
             <span className="hidden sm:inline">Mulligan</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm font-medium">
-            <DesktopLink href="/leagues" label="Leagues" pathname={pathname} />
+            <DesktopLink href="/leagues" label="Games" pathname={pathname} />
             <DesktopLink href="/leaderboard" label="Leaderboard" pathname={pathname} />
             <DesktopLink href="/players" label="Players" pathname={pathname} />
             <Link
               href="/leagues/create"
               className="rounded-lg border border-primary/30 bg-white px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/5"
             >
-              Create Tournament
+              Create Game
             </Link>
             <Link
               href="/leagues/join"
               className="rounded-lg border border-primary/30 bg-white px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/5"
             >
-              Join Tournament
+              Join Game
             </Link>
             <Link
               href="/matches/create"
@@ -104,10 +104,10 @@ export function Navbar() {
       {/* Mobile bottom nav */}
       <nav className="mobile-nav-safe fixed bottom-0 left-0 right-0 z-40 border-t border-primary/10 bg-white/95 backdrop-blur md:hidden">
         <div className="mx-auto flex max-w-md items-end justify-between px-2 pt-1.5">
-          {/* Tournaments */}
+          {/* Games */}
           <MobileNavTab
             href="/leagues"
-            label="Tournaments"
+            label="Games"
             active={isActive("/leagues")}
             icon={<TrophyIcon />}
             activeIcon={<TrophyIconFilled />}
@@ -140,13 +140,13 @@ export function Navbar() {
                   />
                   <ActionMenuItem
                     href="/leagues/create"
-                    label="Create Tournament"
+                    label="Create Game"
                     icon={<PlusCircleIcon />}
                     onClick={() => setShowActions(false)}
                   />
                   <ActionMenuItem
                     href="/leagues/join"
-                    label="Join Tournament"
+                    label="Join Game"
                     icon={<JoinIcon />}
                     onClick={() => setShowActions(false)}
                   />

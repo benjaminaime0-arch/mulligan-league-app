@@ -39,9 +39,9 @@ export const metadata: Metadata = {
     template: "%s | Mulligan",
   },
   description:
-    "Turn your golf group into a real tournament. Create private tournaments, track weekly scores, and compete with friends. Free to use.",
+    "Turn your golf group into a real game. Create private games, track weekly scores, and compete with friends. Free to use.",
   keywords: [
-    "golf tournament",
+    "golf game",
     "golf group",
     "golf scoring",
     "golf leaderboard",
@@ -65,7 +65,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Mulligan — Organize Your Golf Group",
     description:
-      "Turn your golf group into a real tournament. Create private tournaments, track weekly scores, and compete with friends. Free to use.",
+      "Turn your golf group into a real game. Create private games, track weekly scores, and compete with friends. Free to use.",
     type: "website",
     siteName: "Mulligan",
     images: [{ url: "/logo.png", width: 1024, height: 1024, alt: "Mulligan" }],
@@ -74,7 +74,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Mulligan — Organize Your Golf Group",
     description:
-      "Turn your golf group into a real tournament. Create private tournaments, track weekly scores, and compete with friends. Free to use.",
+      "Turn your golf group into a real game. Create private games, track weekly scores, and compete with friends. Free to use.",
     images: ["/logo.png"],
   },
 }

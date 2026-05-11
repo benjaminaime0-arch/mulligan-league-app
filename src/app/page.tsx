@@ -58,7 +58,7 @@ function HomeContent() {
           Your weekend golf crew, organized.
         </p>
         <p className="mb-6 text-center text-sm text-primary/60">
-          Tournaments, scores, bragging rights, all in one place.
+          Games, scores, bragging rights, all in one place.
         </p>
 
         <div

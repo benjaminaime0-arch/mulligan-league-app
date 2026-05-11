@@ -13,7 +13,7 @@ import { ScoreTrendCard } from "@/components/profile/ScoreTrendCard"
 /**
  * Other-player profile page. Mirrors the structure of `/profile` so
  * visiting another user shows the same dashboard (identity card,
- * trajectory, records, courses, tournaments). The self-only bits — avatar
+ * trajectory, records, courses, games). The self-only bits — avatar
  * upload, Edit, WeekCalendarCard (date picker / "My calendar" link),
  * ActivityFeed, logout — are intentionally dropped here.
  */
@@ -121,7 +121,7 @@ export default function PlayerProfilePage() {
       }
       setProfile(profileRes.data as Profile)
 
-      // Build enriched tournaments for the carousel
+      // Build enriched games for the carousel
       type MemberRow = { id: string; league_id: string; leagues?: LeagueData | null }
       const membershipData = (membershipsRes.data as unknown as MemberRow[]) || []
       const leagueMap = new Map<string, LeagueData>()
@@ -269,7 +269,7 @@ export default function PlayerProfilePage() {
             </span>
             <span className="text-primary/30">·</span>
             <span className="tabular-nums">
-              {leagueCount} {leagueCount === 1 ? "tournament" : "tournaments"}
+              {leagueCount} {leagueCount === 1 ? "game" : "games"}
             </span>
           </div>
         </section>
@@ -283,14 +283,14 @@ export default function PlayerProfilePage() {
         {/* 4. Courses played */}
         <CoursesCard courses={courses} />
 
-        {/* 5. Tournaments */}
-        <LeagueCarousel tournaments={enrichedLeagues} playerName={displayName} />
+        {/* 5. Games */}
+        <LeagueCarousel games={enrichedLeagues} playerName={displayName} />
       </div>
     </main>
   )
 }
 
-/* ── Tournament Carousel ───────────────────────────────────────── */
+/* ── Game Carousel ───────────────────────────────────────── */
 
 function formatLeagueType(type?: string | null): string {
   if (!type) return "Standard"
@@ -302,55 +302,55 @@ function formatDateShort(iso?: string | null): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-function LeagueCarousel({ tournaments, playerName }: { tournaments: EnrichedLeague[]; playerName: string }) {
+function LeagueCarousel({ games, playerName }: { games: EnrichedLeague[]; playerName: string }) {
   const [idx, setIdx] = useState(0)
   const router = useRouter()
 
-  if (tournaments.length === 0) {
+  if (games.length === 0) {
     return (
       <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-primary">{playerName}&apos;s Tournaments</h2>
-        <p className="text-sm text-primary/70">Not in any tournaments yet.</p>
+        <h2 className="mb-3 text-sm font-semibold text-primary">{playerName}&apos;s Games</h2>
+        <p className="text-sm text-primary/70">Not in any games yet.</p>
       </section>
     )
   }
 
-  const tournament = tournaments[idx]
+  const game = games[idx]
 
   return (
     <section
       className="cursor-pointer rounded-xl border border-primary/15 bg-white p-5 shadow-sm"
-      onClick={() => router.push(`/leagues/${tournament.id}`)}
+      onClick={() => router.push(`/leagues/${game.id}`)}
     >
       {/* Header with arrows */}
       <div className="flex items-center justify-between gap-2">
-        {tournaments.length > 1 && (
-          <button type="button" onClick={(e) => { e.stopPropagation(); setIdx((i) => (i - 1 + tournaments.length) % tournaments.length) }}
+        {games.length > 1 && (
+          <button type="button" onClick={(e) => { e.stopPropagation(); setIdx((i) => (i - 1 + games.length) % games.length) }}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-            aria-label="Previous tournament">
+            aria-label="Previous game">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
         )}
         <div className="min-w-0 flex-1 text-center">
-          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-primary/40">{playerName}&apos;s Tournaments</p>
-          <h2 className="text-lg font-bold text-primary">{tournament.name}</h2>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-primary/40">{playerName}&apos;s Games</p>
+          <h2 className="text-lg font-bold text-primary">{game.name}</h2>
           <p className="text-xs uppercase tracking-[0.2em] text-primary/50">
-            {tournament.course_name || "Course TBA"}
+            {game.course_name || "Course TBA"}
           </p>
         </div>
-        {tournaments.length > 1 && (
-          <button type="button" onClick={(e) => { e.stopPropagation(); setIdx((i) => (i + 1) % tournaments.length) }}
+        {games.length > 1 && (
+          <button type="button" onClick={(e) => { e.stopPropagation(); setIdx((i) => (i + 1) % games.length) }}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-            aria-label="Next tournament">
+            aria-label="Next game">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
           </button>
         )}
       </div>
 
       {/* Dot indicators */}
-      {tournaments.length > 1 && (
+      {games.length > 1 && (
         <div className="mt-2 flex items-center justify-center gap-1.5">
-          {tournaments.map((l, i) => (
+          {games.map((l, i) => (
             <button key={l.id} type="button" onClick={(e) => { e.stopPropagation(); setIdx(i) }}
               className={`h-1.5 rounded-full transition-all ${i === idx ? "w-5 bg-primary" : "w-1.5 bg-primary/20 hover:bg-primary/40"}`}
               aria-label={`View ${l.name}`} />
@@ -361,13 +361,13 @@ function LeagueCarousel({ tournaments, playerName }: { tournaments: EnrichedLeag
       {/* Status badge */}
       <div className="mt-3">
         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-          (tournament.status || "draft") === "active"
+          (game.status || "draft") === "active"
             ? "bg-emerald-50 text-emerald-700"
-            : (tournament.status || "draft") === "completed"
+            : (game.status || "draft") === "completed"
             ? "bg-primary/10 text-primary"
             : "bg-amber-50 text-amber-700"
         }`}>
-          {tournament.status || "draft"}
+          {game.status || "draft"}
         </span>
       </div>
 
@@ -381,7 +381,7 @@ function LeagueCarousel({ tournaments, playerName }: { tournaments: EnrichedLeag
           </div>
           <div>
             <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Format</p>
-            <p className="text-xs font-semibold text-primary">{formatLeagueType(tournament.league_type)}</p>
+            <p className="text-xs font-semibold text-primary">{formatLeagueType(game.league_type)}</p>
           </div>
         </div>
 
@@ -394,8 +394,8 @@ function LeagueCarousel({ tournaments, playerName }: { tournaments: EnrichedLeag
           <div>
             <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Cards</p>
             <p className="text-xs font-semibold text-primary">
-              {tournament.scoring_cards_count != null
-                ? `Best ${tournament.scoring_cards_count}${tournament.total_cards_count ? ` of ${tournament.total_cards_count}` : ""}`
+              {game.scoring_cards_count != null
+                ? `Best ${game.scoring_cards_count}${game.total_cards_count ? ` of ${game.total_cards_count}` : ""}`
                 : "All count"}
             </p>
           </div>
@@ -410,8 +410,8 @@ function LeagueCarousel({ tournaments, playerName }: { tournaments: EnrichedLeag
           <div>
             <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Duration</p>
             <p className="text-xs font-semibold text-primary">
-              {tournament.start_date
-                ? `${formatDateShort(tournament.start_date)} – ${formatDateShort(tournament.end_date)}`
+              {game.start_date
+                ? `${formatDateShort(game.start_date)} – ${formatDateShort(game.end_date)}`
                 : "No season set"}
             </p>
           </div>
@@ -420,10 +420,10 @@ function LeagueCarousel({ tournaments, playerName }: { tournaments: EnrichedLeag
 
       {/* Players preview — same tap-through-to-profile pattern as
           the profile page's LeagueCarousel. Button stops propagation
-          so the outer tournament-card click doesn't hijack. */}
+          so the outer game-card click doesn't hijack. */}
       <div className="mt-4 flex flex-col items-center gap-2">
         <div className="flex gap-2">
-          {tournament.members.slice(0, 5).map((m) => (
+          {game.members.slice(0, 5).map((m) => (
             <button
               type="button"
               key={m.user_id}
@@ -442,16 +442,16 @@ function LeagueCarousel({ tournaments, playerName }: { tournaments: EnrichedLeag
               />
             </button>
           ))}
-          {tournament.memberCount > 5 && (
+          {game.memberCount > 5 && (
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary/60">
-              +{tournament.memberCount - 5}
+              +{game.memberCount - 5}
             </div>
           )}
         </div>
         <span className="text-xs text-primary/60">
-          {tournament.max_players != null
-            ? `${tournament.memberCount}/${tournament.max_players} players`
-            : `${tournament.memberCount} player${tournament.memberCount !== 1 ? "s" : ""}`}
+          {game.max_players != null
+            ? `${game.memberCount}/${game.max_players} players`
+            : `${game.memberCount} player${game.memberCount !== 1 ? "s" : ""}`}
         </span>
       </div>
     </section>

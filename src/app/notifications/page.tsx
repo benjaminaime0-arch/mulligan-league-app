@@ -104,7 +104,7 @@ export default function NotificationsPage() {
             </p>
             <p className="mt-1 text-xs text-primary/40">
               You&apos;ll see updates here when scores are submitted, players join your
-              tournaments, and more.
+              games, and more.
             </p>
           </section>
         )}

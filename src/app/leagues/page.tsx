@@ -36,7 +36,7 @@ export default function LeaguesRedirect() {
   if (authLoading || (!noLeagues)) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-primary/70">Loading tournaments…</p>
+        <p className="text-primary/70">Loading games…</p>
       </main>
     )
   }
@@ -45,22 +45,22 @@ export default function LeaguesRedirect() {
     <main className="min-h-screen px-4 pb-6 pt-4">
       <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 pt-16">
         <section className="w-full rounded-xl border border-dashed border-primary/20 bg-white p-6 text-center shadow-sm">
-          <h2 className="text-base font-semibold text-primary">No tournaments yet</h2>
+          <h2 className="text-base font-semibold text-primary">No games yet</h2>
           <p className="mt-2 text-sm text-primary/70">
-            Start a tournament for your crew, or ask a buddy for their invite code.
+            Start a game for your crew, or ask a buddy for their invite code.
           </p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
             <Link
               href="/leagues/create"
               className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream hover:bg-primary/90"
             >
-              Create Tournament
+              Create Game
             </Link>
             <Link
               href="/leagues/join"
               className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-cream px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
             >
-              Join Tournament
+              Join Game
             </Link>
           </div>
         </section>

@@ -17,7 +17,7 @@ type MatchInfo = {
   status?: string | null
   league_id?: string | number | null
   created_by?: string | null
-  tournaments?: {
+  leagues?: {
     id: string | number
     name: string
     max_players?: number | null
@@ -41,7 +41,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
   const [joining, setJoining] = useState(false)
   const [success, setSuccess] = useState(false)
 
-  // Whether the user needs to join the tournament first
+  // Whether the user needs to join the game first
   const [needsLeagueJoin, setNeedsLeagueJoin] = useState(false)
   const [alreadyInMatch, setAlreadyInMatch] = useState(false)
   const [alreadyRequested, setAlreadyRequested] = useState(false)
@@ -62,7 +62,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
         // Fetch match info
         const { data: matchData, error: matchError } = await supabase
           .from("matches")
-          .select("*, tournaments(id, name, max_players)")
+          .select("*, leagues(id, name, max_players)")
           .eq("id", matchId)
           .single()
 
@@ -116,7 +116,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
           return
         }
 
-        // If tournament match, check tournament membership
+        // If game match, check game membership
         if (m.league_id) {
           const { data: membership } = await supabase
             .from("league_members")
@@ -126,7 +126,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
             .maybeSingle()
 
           if (!membership) {
-            // Check if tournament is full
+            // Check if game is full
             const { data: leagueMembers } = await supabase
               .from("league_members")
               .select("id")
@@ -134,10 +134,10 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
 
             const memberCount = leagueMembers?.length || 0
             setLeagueMemberCount(memberCount)
-            const maxPlayers = m.tournaments?.max_players
+            const maxPlayers = m.leagues?.max_players
 
             if (maxPlayers && memberCount >= maxPlayers) {
-              setError("The tournament for this match is full. You cannot join.")
+              setError("The game for this match is full. You cannot join.")
               return
             }
 
@@ -368,19 +368,19 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
               </svg>
               {playerCount}/{MAX_MATCH_PLAYERS} players
             </div>
-            {match?.tournaments?.name && (
+            {match?.leagues?.name && (
               <div className="flex items-center gap-3 text-sm text-primary">
                 <svg className="h-4 w-4 shrink-0 text-primary/50" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m3.044 0a6.726 6.726 0 002.748-1.35m-.044 0h.002a6.003 6.003 0 005.392-4.972 50.901 50.901 0 00-2.916-.52M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228" />
                 </svg>
-                Tournament: {match.tournaments.name}
+                Game: {match.leagues.name}
               </div>
             )}
           </div>
 
-          {needsLeagueJoin && match?.tournaments?.name && (
+          {needsLeagueJoin && match?.leagues?.name && (
             <div className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              You&apos;ll also need to join the tournament &ldquo;{match.tournaments.name}&rdquo; — the admin will be notified.
+              You&apos;ll also need to join the game &ldquo;{match.leagues.name}&rdquo; — the admin will be notified.
             </div>
           )}
 
@@ -400,7 +400,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
               {joining
                 ? "Sending request…"
                 : needsLeagueJoin
-                ? "Request to Join Tournament & Match"
+                ? "Request to Join Game & Match"
                 : "Request to Join"}
             </button>
             <button

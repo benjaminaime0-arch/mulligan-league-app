@@ -12,16 +12,16 @@ interface LeaderboardTableProps {
   /**
    * Current viewer's id — when present we highlight their row so
    * members can locate themselves at a glance. Pass `null` on pages
-   * where the viewer isn't a tournament member.
+   * where the viewer isn't a game member.
    */
   currentUserId?: string | null
   /**
-   * When the tournament scores "best N of total" this is that N; used to
+   * When the game scores "best N of total" this is that N; used to
    * explain the "Counted" column via a title tooltip.
    */
   scoringCardsCount?: number | null
   /**
-   * Tournament scoring model. Drives direction of "+N ahead" gap math,
+   * Game scoring model. Drives direction of "+N ahead" gap math,
    * the unit suffix on scores, and tooltip copy. Defaults to stroke
    * play if omitted.
    */
@@ -36,19 +36,19 @@ export function LeaderboardTable({
   leagueFormat = "stroke_play",
 }: LeaderboardTableProps) {
   const copy = formatCopy(leagueFormat)
-  // Tooltip copy flexes with tournament config. When a `scoring_cards_count`
+  // Tooltip copy flexes with game config. When a `scoring_cards_count`
   // is set, every round played may not count toward Total — we
   // explain the "best N of M" rule. Otherwise the two numbers are
   // always equal, so we label the column for what it is.
   const countedTitle = scoringCardsCount
     ? `Counted / Played — best ${scoringCardsCount} of all rounds played count toward Total`
-    : "Rounds played in this tournament"
+    : "Rounds played in this game"
 
   // Defensive sort — the RPC already returns rows in the right order,
   // but the `+N ahead` gap calculation below reads `rows[idx + 1]`
   // directly. If some future caller ever filters or re-maps the array
   // before handing it in, we'd silently lie about margins. Sorting by
-  // position here costs nothing at 8-player tournaments and guarantees
+  // position here costs nothing at 8-player games and guarantees
   // the invariant rows.map() relies on.
   const rows = [...leaderboard].sort((a, b) => {
     const pa = a.position ?? Number.MAX_SAFE_INTEGER
@@ -88,7 +88,7 @@ export function LeaderboardTable({
               <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
             </svg>
           </div>
-          {/* This branch only fires when the tournament has zero members
+          {/* This branch only fires when the game has zero members
               — after the show_all_members RPC change, every member
               appears even at zero rounds. So the copy addresses the
               "roster is empty" case, not "nobody has played yet". */}
@@ -114,7 +114,7 @@ export function LeaderboardTable({
                 </th>
                 <th
                   className="py-2 pr-3 text-right font-medium"
-                  title={`${copy.superlative} single round this tournament`}
+                  title={`${copy.superlative} single round this game`}
                 >
                   Best
                 </th>
