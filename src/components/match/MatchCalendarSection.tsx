@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * Shared calendar-style match surface, used on both the league page
+ * Shared calendar-style match surface, used on both the tournament page
  * and the profile page. Renders:
  *
  *   [ horizontal day strip (±15 days, scrollable, with date-picker) ]
@@ -9,39 +9,39 @@
  *   [ "My calendar →" link to /profile/matches for the full tabbed list ]
  *
  * Data model: caller passes `matches` (ALL matches to surface on the
- * strip — e.g. a league's period matches, or a viewer's matches across
- * leagues), plus `matchPlayersMap` keyed by match id, plus a
- * `resolveLeague` callback that returns the matching League for a
- * given match (league page: same league for all; profile page: per
- * match from an embedded leagues map).
+ * strip — e.g. a tournament's period matches, or a viewer's matches across
+ * tournaments), plus `matchPlayersMap` keyed by match id, plus a
+ * `resolveLeague` callback that returns the matching Tournament for a
+ * given match (tournament page: same tournament for all; profile page: per
+ * match from an embedded tournaments map).
  *
  * Design notes:
  *   - Strip auto-centers on today.
  *   - Days with a match show an emerald dot under the date number.
  *   - Multiple matches on the same day stack vertically below the strip.
  *   - "Show full list" link ALWAYS goes to /profile/matches since
- *     that's the cross-league Past/Scheduled list page.
+ *     that's the cross-tournament Past/Scheduled list page.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { MatchDetailCard } from "./MatchDetailCard"
 import { DatePickerModal } from "./DatePickerModal"
-import type { League, Match, MatchPlayer } from "./types"
+import type { Tournament, Match, MatchPlayer } from "./types"
 
 export interface MatchCalendarSectionProps {
   matches: Match[]
   matchPlayersMap: Map<string | number, MatchPlayer[]>
   currentUserId: string
   /**
-   * Returns the League that contextualizes a given match. Called per
-   * rendered MatchDetailCard. On the league page this always returns
+   * Returns the Tournament that contextualizes a given match. Called per
+   * rendered MatchDetailCard. On the tournament page this always returns
    * the same league object; on profile it looks up by match.league_id.
    */
-  resolveLeague: (match: Match) => League | null
+  resolveLeague: (match: Match) => Tournament | null
   onRefresh: () => Promise<void> | void
   /**
-   * Optional URL-driven focus (league page forwards this from
+   * Optional URL-driven focus (tournament page forwards this from
    * `?match=X&edit=1`). When set, strip defaults to that match's date
    * and the card auto-opens its score editor if `autoEdit`.
    */
@@ -50,25 +50,25 @@ export interface MatchCalendarSectionProps {
   onFocusConsumed?: () => void
   /**
    * Number of days to show on either side of today. Default 15
-   * (a 31-day viewport). Narrow the range for league periods that
+   * (a 31-day viewport). Narrow the range for tournament periods that
    * don't span that long if you want — the strip is scrollable either way.
    */
   daysBefore?: number
   daysAfter?: number
   /** Forwarded to the inline MatchDetailCard — see its docstring. */
-  context?: "league" | "profile"
+  context?: "tournament" | "profile"
   /**
-   * League id used only by the empty-day CTA to deep-link into the
-   * match-create form with a pre-selected league. On league page this
-   * is the current league's id; on profile page leave unset and the
-   * CTA will open the create page without pre-selecting a league
+   * Tournament id used only by the empty-day CTA to deep-link into the
+   * match-create form with a pre-selected tournament. On tournament page this
+   * is the current tournament's id; on profile page leave unset and the
+   * CTA will open the create page without pre-selecting a tournament
    * (user picks one there).
    */
   defaultLeagueId?: string | number | null
   /**
    * Forwarded to each rendered MatchDetailCard. Lets the "Lowest of
-   * league" flame chip show up on the specific card/row that holds
-   * the league-wide best approved round. Computed once upstream so
+   * tournament" flame chip show up on the specific card/row that holds
+   * the tournament-wide best approved round. Computed once upstream so
    * per-card rendering doesn't re-scan the full match set.
    */
   leagueHighlights?: {
@@ -226,25 +226,25 @@ export function MatchCalendarSection({
   return (
     <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
       {/* Heading = link to the full tabbed Past/Scheduled list.
-          On the league page we pass `?league=<id>` so the list is
-          scoped to that league only (and relabels itself "League
+          On the tournament page we pass `?tournament=<id>` so the list is
+          scoped to that tournament only (and relabels itself "Tournament
           calendar" there). On /profile we send the bare path so the
-          list stays cross-league ("My calendar"). */}
+          list stays cross-tournament ("My calendar"). */}
       <h2 className="mb-3">
         <Link
           href={
-            context === "league" && defaultLeagueId != null
-              ? `/profile/matches?league=${encodeURIComponent(String(defaultLeagueId))}`
+            context === "tournament" && defaultLeagueId != null
+              ? `/profile/matches?tournament=${encodeURIComponent(String(defaultLeagueId))}`
               : "/profile/matches"
           }
           className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary/70"
           aria-label={
-            context === "league"
-              ? "League calendar — see all matches"
+            context === "tournament"
+              ? "Tournament calendar — see all matches"
               : "My calendar — see all matches"
           }
         >
-          {context === "league" ? "League calendar" : "My calendar"}
+          {context === "tournament" ? "Tournament calendar" : "My calendar"}
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary/40" aria-hidden="true">
             <polyline points="9 6 15 12 9 18" />
           </svg>
@@ -567,14 +567,14 @@ function DayMatchesCarousel({
 }: {
   matches: Match[]
   matchPlayersMap: Map<string | number, MatchPlayer[]>
-  resolveLeague: (m: Match) => League | null
+  resolveLeague: (m: Match) => Tournament | null
   currentUserId: string
   onRefresh: () => Promise<void> | void
   focusMatchId?: string | null
   autoEdit?: boolean
   onFocusConsumed?: () => void
   todayIso: string
-  context: "league" | "profile"
+  context: "tournament" | "profile"
   leagueHighlights?: {
     lowestRound?: {
       matchId: string
@@ -630,7 +630,7 @@ function DayMatchesCarousel({
 
   if (!current) return null
 
-  const league = resolveLeague(current)
+  const tournament = resolveLeague(current)
   const hasPrev = safeIndex > 0
   const hasNext = safeIndex < matches.length - 1
 
@@ -647,10 +647,10 @@ function DayMatchesCarousel({
         onPointerCancel={onPointerCancel}
         onPointerLeave={onPointerCancel}
       >
-        {league && (
+        {tournament && (
           <MatchDetailCard
             match={current}
-            league={league}
+            tournament={tournament}
             matchPlayers={matchPlayersMap.get(current.id)}
             currentUserId={currentUserId}
             variant={
@@ -751,9 +751,9 @@ function EmptyTile({
   }
 
   // Today / future → active CTA that deep-links into the match-create
-  // form with date + league pre-filled.
+  // form with date + tournament pre-filled.
   const params = new URLSearchParams({ date: iso })
-  if (defaultLeagueId != null) params.set("league", String(defaultLeagueId))
+  if (defaultLeagueId != null) params.set("tournament", String(defaultLeagueId))
   const href = `/matches/create?${params.toString()}`
 
   return (

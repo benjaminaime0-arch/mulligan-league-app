@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 export const metadata: Metadata = {
   title: "Terms of Service",
   description:
-    "Terms of service for Mulligan League. Read the rules and guidelines for using our platform.",
+    "Terms of service for Mulligan. Read the rules and guidelines for using our platform.",
 }
 
 export default function TermsPage() {
@@ -18,7 +18,7 @@ export default function TermsPage() {
             1. Acceptance of Terms
           </h2>
           <p>
-            By creating an account or using Mulligan League, you agree to these
+            By creating an account or using Mulligan, you agree to these
             terms of service. If you do not agree, please do not use the
             service.
           </p>
@@ -29,8 +29,8 @@ export default function TermsPage() {
             2. Description of Service
           </h2>
           <p>
-            Mulligan League is a free platform that allows golfers to create
-            private leagues, log scores, track leaderboards, and organize
+            Mulligan is a free platform that allows golfers to create
+            private tournaments, log scores, track leaderboards, and organize
             weekly matches with their golf group.
           </p>
         </section>
@@ -52,8 +52,8 @@ export default function TermsPage() {
             4. Acceptable Use
           </h2>
           <p>
-            You agree to use Mulligan League for its intended purpose —
-            organizing and tracking golf leagues. You may not use the service
+            You agree to use Mulligan for its intended purpose —
+            organizing and tracking golf tournaments. You may not use the service
             for any unlawful purpose, spam other users, or attempt to interfere
             with the platform&apos;s operation.
           </p>
@@ -65,8 +65,8 @@ export default function TermsPage() {
           </h2>
           <p>
             You are responsible for the accuracy of the scores and information
-            you submit. Mulligan League is not responsible for disputes between
-            league members regarding scores or standings.
+            you submit. Mulligan is not responsible for disputes between
+            tournament members regarding scores or standings.
           </p>
         </section>
 
@@ -86,7 +86,7 @@ export default function TermsPage() {
             7. Limitation of Liability
           </h2>
           <p>
-            Mulligan League is provided &quot;as is&quot; without warranties of
+            Mulligan is provided &quot;as is&quot; without warranties of
             any kind. We are not liable for any damages arising from your use
             of the service.
           </p>
@@ -99,10 +99,10 @@ export default function TermsPage() {
           <p>
             Questions about these terms? Contact us at{" "}
             <a
-              href="mailto:hello@mulliganleague.com"
+              href="mailto:hello@mulliganclub.co"
               className="text-accent underline hover:text-accent/80"
             >
-              hello@mulliganleague.com
+              hello@mulliganclub.co
             </a>
             .
           </p>

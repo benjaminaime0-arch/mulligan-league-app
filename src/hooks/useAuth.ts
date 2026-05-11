@@ -13,7 +13,7 @@ export function useAuth() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data, error }) => {
       if (error || !data.session) {
-        router.replace("/login")
+        router.replace("/")
         return
       }
       setUser(data.session.user)

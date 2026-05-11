@@ -3,7 +3,7 @@
 /**
  * `/matches/[id]` is retired as a standalone surface — all match
  * interactions (edit scores, approve, invite, share, leave/delete)
- * now live inline on the parent league page's match carousel.
+ * now live inline on the parent tournament page's match carousel.
  *
  * This route is kept as a thin client redirect so that old deep
  * links (notifications, emails, shared invites, bookmarks) keep
@@ -11,14 +11,14 @@
  *
  *   1. Fetches the match's league_id
  *   2. Forwards any `?edit=1` query as `?match=[id]&edit=1` on the
- *      league URL so the league page can auto-select that match +
+ *      tournament URL so the tournament page can auto-select that match +
  *      auto-open the score editor
  *   3. Falls back to /dashboard if the match is gone or not visible
  *      to the current user (RLS-filtered)
  *
  * The previous full-page experience (1000+ lines) along with its
  * components/ directory has been removed. Everything ports to
- * `src/app/leagues/[id]/components/MatchDetailCard.tsx`.
+ * `src/app/tournaments/[id]/components/MatchDetailCard.tsx`.
  */
 
 import { useEffect, useState } from "react"
@@ -58,7 +58,7 @@ export default function MatchRedirectPage() {
       }
 
       // Preserve the auto-edit intent by passing `match` + `edit` on
-      // the league URL. League page reads these and delegates to
+      // the tournament URL. Tournament page reads these and delegates to
       // ScheduledMatches → MatchDetailCard.
       const edit = searchParams?.get("edit") === "1"
       const qs = new URLSearchParams()

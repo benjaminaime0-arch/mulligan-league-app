@@ -49,7 +49,7 @@ export default function CreateLeaguePage() {
     setCopied(false)
 
     if (!name.trim() || !course.trim()) {
-      setError("Please fill in league name and golf course.")
+      setError("Please fill in tournament name and golf course.")
       return
     }
     if (!startDate || !endDate) {
@@ -81,7 +81,7 @@ export default function CreateLeaguePage() {
         | null
 
       if (!result || !result.success || !result.league_id || !result.invite_code) {
-        setError(result?.error || "Unable to create league. Please try again.")
+        setError(result?.error || "Unable to create tournament. Please try again.")
         return
       }
 
@@ -120,9 +120,9 @@ export default function CreateLeaguePage() {
     <main className="min-h-screen px-4 py-8">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-8">
         <header>
-          <h1 className="text-2xl font-bold text-primary">Create a League</h1>
+          <h1 className="text-2xl font-bold text-primary">Create a Tournament</h1>
           <p className="mt-2 text-sm text-primary/70">
-            Get your crew organized. You&apos;ll get an invite code to share once the league is set up.
+            Get your crew organized. You&apos;ll get an invite code to share once the tournament is set up.
           </p>
         </header>
 
@@ -133,10 +133,10 @@ export default function CreateLeaguePage() {
             </div>
           )}
 
-          {/* League Name */}
+          {/* Tournament Name */}
           <div>
             <label htmlFor="name" className="mb-1 block text-sm font-medium text-primary">
-              League name
+              Tournament name
             </label>
             <input
               id="name"
@@ -185,9 +185,9 @@ export default function CreateLeaguePage() {
             </select>
           </div>
 
-          {/* League Duration */}
+          {/* Tournament Duration */}
           <div>
-            <p className="mb-1 text-sm font-medium text-primary">League duration</p>
+            <p className="mb-1 text-sm font-medium text-primary">Tournament duration</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="startDate" className="mb-1 block text-xs text-primary/60">
@@ -241,7 +241,7 @@ export default function CreateLeaguePage() {
               ))}
             </select>
             <p className="mt-1 text-xs text-primary/50">
-              Total matches a player can play during the league
+              Total matches a player can play during the tournament
             </p>
           </div>
 
@@ -300,7 +300,7 @@ export default function CreateLeaguePage() {
             disabled={submitting}
             className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? "Creating league…" : "Create League"}
+            {submitting ? "Creating tournament…" : "Create Tournament"}
           </button>
         </form>
 
@@ -308,7 +308,7 @@ export default function CreateLeaguePage() {
           <section className="space-y-4 rounded-xl border border-primary/20 bg-primary px-5 py-6 text-cream shadow-sm">
             <h2 className="text-lg font-semibold">Invite your players</h2>
             <p className="text-sm text-cream/80">
-              Share this invite code with your friends so they can join your league.
+              Share this invite code with your friends so they can join your tournament.
             </p>
             <div className="flex flex-col items-center gap-4 rounded-lg bg-cream/10 p-4">
               <div className="text-3xl font-mono tracking-[0.4em]">
@@ -319,7 +319,7 @@ export default function CreateLeaguePage() {
                   type="button"
                   onClick={async () => {
                     if (!inviteCode) return
-                    const message = `Join my golf league "${name}" on Mulligan League! Code: ${inviteCode}`
+                    const message = `Join my golf tournament "${name}" on Mulligan! Code: ${inviteCode}`
                     if (typeof navigator !== "undefined" && navigator.share) {
                       try {
                         await navigator.share({ text: message })
@@ -346,7 +346,7 @@ export default function CreateLeaguePage() {
                   onClick={() => router.push(`/leagues/${leagueId}`)}
                   className="flex-1 rounded-lg border border-cream/70 px-4 py-2.5 text-sm font-medium text-cream transition-all hover:bg-cream/10 active:scale-[0.98]"
                 >
-                  Go to League
+                  Go to Tournament
                 </button>
               </div>
             </div>

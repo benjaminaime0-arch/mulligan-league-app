@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * League-scoped activity feed. Shows recent events for THIS league
+ * Tournament-scoped activity feed. Shows recent events for THIS tournament
  * only (matches created, scores approved, members joining). Powered
  * by the `get_league_activity_feed` RPC which is SECURITY DEFINER
  * and gated on viewer-is-member so non-members can't peek.
@@ -321,7 +321,7 @@ function ActivityFeedModal({
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"
       role="dialog"
       aria-modal="true"
-      aria-label="League activity"
+      aria-label="Tournament activity"
       onClick={onClose}
     >
       <div
@@ -358,7 +358,7 @@ function formatMessage(event: ActivityEvent): string {
   const meta = event.metadata || {}
   switch (event.event_type) {
     case "player_joined_league":
-      return "joined the league"
+      return "joined the tournament"
     case "match_created": {
       const date = meta.match_date
         ? new Date(String(meta.match_date)).toLocaleDateString("en-US", {

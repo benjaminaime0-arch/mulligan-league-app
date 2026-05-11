@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "Privacy policy for Mulligan League. Learn how we collect, use, and protect your data.",
+    "Privacy policy for Mulligan. Learn how we collect, use, and protect your data.",
 }
 
 export default function PrivacyPage() {
@@ -18,10 +18,10 @@ export default function PrivacyPage() {
             1. Information We Collect
           </h2>
           <p>
-            When you create an account on Mulligan League, we collect your name,
+            When you create an account on Mulligan, we collect your name,
             email address, and any profile information you choose to provide. We
-            also collect data about your league activity, including scores,
-            match results, and league memberships.
+            also collect data about your tournament activity, including scores,
+            match results, and tournament memberships.
           </p>
         </section>
 
@@ -30,9 +30,9 @@ export default function PrivacyPage() {
             2. How We Use Your Information
           </h2>
           <p>
-            We use your information to operate and improve Mulligan League,
+            We use your information to operate and improve Mulligan,
             including managing your account, displaying leaderboards, tracking
-            match results, and communicating with you about your leagues. We do
+            match results, and communicating with you about your tournaments. We do
             not sell your personal information to third parties.
           </p>
         </section>
@@ -54,7 +54,7 @@ export default function PrivacyPage() {
             4. Cookies
           </h2>
           <p>
-            Mulligan League uses essential cookies to keep you signed in and
+            Mulligan uses essential cookies to keep you signed in and
             remember your preferences. We may also use analytics cookies to
             understand how our service is used and improve the experience.
           </p>
@@ -80,10 +80,10 @@ export default function PrivacyPage() {
             If you have questions about this privacy policy, please contact us
             at{" "}
             <a
-              href="mailto:hello@mulliganleague.com"
+              href="mailto:hello@mulliganclub.co"
               className="text-accent underline hover:text-accent/80"
             >
-              hello@mulliganleague.com
+              hello@mulliganclub.co
             </a>
             .
           </p>

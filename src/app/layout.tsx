@@ -35,13 +35,13 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "Mulligan League — Organize Your Golf Group",
-    template: "%s | Mulligan League",
+    default: "Mulligan — Organize Your Golf Group",
+    template: "%s | Mulligan",
   },
   description:
-    "Turn your golf group into a real league. Create private leagues, track weekly scores, and compete with friends. Free to use.",
+    "Turn your golf group into a real tournament. Create private tournaments, track weekly scores, and compete with friends. Free to use.",
   keywords: [
-    "golf league",
+    "golf tournament",
     "golf group",
     "golf scoring",
     "golf leaderboard",
@@ -50,11 +50,10 @@ export const metadata: Metadata = {
     "organize golf",
   ],
   // Reads NEXT_PUBLIC_SITE_URL from env (set in Vercel project settings)
-  // with a fallback to the current vercel.app URL. Swap the env var to
-  // https://app.mulliganleague.com the moment that domain is live in
-  // Vercel — no code change needed.
+  // with a fallback to the app subdomain. Apex mulliganclub.co is the
+  // Webflow marketing site; the Next.js app lives at app.mulliganclub.co.
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "https://mulligan-league-app.vercel.app",
+    process.env.NEXT_PUBLIC_SITE_URL || "https://app.mulliganclub.co",
   ),
   icons: {
     icon: [
@@ -64,18 +63,18 @@ export const metadata: Metadata = {
     apple: [{ url: "/logo-mark.png" }],
   },
   openGraph: {
-    title: "Mulligan League — Organize Your Golf Group",
+    title: "Mulligan — Organize Your Golf Group",
     description:
-      "Turn your golf group into a real league. Create private leagues, track weekly scores, and compete with friends. Free to use.",
+      "Turn your golf group into a real tournament. Create private tournaments, track weekly scores, and compete with friends. Free to use.",
     type: "website",
-    siteName: "Mulligan League",
-    images: [{ url: "/logo.png", width: 1024, height: 1024, alt: "Mulligan League" }],
+    siteName: "Mulligan",
+    images: [{ url: "/logo.png", width: 1024, height: 1024, alt: "Mulligan" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Mulligan League — Organize Your Golf Group",
+    title: "Mulligan — Organize Your Golf Group",
     description:
-      "Turn your golf group into a real league. Create private leagues, track weekly scores, and compete with friends. Free to use.",
+      "Turn your golf group into a real tournament. Create private tournaments, track weekly scores, and compete with friends. Free to use.",
     images: ["/logo.png"],
   },
 }

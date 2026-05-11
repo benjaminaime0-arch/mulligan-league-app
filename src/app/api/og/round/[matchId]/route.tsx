@@ -94,7 +94,7 @@ export async function GET(
     league_id: string | null
   }
 
-  let league: { name: string; course_name: string | null } | null = null
+  let tournament: { name: string; course_name: string | null } | null = null
   if (match.league_id) {
     const { data: leagueData } = await supabase
       .from("leagues")
@@ -102,7 +102,7 @@ export async function GET(
       .eq("id", match.league_id)
       .maybeSingle()
     if (leagueData) {
-      league = leagueData as { name: string; course_name: string | null }
+      tournament = leagueData as { name: string; course_name: string | null }
     }
   }
 
@@ -140,8 +140,8 @@ export async function GET(
     return a.score - b.score
   })
 
-  const courseName = match.course_name || league?.course_name || "Course"
-  const leagueName = league?.name || "Match"
+  const courseName = match.course_name || tournament?.course_name || "Course"
+  const leagueName = tournament?.name || "Match"
   const dateStr = match.match_date
     ? new Date(match.match_date).toLocaleDateString("en-US", {
         month: "long",
@@ -191,7 +191,7 @@ export async function GET(
               textTransform: "uppercase",
             }}
           >
-            Mulligan League
+            Mulligan
           </div>
         </div>
 
@@ -266,7 +266,7 @@ export async function GET(
             opacity: 0.5,
           }}
         >
-          <div style={{ display: "flex" }}>app.mulliganleague.com</div>
+          <div style={{ display: "flex" }}>mulliganclub.co</div>
           <div style={{ display: "flex" }}>
             {rendered.length} player{rendered.length === 1 ? "" : "s"}
           </div>

@@ -24,14 +24,14 @@ export default function PlayersPage() {
   const [recentPlayers, setRecentPlayers] = useState<RecentPlayer[]>([])
   const [loadingRecent, setLoadingRecent] = useState(true)
 
-  // Load players from the user's leagues (people they play with)
+  // Load players from the user's tournaments (people they play with)
   useEffect(() => {
     if (authLoading || !user) return
 
     const fetchLeagueMates = async () => {
       setLoadingRecent(true)
 
-      // Get all league IDs the user is in
+      // Get all tournament IDs the user is in
       const { data: memberships } = await supabase
         .from("league_members")
         .select("league_id")
@@ -44,7 +44,7 @@ export default function PlayersPage() {
 
       const leagueIds = memberships.map((m) => m.league_id)
 
-      // Get unique fellow members from those leagues
+      // Get unique fellow members from those tournaments
       const { data: fellows } = await supabase
         .from("league_members")
         .select("user_id, profiles!inner(id, username, first_name, last_name, avatar_url, club, town, handicap)")
@@ -91,10 +91,10 @@ export default function PlayersPage() {
 
       <PlayerSearchBar onSelect={handleSelect} autoFocus />
 
-      {/* Fellow league members */}
+      {/* Fellow tournament members */}
       <section className="mt-8">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-primary/50">
-          From your leagues
+          From your tournaments
         </h2>
 
         {loadingRecent ? (
@@ -103,7 +103,7 @@ export default function PlayersPage() {
           </div>
         ) : recentPlayers.length === 0 ? (
           <p className="rounded-xl border border-dashed border-primary/15 px-4 py-8 text-center text-sm text-primary/40">
-            Join a league to see other players here.
+            Join a tournament to see other players here.
           </p>
         ) : (
           <ul className="divide-y divide-primary/5">

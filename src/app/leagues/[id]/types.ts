@@ -1,7 +1,7 @@
-// Core match/league types moved to `src/components/match/types.ts` so
-// both league and profile pages can share them. Re-exported here for
+// Core match/tournament types moved to `src/components/match/types.ts` so
+// both tournament and profile pages can share them. Re-exported here for
 // back-compat with this directory's existing imports.
-export type { Match, League, MatchPlayer } from "@/components/match/types"
+export type { Match, Tournament, MatchPlayer } from "@/components/match/types"
 
 export type UserLeague = {
   id: string | number

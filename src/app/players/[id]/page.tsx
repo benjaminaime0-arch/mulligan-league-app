@@ -13,7 +13,7 @@ import { ScoreTrendCard } from "@/components/profile/ScoreTrendCard"
 /**
  * Other-player profile page. Mirrors the structure of `/profile` so
  * visiting another user shows the same dashboard (identity card,
- * trajectory, records, courses, leagues). The self-only bits — avatar
+ * trajectory, records, courses, tournaments). The self-only bits — avatar
  * upload, Edit, WeekCalendarCard (date picker / "My calendar" link),
  * ActivityFeed, logout — are intentionally dropped here.
  */
@@ -121,7 +121,7 @@ export default function PlayerProfilePage() {
       }
       setProfile(profileRes.data as Profile)
 
-      // Build enriched leagues for the carousel
+      // Build enriched tournaments for the carousel
       type MemberRow = { id: string; league_id: string; leagues?: LeagueData | null }
       const membershipData = (membershipsRes.data as unknown as MemberRow[]) || []
       const leagueMap = new Map<string, LeagueData>()
@@ -269,7 +269,7 @@ export default function PlayerProfilePage() {
             </span>
             <span className="text-primary/30">·</span>
             <span className="tabular-nums">
-              {leagueCount} {leagueCount === 1 ? "league" : "leagues"}
+              {leagueCount} {leagueCount === 1 ? "tournament" : "tournaments"}
             </span>
           </div>
         </section>
@@ -283,14 +283,14 @@ export default function PlayerProfilePage() {
         {/* 4. Courses played */}
         <CoursesCard courses={courses} />
 
-        {/* 5. Leagues */}
-        <LeagueCarousel leagues={enrichedLeagues} playerName={displayName} />
+        {/* 5. Tournaments */}
+        <LeagueCarousel tournaments={enrichedLeagues} playerName={displayName} />
       </div>
     </main>
   )
 }
 
-/* ── League Carousel ───────────────────────────────────────── */
+/* ── Tournament Carousel ───────────────────────────────────────── */
 
 function formatLeagueType(type?: string | null): string {
   if (!type) return "Standard"
@@ -302,55 +302,55 @@ function formatDateShort(iso?: string | null): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-function LeagueCarousel({ leagues, playerName }: { leagues: EnrichedLeague[]; playerName: string }) {
+function LeagueCarousel({ tournaments, playerName }: { tournaments: EnrichedLeague[]; playerName: string }) {
   const [idx, setIdx] = useState(0)
   const router = useRouter()
 
-  if (leagues.length === 0) {
+  if (tournaments.length === 0) {
     return (
       <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-primary">{playerName}&apos;s Leagues</h2>
-        <p className="text-sm text-primary/70">Not in any leagues yet.</p>
+        <h2 className="mb-3 text-sm font-semibold text-primary">{playerName}&apos;s Tournaments</h2>
+        <p className="text-sm text-primary/70">Not in any tournaments yet.</p>
       </section>
     )
   }
 
-  const league = leagues[idx]
+  const tournament = tournaments[idx]
 
   return (
     <section
       className="cursor-pointer rounded-xl border border-primary/15 bg-white p-5 shadow-sm"
-      onClick={() => router.push(`/leagues/${league.id}`)}
+      onClick={() => router.push(`/leagues/${tournament.id}`)}
     >
       {/* Header with arrows */}
       <div className="flex items-center justify-between gap-2">
-        {leagues.length > 1 && (
-          <button type="button" onClick={(e) => { e.stopPropagation(); setIdx((i) => (i - 1 + leagues.length) % leagues.length) }}
+        {tournaments.length > 1 && (
+          <button type="button" onClick={(e) => { e.stopPropagation(); setIdx((i) => (i - 1 + tournaments.length) % tournaments.length) }}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-            aria-label="Previous league">
+            aria-label="Previous tournament">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
         )}
         <div className="min-w-0 flex-1 text-center">
-          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-primary/40">{playerName}&apos;s Leagues</p>
-          <h2 className="text-lg font-bold text-primary">{league.name}</h2>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-primary/40">{playerName}&apos;s Tournaments</p>
+          <h2 className="text-lg font-bold text-primary">{tournament.name}</h2>
           <p className="text-xs uppercase tracking-[0.2em] text-primary/50">
-            {league.course_name || "Course TBA"}
+            {tournament.course_name || "Course TBA"}
           </p>
         </div>
-        {leagues.length > 1 && (
-          <button type="button" onClick={(e) => { e.stopPropagation(); setIdx((i) => (i + 1) % leagues.length) }}
+        {tournaments.length > 1 && (
+          <button type="button" onClick={(e) => { e.stopPropagation(); setIdx((i) => (i + 1) % tournaments.length) }}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-            aria-label="Next league">
+            aria-label="Next tournament">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
           </button>
         )}
       </div>
 
       {/* Dot indicators */}
-      {leagues.length > 1 && (
+      {tournaments.length > 1 && (
         <div className="mt-2 flex items-center justify-center gap-1.5">
-          {leagues.map((l, i) => (
+          {tournaments.map((l, i) => (
             <button key={l.id} type="button" onClick={(e) => { e.stopPropagation(); setIdx(i) }}
               className={`h-1.5 rounded-full transition-all ${i === idx ? "w-5 bg-primary" : "w-1.5 bg-primary/20 hover:bg-primary/40"}`}
               aria-label={`View ${l.name}`} />
@@ -361,13 +361,13 @@ function LeagueCarousel({ leagues, playerName }: { leagues: EnrichedLeague[]; pl
       {/* Status badge */}
       <div className="mt-3">
         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-          (league.status || "draft") === "active"
+          (tournament.status || "draft") === "active"
             ? "bg-emerald-50 text-emerald-700"
-            : (league.status || "draft") === "completed"
+            : (tournament.status || "draft") === "completed"
             ? "bg-primary/10 text-primary"
             : "bg-amber-50 text-amber-700"
         }`}>
-          {league.status || "draft"}
+          {tournament.status || "draft"}
         </span>
       </div>
 
@@ -381,7 +381,7 @@ function LeagueCarousel({ leagues, playerName }: { leagues: EnrichedLeague[]; pl
           </div>
           <div>
             <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Format</p>
-            <p className="text-xs font-semibold text-primary">{formatLeagueType(league.league_type)}</p>
+            <p className="text-xs font-semibold text-primary">{formatLeagueType(tournament.league_type)}</p>
           </div>
         </div>
 
@@ -394,8 +394,8 @@ function LeagueCarousel({ leagues, playerName }: { leagues: EnrichedLeague[]; pl
           <div>
             <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Cards</p>
             <p className="text-xs font-semibold text-primary">
-              {league.scoring_cards_count != null
-                ? `Best ${league.scoring_cards_count}${league.total_cards_count ? ` of ${league.total_cards_count}` : ""}`
+              {tournament.scoring_cards_count != null
+                ? `Best ${tournament.scoring_cards_count}${tournament.total_cards_count ? ` of ${tournament.total_cards_count}` : ""}`
                 : "All count"}
             </p>
           </div>
@@ -410,8 +410,8 @@ function LeagueCarousel({ leagues, playerName }: { leagues: EnrichedLeague[]; pl
           <div>
             <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Duration</p>
             <p className="text-xs font-semibold text-primary">
-              {league.start_date
-                ? `${formatDateShort(league.start_date)} – ${formatDateShort(league.end_date)}`
+              {tournament.start_date
+                ? `${formatDateShort(tournament.start_date)} – ${formatDateShort(tournament.end_date)}`
                 : "No season set"}
             </p>
           </div>
@@ -420,10 +420,10 @@ function LeagueCarousel({ leagues, playerName }: { leagues: EnrichedLeague[]; pl
 
       {/* Players preview — same tap-through-to-profile pattern as
           the profile page's LeagueCarousel. Button stops propagation
-          so the outer league-card click doesn't hijack. */}
+          so the outer tournament-card click doesn't hijack. */}
       <div className="mt-4 flex flex-col items-center gap-2">
         <div className="flex gap-2">
-          {league.members.slice(0, 5).map((m) => (
+          {tournament.members.slice(0, 5).map((m) => (
             <button
               type="button"
               key={m.user_id}
@@ -442,16 +442,16 @@ function LeagueCarousel({ leagues, playerName }: { leagues: EnrichedLeague[]; pl
               />
             </button>
           ))}
-          {league.memberCount > 5 && (
+          {tournament.memberCount > 5 && (
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary/60">
-              +{league.memberCount - 5}
+              +{tournament.memberCount - 5}
             </div>
           )}
         </div>
         <span className="text-xs text-primary/60">
-          {league.max_players != null
-            ? `${league.memberCount}/${league.max_players} players`
-            : `${league.memberCount} player${league.memberCount !== 1 ? "s" : ""}`}
+          {tournament.max_players != null
+            ? `${tournament.memberCount}/${tournament.max_players} players`
+            : `${tournament.memberCount} player${tournament.memberCount !== 1 ? "s" : ""}`}
         </span>
       </div>
     </section>

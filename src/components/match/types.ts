@@ -1,9 +1,9 @@
 /**
- * Shared match/league types used by cross-page components
+ * Shared match/tournament types used by cross-page components
  * (MatchDetailCard, MatchCalendarSection). Lives outside any single
- * route so both the league page and profile page can import it.
+ * route so both the tournament page and profile page can import it.
  *
- * The league page's own `types.ts` re-exports these plus adds
+ * The tournament page's own `types.ts` re-exports these plus adds
  * page-specific types (MemberWithProfile, LeaderboardRow, etc.).
  */
 
@@ -40,7 +40,7 @@ export type Match = {
 }
 
 /**
- * League format — scoring model. Drives the direction of everything
+ * Tournament format — scoring model. Drives the direction of everything
  * downstream (leaderboard sort, winner = min/max, "strokes" vs
  * "points" copy, best-of-N which-end-is-best selection).
  *
@@ -52,7 +52,7 @@ export type Match = {
  */
 export type LeagueFormat = "stroke_play" | "stableford"
 
-export type League = {
+export type Tournament = {
   id: string | number
   name: string
   course_name?: string | null

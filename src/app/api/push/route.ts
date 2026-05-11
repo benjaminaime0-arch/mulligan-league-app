@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     webpush.setVapidDetails(
-      "mailto:hello@mulliganleague.com",
+      "mailto:hello@mulliganclub.co",
       vapidPublic,
       vapidPrivate,
     )

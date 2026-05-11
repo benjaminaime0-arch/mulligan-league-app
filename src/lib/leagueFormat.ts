@@ -1,23 +1,23 @@
 /**
- * League-format-aware helpers. Single source of truth for the
+ * Tournament-format-aware helpers. Single source of truth for the
  * direction of "better" and all the per-format copy.
  *
  * If a third format is added later (match play, modified stableford,
  * skins…), extend here and every callsite picks it up automatically.
  */
 
-import type { League, LeagueFormat } from "@/components/match/types"
+import type { Tournament, LeagueFormat } from "@/components/match/types"
 
 /**
- * Normalize the league's raw `format` column to a known enum. Treats
+ * Normalize the tournament's raw `format` column to a known enum. Treats
  * anything missing or unrecognised as stroke play so the rest of the
  * app has a single defined axis to branch on.
  */
 export function resolveFormat(
-  league: Pick<League, "format"> | null | undefined,
+  tournament: Pick<Tournament, "format"> | null | undefined,
 ): LeagueFormat {
-  if (!league) return "stroke_play"
-  return league.format === "stableford" ? "stableford" : "stroke_play"
+  if (!tournament) return "stroke_play"
+  return tournament.format === "stableford" ? "stableford" : "stroke_play"
 }
 
 /**

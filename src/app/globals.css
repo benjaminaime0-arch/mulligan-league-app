@@ -2,6 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Nobel TRIAL is glyph-restricted (no @, em-dash, bullet, smart quotes,
+   etc.) and renders missing chars as .notdef boxes. We declare an extra
+   @font-face entry under the SAME generated family name that next/font
+   produced (`__nobel_3fad05`) but with a `unicode-range` limited to the
+   problem code points and `src: local(...)` pointing at system fonts —
+   the browser picks this entry for those code points only and stays on
+   Nobel for everything else. The hash matches what next/font/local
+   currently emits in src/app/layout.tsx; update it here if the font
+   config in layout.tsx changes. */
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  unicode-range: U+0040,          /* @ */
+                 U+2013-2014,     /* en-dash, em-dash */
+                 U+2018-2019,     /* curly single quotes */
+                 U+201C-201D,     /* curly double quotes */
+                 U+2022,          /* bullet */
+                 U+2026,          /* ellipsis */
+                 U+00B7,          /* middle dot */
+                 U+00A0;          /* nbsp */
+  font-display: swap;
+}
+
 :root {
   --primary: #003800;
   --cream: #FFFFFF;
@@ -13,6 +36,7 @@ body {
   color: var(--primary);
   background: var(--cream);
 }
+
 
 /* Mobile bottom nav safe area */
 .mobile-nav-safe {

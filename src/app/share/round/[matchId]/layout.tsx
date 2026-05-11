@@ -13,11 +13,11 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
   const imagePath = `/api/og/round/${params.matchId}`
 
   return {
-    title: "Round on Mulligan League",
-    description: "Check out this round on Mulligan League.",
+    title: "Round on Mulligan",
+    description: "Check out this round on Mulligan.",
     openGraph: {
-      title: "Round on Mulligan League",
-      description: "Check out this round on Mulligan League.",
+      title: "Round on Mulligan",
+      description: "Check out this round on Mulligan.",
       images: [
         {
           url: imagePath,
@@ -30,8 +30,8 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
     },
     twitter: {
       card: "summary_large_image",
-      title: "Round on Mulligan League",
-      description: "Check out this round on Mulligan League.",
+      title: "Round on Mulligan",
+      description: "Check out this round on Mulligan.",
       images: [imagePath],
     },
   }

@@ -1,14 +1,14 @@
 "use client"
 
 /**
- * Trophy shelf — cross-league honors the viewer currently holds.
+ * Trophy shelf — cross-tournament honors the viewer currently holds.
  *
- * Each row summarises one badge in one league. Rows are grouped by
- * league so the viewer sees their standing-per-league at a glance
- * rather than a flat mix of "3 lowest rounds across 3 leagues".
+ * Each row summarises one badge in one tournament. Rows are grouped by
+ * tournament so the viewer sees their standing-per-tournament at a glance
+ * rather than a flat mix of "3 lowest rounds across 3 tournaments".
  *
  * Badge metadata (icon, label, formatting) is duplicated from the
- * per-league `BadgesCard` for now — extract to `src/lib/badges.ts`
+ * per-tournament `BadgesCard` for now — extract to `src/lib/badges.ts`
  * the moment a third surface needs it. Keeping it inline prevents
  * a premature abstraction when the single source of truth for the
  * badge list (the `get_league_badges` RPC) already lives in SQL.
@@ -22,9 +22,9 @@ export interface UserHonorRow {
   league_id: string | null
   league_name: string | null
   /**
-   * Format of the league this honor belongs to. Rides along per-row
-   * (unlike the per-league BadgesCard which gets it once from its
-   * parent) because the trophy shelf can mix leagues of different
+   * Format of the tournament this honor belongs to. Rides along per-row
+   * (unlike the per-tournament BadgesCard which gets it once from its
+   * parent) because the trophy shelf can mix tournaments of different
    * formats — each row needs its own "strokes vs points" context.
    */
   league_format?: LeagueFormat | string | null
@@ -40,7 +40,7 @@ interface MyHonorsCardProps {
 }
 
 export function MyHonorsCard({ honors, loading = false }: MyHonorsCardProps) {
-  // Group by league — one block per league, rows = badges held in it.
+  // Group by tournament — one block per tournament, rows = badges held in it.
   const byLeague = groupByLeague(honors)
 
   return (
@@ -66,7 +66,7 @@ export function MyHonorsCard({ honors, loading = false }: MyHonorsCardProps) {
   )
 }
 
-/* ── League group ─────────────────────────────────────── */
+/* ── Tournament group ─────────────────────────────────────── */
 
 type LeagueGroupShape = {
   leagueId: string | null

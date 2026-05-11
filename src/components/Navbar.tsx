@@ -9,7 +9,7 @@ import { NotificationBell } from "@/components/NotificationBell"
 import { NotificationReadSync } from "@/components/NotificationReadSync"
 import { supabase } from "@/lib/supabase"
 
-const authFreeRoutes = ["/", "/login", "/signup"]
+const authFreeRoutes = ["/"]
 
 export function Navbar() {
   const pathname = usePathname()
@@ -61,10 +61,10 @@ export function Navbar() {
           <Link
             href="/profile"
             className="flex items-center gap-2 text-sm font-semibold tracking-wide text-primary hover:text-primary/80"
-            aria-label="Mulligan League — Home"
+            aria-label="Mulligan — Home"
           >
             <Logo mark size={32} />
-            <span className="hidden sm:inline">Mulligan League</span>
+            <span className="hidden sm:inline">Mulligan</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm font-medium">
             <DesktopLink href="/leagues" label="Leagues" pathname={pathname} />
@@ -74,13 +74,13 @@ export function Navbar() {
               href="/leagues/create"
               className="rounded-lg border border-primary/30 bg-white px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/5"
             >
-              Create League
+              Create Tournament
             </Link>
             <Link
               href="/leagues/join"
               className="rounded-lg border border-primary/30 bg-white px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/5"
             >
-              Join League
+              Join Tournament
             </Link>
             <Link
               href="/matches/create"
@@ -104,10 +104,10 @@ export function Navbar() {
       {/* Mobile bottom nav */}
       <nav className="mobile-nav-safe fixed bottom-0 left-0 right-0 z-40 border-t border-primary/10 bg-white/95 backdrop-blur md:hidden">
         <div className="mx-auto flex max-w-md items-end justify-between px-2 pt-1.5">
-          {/* Leagues */}
+          {/* Tournaments */}
           <MobileNavTab
             href="/leagues"
-            label="Leagues"
+            label="Tournaments"
             active={isActive("/leagues")}
             icon={<TrophyIcon />}
             activeIcon={<TrophyIconFilled />}
@@ -140,13 +140,13 @@ export function Navbar() {
                   />
                   <ActionMenuItem
                     href="/leagues/create"
-                    label="Create League"
+                    label="Create Tournament"
                     icon={<PlusCircleIcon />}
                     onClick={() => setShowActions(false)}
                   />
                   <ActionMenuItem
                     href="/leagues/join"
-                    label="Join League"
+                    label="Join Tournament"
                     icon={<JoinIcon />}
                     onClick={() => setShowActions(false)}
                   />

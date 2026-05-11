@@ -10,7 +10,7 @@ interface LogoProps {
 }
 
 /**
- * Mulligan League logo.
+ * Mulligan logo.
  * Drop the full lockup at `public/logo.png` (recommended >= 1024px wide, transparent or dark-green bg).
  * Optional square mark at `public/logo-mark.png` for tight slots (falls back to the lockup).
  */
@@ -22,7 +22,7 @@ export function Logo({ size = 160, mark = false, className, priority }: LogoProp
   return (
     <Image
       src={src}
-      alt="Mulligan League"
+      alt="Mulligan"
       width={width}
       height={height}
       priority={priority}

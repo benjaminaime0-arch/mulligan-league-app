@@ -59,7 +59,7 @@ function JoinLeagueContent() {
       if (!result || !result.success || !result.league_id || !result.league_name) {
         const message =
           result?.error ||
-          "Unable to join league. The code may be invalid, the league may be full, or you may already be a member."
+          "Unable to join tournament. The code may be invalid, the tournament may be full, or you may already be a member."
         setError(message)
         return
       }
@@ -67,7 +67,7 @@ function JoinLeagueContent() {
       setLeagueId(result.league_id)
       setSuccessLeagueName(result.league_name ?? null)
 
-      // Fetch additional league details for the success card
+      // Fetch additional tournament details for the success card
       const [leagueRes, membersRes] = await Promise.all([
         supabase
           .from("leagues")
@@ -88,9 +88,9 @@ function JoinLeagueContent() {
       if (message.toLowerCase().includes("invalid")) {
         setError("Invalid invite code.")
       } else if (message.toLowerCase().includes("full")) {
-        setError("This league is full.")
+        setError("This tournament is full.")
       } else if (message.toLowerCase().includes("already")) {
-        setError("You are already a member of this league.")
+        setError("You are already a member of this tournament.")
       } else {
         setError(message)
       }
@@ -142,7 +142,7 @@ function JoinLeagueContent() {
                 onClick={() => router.push(`/leagues/${leagueId}`)}
                 className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98]"
               >
-                Go to League
+                Go to Tournament
               </button>
               <button
                 type="button"
@@ -162,7 +162,7 @@ function JoinLeagueContent() {
     <main className="min-h-screen px-4 py-8">
       <div className="mx-auto flex w-full max-w-md flex-col gap-8">
         <header className="text-center">
-          <h1 className="text-2xl font-bold text-primary">Join a League</h1>
+          <h1 className="text-2xl font-bold text-primary">Join a Tournament</h1>
           <p className="mt-2 text-sm text-primary/70">
             Got a code from a friend? Punch it in and you&apos;re in.
           </p>
@@ -207,7 +207,7 @@ function JoinLeagueContent() {
             disabled={submitting}
             className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? "Joining league…" : "Join League"}
+            {submitting ? "Joining tournament…" : "Join Tournament"}
           </button>
         </form>
       </div>

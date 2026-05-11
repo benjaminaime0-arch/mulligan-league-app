@@ -5,10 +5,10 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/login", "/signup"],
+        allow: ["/"],
         disallow: ["/dashboard", "/profile", "/leagues", "/matches", "/leaderboard"],
       },
     ],
-    sitemap: "https://app.mulliganleague.com/sitemap.xml",
+    sitemap: "https://app.mulliganclub.co/sitemap.xml",
   }
 }

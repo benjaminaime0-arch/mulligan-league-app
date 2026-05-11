@@ -5,7 +5,7 @@
  * Activity feed. Surfaces up to 3 "other ways to be notable" that
  * don't show up in rank alone:
  *
- *   Lowest Round    — single best approved score in the league
+ *   Lowest Round    — single best approved score in the tournament
  *   Most Active     — most cards submitted (min 2 to qualify)
  *   Most Consistent — tightest STDDEV across ≥3 rounds
  *
@@ -13,7 +13,7 @@
  * badge). Rows are rendered in RPC order — the badge_key-driven ORDER
  * BY in SQL keeps the visual sequence stable.
  *
- * When no badges have been earned yet (brand-new league, no approved
+ * When no badges have been earned yet (brand-new tournament, no approved
  * scores, nobody with ≥2 cards), the card renders an empty-state
  * stub so the section doesn't disappear and reappear as scores land.
  */
@@ -38,7 +38,7 @@ interface BadgesCardProps {
   /** Current viewer — highlight their rows with a cream wash. */
   currentUserId?: string | null
   /**
-   * League scoring model. Drives the "Lowest round" vs "Best round"
+   * Tournament scoring model. Drives the "Lowest round" vs "Best round"
    * label and the unit suffix ("pts" for stableford). Defaults to
    * stroke play, so profile-level usages that don't care about
    * format can pass it through unchanged.

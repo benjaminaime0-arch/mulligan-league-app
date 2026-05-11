@@ -16,8 +16,8 @@ export function LeagueInviteCode({ inviteCode, leagueName, variant }: LeagueInvi
   }
 
   const handleShare = async () => {
-    const joinUrl = `${window.location.origin}/leagues/join?code=${inviteCode}`
-    const message = `Join my golf league "${leagueName}" on Mulligan League!\n${joinUrl}`
+    const joinUrl = `${window.location.origin}/tournaments/join?code=${inviteCode}`
+    const message = `Join my golf tournament "${leagueName}" on Mulligan!\n${joinUrl}`
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ text: message, url: joinUrl })
@@ -43,7 +43,7 @@ export function LeagueInviteCode({ inviteCode, leagueName, variant }: LeagueInvi
   return (
     <div className={containerClass}>
       {/* Fixed h-8 on both so they read as a pair and align with the
-          h-8 destructive icon button in the League Settings row. */}
+          h-8 destructive icon button in the Tournament Settings row. */}
       <button
         type="button"
         onClick={handleCopy}

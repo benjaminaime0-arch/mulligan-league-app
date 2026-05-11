@@ -48,8 +48,8 @@ export default function RoundSharePage({ params }: SharePageProps) {
     if (!shareUrl || typeof navigator === "undefined" || !navigator.share) return
     try {
       await navigator.share({
-        title: "Mulligan League round",
-        text: "Check out this round on Mulligan League:",
+        title: "Mulligan round",
+        text: "Check out this round on Mulligan:",
         url: shareUrl,
       })
     } catch {

@@ -64,7 +64,7 @@ export function NotificationBell() {
     const data = notif.data || {}
 
     // Join request notification that hasn't been acted on → open action modal.
-    // Already-read requests just deep-link to the match/league.
+    // Already-read requests just deep-link to the match/tournament.
     if (notif.type === "join_request" && data.request_id && !notif.read_at) {
       setActionNotif(notif)
       return

@@ -18,7 +18,7 @@ import {
   type UserHonorRow,
 } from "@/components/profile/MyHonorsCard"
 import { MatchCalendarSection } from "@/components/match/MatchCalendarSection"
-import type { League as SharedLeague, Match as SharedMatch, MatchPlayer as SharedMatchPlayer } from "@/components/match/types"
+import type { Tournament as SharedLeague, Match as SharedMatch, MatchPlayer as SharedMatchPlayer } from "@/components/match/types"
 import { ScoreTrendCard } from "@/components/profile/ScoreTrendCard"
 import { LeaderboardTable } from "@/app/leagues/[id]/components/LeaderboardTable"
 import type { LeaderboardRow } from "@/app/leagues/[id]/types"
@@ -38,7 +38,7 @@ type Profile = {
 type LeagueMember = {
   id: string
   league_id: string
-  leagues?: LeagueData | null
+  tournaments?: LeagueData | null
 }
 
 type LeagueData = {
@@ -59,7 +59,7 @@ type LeagueData = {
 // The /profile/matches page has its own copies for its full-list UI.
 
 // ActivityEvent / feed removed — the profile no longer shows a
-// cross-league activity feed. Each league page now carries its own
+// cross-tournament activity feed. Each tournament page now carries its own
 // scoped feed via `LeagueActivityCard` + `get_league_activity_feed`.
 
 export default function ProfilePage() {
@@ -68,20 +68,20 @@ export default function ProfilePage() {
 
   const [profile, setProfile] = useState<Profile | null>(null)
   const [memberships, setMemberships] = useState<LeagueMember[]>([])
-  // Leagues the viewer belongs to, deduped, used to drive the
-  // per-league leaderboard carousel at the bottom of /profile.
+  // Tournaments the viewer belongs to, deduped, used to drive the
+  // per-tournament leaderboard carousel at the bottom of /profile.
   const [myLeagues, setMyLeagues] = useState<LeagueData[]>([])
-  // Leaderboard rows keyed by league id. Populated in parallel after
-  // memberships resolve — each league's leaderboard is a separate
+  // Leaderboard rows keyed by tournament id. Populated in parallel after
+  // memberships resolve — each tournament's leaderboard is a separate
   // `get_leaderboard` RPC call (they're small and member-gated).
   const [leaderboardsByLeague, setLeaderboardsByLeague] = useState<
     Map<string, LeaderboardRow[]>
   >(new Map())
   // Scheduled + past matches moved to /profile/matches page.
-  // Activity feed moved to per-league (LeagueActivityCard).
+  // Activity feed moved to per-tournament (LeagueActivityCard).
   const [matchesPlayed, setMatchesPlayed] = useState(0)
   const [records, setRecords] = useState<RecordsData | null>(null)
-  // Cross-league honors — badges the viewer currently holds. Null
+  // Cross-tournament honors — badges the viewer currently holds. Null
   // while loading, empty array once loaded with nothing earned yet.
   const [honors, setHonors] = useState<UserHonorRow[] | null>(null)
   // Viewer's matches within the calendar window (±30 days around
@@ -89,8 +89,8 @@ export default function ProfilePage() {
   // match detail cards: `calendarMatches` is the raw list,
   // `calendarPlayersMap` keys rosters by match id,
   // `calendarLeaguesById` lets the section resolve each match to its
-  // league (matches span multiple leagues on profile, unlike league
-  // page where every card shares the same league).
+  // tournament (matches span multiple tournaments on profile, unlike tournament
+  // page where every card shares the same tournament).
   const [calendarMatches, setCalendarMatches] = useState<SharedMatch[]>([])
   const [calendarPlayersMap, setCalendarPlayersMap] = useState<
     Map<string | number, SharedMatchPlayer[]>
@@ -108,11 +108,11 @@ export default function ProfilePage() {
    * Pulls the viewer's matches in a ±30 day window around today and
    * builds the three maps MatchCalendarSection consumes: the matches
    * themselves, per-match rosters (with scores + approved_at), and a
-   * leagues-by-id map used as the `resolveLeague` backing for the
+   * tournaments-by-id map used as the `resolveLeague` backing for the
    * detail card.
    *
    * Three queries in parallel:
-   *   1. match_players (mine, in window) → matches & leagues
+   *   1. match_players (mine, in window) → matches & tournaments
    *   2. match_players (all, for those matches) → rosters
    *   3. scores (for those matches) → per-player score + status
    *
@@ -171,7 +171,7 @@ export default function ProfilePage() {
             status: string | null
             league_id: string | null
             created_by: string | null
-            leagues: LeagueEmbed | null
+            tournaments: LeagueEmbed | null
           }
         | null
     }
@@ -204,8 +204,8 @@ export default function ProfilePage() {
         status: m.status,
         created_by: m.created_by,
       })
-      if (m.leagues && !leaguesById.has(String(m.leagues.id))) {
-        leaguesById.set(String(m.leagues.id), m.leagues as SharedLeague)
+      if (m.tournaments && !leaguesById.has(String(m.tournaments.id))) {
+        leaguesById.set(String(m.tournaments.id), m.tournaments as SharedLeague)
       }
     }
 
@@ -326,22 +326,22 @@ export default function ProfilePage() {
         const membershipData = (membershipsRes.data as unknown as LeagueMember[]) || []
         setMemberships(membershipData)
 
-        // Dedupe memberships into the leagues-I-belong-to list. The
+        // Dedupe memberships into the tournaments-I-belong-to list. The
         // bottom of /profile renders a switcher + LeaderboardTable per
-        // league — we only need the core league row here (name,
+        // tournament — we only need the core tournament row here (name,
         // course, format, scoring config). Member rosters + period
         // info come from the leaderboard RPC directly.
         const leagueMap = new Map<string, LeagueData>()
         for (const m of membershipData) {
-          const l = m.leagues as LeagueData | null
+          const l = m.tournaments as LeagueData | null
           if (l && !leagueMap.has(String(l.id))) {
             leagueMap.set(String(l.id), l)
           }
         }
-        // Sort active leagues first (draft/active ahead of completed)
-        // so the carousel lands on a live league by default. Within
+        // Sort active tournaments first (draft/active ahead of completed)
+        // so the carousel lands on a live tournament by default. Within
         // each bucket, most-recently-started first — the user is most
-        // likely thinking about their newest league. Completed leagues
+        // likely thinking about their newest tournament. Completed tournaments
         // stay reachable via the switcher; we don't filter them out
         // because final standings are still useful history.
         const statusRank: Record<string, number> = {
@@ -361,10 +361,10 @@ export default function ProfilePage() {
         // reachable via the "My calendar →" link in MatchCalendarSection's
         // header. We no longer fetch or render those here on /profile.
 
-        // Activity feed retired at the profile level — each league
+        // Activity feed retired at the profile level — each tournament
         // page owns its own scoped feed now. No fetch needed here.
 
-        // Dashboard RPCs in parallel: records + honors + per-league
+        // Dashboard RPCs in parallel: records + honors + per-tournament
         // leaderboards. Courses card was retired from /profile; the
         // "courses played" roll-up still exists on /players/[id].
         const [[recordsRes, honorsRes], lbMap] = await Promise.all([
@@ -389,7 +389,7 @@ export default function ProfilePage() {
         setLeaderboardsByLeague(lbMap)
 
         // Calendar data — the viewer's matches in a ±30 day window
-        // around today, with rosters + scores + embedded league
+        // around today, with rosters + scores + embedded tournament
         // info so the inline MatchDetailCard has what it needs.
         await loadCalendar(userId)
 
@@ -409,7 +409,7 @@ export default function ProfilePage() {
    * Composite refresh for the calendar section. Inline MatchDetailCard
    * mutations (edit, approve, leave, delete) ripple into leaderboard
    * standings — so refreshing the calendar alone would leave the
-   * per-league leaderboards stale until the next mount. We re-pull
+   * per-tournament leaderboards stale until the next mount. We re-pull
    * both here and keep them in sync.
    */
   const handleMatchRefresh = useCallback(async () => {
@@ -422,7 +422,7 @@ export default function ProfilePage() {
     setLeaderboardsByLeague(lbMap)
   }, [user, myLeagues, loadCalendar, loadLeaderboards])
 
-  // Realtime: mirror the league page so approvals / score edits /
+  // Realtime: mirror the tournament page so approvals / score edits /
   // new matches arriving from another device (or teammate) refresh
   // the calendar + leaderboards without a manual reload. We watch
   // `scores` and `matches` — match_players is less useful here since
@@ -447,7 +447,7 @@ export default function ProfilePage() {
         { event: "*", schema: "public", table: "scores" },
         (payload) => {
           // Only bump if the score belongs to a match we know about.
-          // Otherwise cross-league noise would churn the dashboard
+          // Otherwise cross-tournament noise would churn the dashboard
           // for players the viewer has no relationship with.
           const matchId =
             (payload.new as { match_id?: string })?.match_id ??
@@ -460,7 +460,7 @@ export default function ProfilePage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "matches" },
         (payload) => {
-          // Only bump for matches in leagues the viewer belongs to.
+          // Only bump for matches in tournaments the viewer belongs to.
           // The scoped filter (`league_id=in.(…)`) isn't supported on
           // postgres_changes server-side, so we gate in JS against
           // `calendarLeaguesById`.
@@ -489,7 +489,7 @@ export default function ProfilePage() {
     setLogoutLoading(true)
     try {
       await supabase.auth.signOut()
-      router.push("/login")
+      router.push("/")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to log out.")
     } finally {
@@ -770,7 +770,7 @@ export default function ProfilePage() {
                 <span className="text-primary/30">·</span>
                 <span className="tabular-nums">
                   {memberships.length}{" "}
-                  {memberships.length === 1 ? "league" : "leagues"}
+                  {memberships.length === 1 ? "tournament" : "tournaments"}
                 </span>
               </div>
             </>
@@ -781,7 +781,7 @@ export default function ProfilePage() {
         <ScoreTrendCard handicap={profile?.handicap ?? null} />
 
         {/* 3. My calendar — horizontal day strip + inline MatchDetailCard
-            for the selected day. Shared with league page via
+            for the selected day. Shared with tournament page via
             `MatchCalendarSection`. Full list still one tap away via
             the "My calendar →" link in the section header. */}
         {user && (
@@ -799,24 +799,24 @@ export default function ProfilePage() {
         {/* 3. Records — best round, top rival, longest streak */}
         <RecordsCard records={records} />
 
-        {/* 3b. Your honors — cross-league trophy shelf. Renders its
+        {/* 3b. Your honors — cross-tournament trophy shelf. Renders its
             own empty state, so we always include it; loading flag is
             driven by the null sentinel while the RPC is in flight. */}
         <MyHonorsCard honors={honors ?? []} loading={honors === null} />
 
-        {/* Activity feed retired here — each league page now owns
+        {/* Activity feed retired here — each tournament page now owns
             its own scoped feed (see LeagueActivityCard). */}
 
         {/* Courses played card retired from /profile — the roll-up
             still lives on /players/[id] for visiting other players. */}
 
-        {/* My Leagues — per-league leaderboard with a switcher. Each
-            league the viewer belongs to renders its live leaderboard
-            (same component as the league page) so /profile is a
+        {/* My Tournaments — per-tournament leaderboard with a switcher. Each
+            tournament the viewer belongs to renders its live leaderboard
+            (same component as the tournament page) so /profile is a
             single-screen snapshot of where they stand across every
-            league they're in. */}
+            tournament they're in. */}
         <MyLeaguesLeaderboards
-          leagues={myLeagues}
+          tournaments={myLeagues}
           leaderboards={leaderboardsByLeague}
           currentUserId={user.id}
         />
@@ -860,36 +860,36 @@ export default function ProfilePage() {
   )
 }
 
-/* ── My Leagues leaderboards ──────────────────────────────────
+/* ── My Tournaments leaderboards ──────────────────────────────────
  *
  * Replaces the old metadata carousel (format / cards / duration /
- * member row). The viewer already knows the meta for leagues they're
+ * member row). The viewer already knows the meta for tournaments they're
  * in — the useful snapshot on /profile is "where do I stand?", which
- * is exactly what LeaderboardTable shows on the league page itself.
+ * is exactly what LeaderboardTable shows on the tournament page itself.
  *
- * Layout: a small switcher header (league name + course + prev/next
+ * Layout: a small switcher header (tournament name + course + prev/next
  * + dots) above the shared LeaderboardTable card. Tapping the name
- * navigates to the full league page. We intentionally don't wrap
+ * navigates to the full tournament page. We intentionally don't wrap
  * this whole section in another card so we're not stacking a card
  * inside a card — the table's own wrapper supplies the chrome.
  */
 
 function MyLeaguesLeaderboards({
-  leagues,
+  tournaments,
   leaderboards,
   currentUserId,
 }: {
-  leagues: LeagueData[]
+  tournaments: LeagueData[]
   leaderboards: Map<string, LeaderboardRow[]>
   currentUserId: string
 }) {
   const [idx, setIdx] = useState(0)
 
-  if (leagues.length === 0) {
+  if (tournaments.length === 0) {
     return (
       <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-primary">My Leagues</h2>
-        <p className="mb-3 text-sm text-primary/70">No leagues joined yet.</p>
+        <h2 className="mb-3 text-sm font-semibold text-primary">My Tournaments</h2>
+        <p className="mb-3 text-sm text-primary/70">No tournaments joined yet.</p>
         <div className="flex gap-2">
           <Link href="/leagues/create" className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-cream hover:bg-primary/90">Create League</Link>
           <Link href="/leagues/join" className="rounded-lg border border-primary/20 bg-cream px-3 py-2 text-xs font-medium text-primary hover:bg-primary/5">Join League</Link>
@@ -900,25 +900,25 @@ function MyLeaguesLeaderboards({
 
   // Clamp when membership count shrinks (e.g. after Leave) so the
   // carousel never points past the end.
-  const safeIdx = Math.min(idx, leagues.length - 1)
-  const league = leagues[safeIdx]
-  const rows = leaderboards.get(String(league.id)) ?? []
-  const format = resolveFormat({ format: league.format ?? null })
+  const safeIdx = Math.min(idx, tournaments.length - 1)
+  const tournament = tournaments[safeIdx]
+  const rows = leaderboards.get(String(tournament.id)) ?? []
+  const format = resolveFormat({ format: tournament.format ?? null })
 
   return (
     <section className="flex flex-col gap-3">
-      {/* Switcher header — league name + course, with prev/next
+      {/* Switcher header — tournament name + course, with prev/next
           controls and dot indicators when the viewer is in multiple
-          leagues. Name + course is a Link so tap = jump to league. */}
+          tournaments. Name + course is a Link so tap = jump to tournament. */}
       <div className="flex items-center justify-between gap-2">
-        {leagues.length > 1 ? (
+        {tournaments.length > 1 ? (
           <button
             type="button"
             onClick={() =>
-              setIdx((i) => (i - 1 + leagues.length) % leagues.length)
+              setIdx((i) => (i - 1 + tournaments.length) % tournaments.length)
             }
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-            aria-label="Previous league"
+            aria-label="Previous tournament"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
@@ -926,20 +926,20 @@ function MyLeaguesLeaderboards({
           <span className="h-8 w-8 shrink-0" aria-hidden="true" />
         )}
         <Link
-          href={`/leagues/${league.id}`}
+          href={`/leagues/${tournament.id}`}
           className="min-w-0 flex-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
         >
-          <h2 className="truncate text-lg font-bold text-primary">{league.name}</h2>
+          <h2 className="truncate text-lg font-bold text-primary">{tournament.name}</h2>
           <p className="truncate text-xs uppercase tracking-[0.2em] text-primary/50">
-            {league.course_name || "Course TBA"}
+            {tournament.course_name || "Course TBA"}
           </p>
         </Link>
-        {leagues.length > 1 ? (
+        {tournaments.length > 1 ? (
           <button
             type="button"
-            onClick={() => setIdx((i) => (i + 1) % leagues.length)}
+            onClick={() => setIdx((i) => (i + 1) % tournaments.length)}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-            aria-label="Next league"
+            aria-label="Next tournament"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
           </button>
@@ -948,9 +948,9 @@ function MyLeaguesLeaderboards({
         )}
       </div>
 
-      {leagues.length > 1 && (
+      {tournaments.length > 1 && (
         <div className="flex items-center justify-center gap-1.5">
-          {leagues.map((l, i) => (
+          {tournaments.map((l, i) => (
             <button
               key={l.id}
               type="button"
@@ -965,7 +965,7 @@ function MyLeaguesLeaderboards({
       <LeaderboardTable
         leaderboard={rows}
         currentUserId={currentUserId}
-        scoringCardsCount={league.scoring_cards_count ?? null}
+        scoringCardsCount={tournament.scoring_cards_count ?? null}
         leagueFormat={format}
       />
     </section>

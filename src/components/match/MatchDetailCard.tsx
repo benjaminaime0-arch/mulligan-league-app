@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * Fully-inline match detail card — renders inside the league page's
+ * Fully-inline match detail card — renders inside the tournament page's
  * Past / Scheduled carousel so users never need to navigate to
  * `/matches/[id]` for day-to-day interactions. Hosts:
  *
@@ -25,7 +25,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Avatar } from "@/components/Avatar"
-import type { League, Match, MatchPlayer } from "./types"
+import type { Tournament, Match, MatchPlayer } from "./types"
 import {
   compareByTotal,
   formatCopy,
@@ -37,7 +37,7 @@ export const MAX_MATCH_PLAYERS = 4
 
 interface MatchDetailCardProps {
   match: Match
-  league: League
+  tournament: Tournament
   matchPlayers?: MatchPlayer[]
   currentUserId?: string | null
   variant: "scheduled" | "past"
@@ -57,22 +57,22 @@ interface MatchDetailCardProps {
    * Which page surface this card is rendered on. Drives a few
    * presentation-only differences:
    *
-   *  - "league": title is the match's date+time (the course is already
-   *    in the league page header, so showing it per card is redundant).
+   *  - "tournament": title is the match's date+time (the course is already
+   *    in the tournament page header, so showing it per card is redundant).
    *    Per-player status pills are dropped in favour of a single
    *    match-level "Approved N/M" badge next to the title.
    *
    *  - "profile" (default): title is the course name and the subtitle
    *    carries date + approval count. Per-player pills stay so the
-   *    viewer can tell which of their teammates in OTHER leagues has
+   *    viewer can tell which of their teammates in OTHER tournaments has
    *    approved/submitted without extra taps.
    */
-  context?: "league" | "profile"
+  context?: "tournament" | "profile"
   /**
-   * League-wide "best moment" pointers. When this card's match is the
-   * one holding the lowest approved round in the league, we render a
-   * "Lowest of league" flame chip next to that score. Optional so the
-   * profile / cross-league usage of this card doesn't have to supply
+   * Tournament-wide "best moment" pointers. When this card's match is the
+   * one holding the lowest approved round in the tournament, we render a
+   * "Lowest of tournament" flame chip next to that score. Optional so the
+   * profile / cross-tournament usage of this card doesn't have to supply
    * it — chip simply won't show.
    */
   leagueHighlights?: {
@@ -89,7 +89,7 @@ interface MatchDetailCardProps {
 /**
  * Single match-level approval indicator — "Approved 1/3" amber until
  * every player signs off, then "Completed" emerald. Replaces the
- * per-player status pills on the league-page variant of the card.
+ * per-player status pills on the tournament-page variant of the card.
  */
 function MatchApprovalBadge({
   approvedCount,
@@ -251,7 +251,7 @@ function ScoreEditor({
 
 export function MatchDetailCard({
   match,
-  league,
+  tournament,
   matchPlayers,
   currentUserId,
   variant,
@@ -271,7 +271,7 @@ export function MatchDetailCard({
   const [deleting, setDeleting] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState<"leave" | "delete" | null>(null)
-  // Request-to-join state for non-player viewers (league members who
+  // Request-to-join state for non-player viewers (tournament members who
   // aren't in this specific match). States:
   //   idle:   show "Request to Join" button
   //   sending: disabled + spinner
@@ -313,13 +313,13 @@ export function MatchDetailCard({
       })
     : "Date TBA"
   const timeLabel = match.match_time ? match.match_time.slice(0, 5) : null
-  const courseLabel = match.course_name || league.course_name
+  const courseLabel = match.course_name || tournament.course_name
 
   const players = matchPlayers ?? []
-  // Scoring direction comes from the parent league's format. Stroke
+  // Scoring direction comes from the parent tournament's format. Stroke
   // play sorts lowest-first; Stableford sorts highest-first. Unknown
   // formats fall back to stroke.
-  const leagueFormat = resolveFormat(league)
+  const leagueFormat = resolveFormat(tournament)
   const fmtCopy = formatCopy(leagueFormat)
   const sorted =
     variant === "past"
@@ -375,9 +375,9 @@ export function MatchDetailCard({
     match.status !== "completed" &&
     match.status !== "cancelled" &&
     players.length < MAX_MATCH_PLAYERS
-  // Request-to-join: viewer is a league member (guaranteed by
+  // Request-to-join: viewer is a tournament member (guaranteed by
   // privatize_leagues RLS — if they can see this card, they can see
-  // the league), but NOT a player in this match, AND the match has
+  // the tournament), but NOT a player in this match, AND the match has
   // an open slot, AND hasn't been finalized.
   const canRequestJoin =
     !viewerIsPlayer &&
@@ -559,9 +559,9 @@ export function MatchDetailCard({
     // Same URL + message shape the full match page uses.
     const joinUrl = `${window.location.origin}/matches/${match.id}/join`
     const courseName = courseLabel || "the course"
-    const message = league.name
-      ? `Join my match at ${courseName} in "${league.name}" on Mulligan League!\n${joinUrl}`
-      : `Join my match at ${courseName} on Mulligan League!\n${joinUrl}`
+    const message = tournament.name
+      ? `Join my match at ${courseName} in "${tournament.name}" on Mulligan!\n${joinUrl}`
+      : `Join my match at ${courseName} on Mulligan!\n${joinUrl}`
     try {
       if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({ text: message, url: joinUrl })
@@ -721,12 +721,12 @@ export function MatchDetailCard({
           — this card is the only surface. Both contexts carry the
           match-level approval badge top-right so per-player status
           pills aren't repeated on every row.
-           - league: title is date+time (course is already in the page
+           - tournament: title is date+time (course is already in the page
              header, so showing it per card would be redundant)
            - profile: title is course name + date subtitle (courses
-             vary across leagues; seeing them matters here) */}
+             vary across tournaments; seeing them matters here) */}
       <div className="flex items-start justify-between gap-2">
-        {context === "league" ? (
+        {context === "tournament" ? (
           <p className="min-w-0 truncate text-sm font-semibold">
             {dateLabel}
             {timeLabel ? ` · ${timeLabel}` : ""}
@@ -856,10 +856,10 @@ export function MatchDetailCard({
                       )}
                     </span>
                     <div className="flex shrink-0 items-center gap-2">
-                      {/* "Lowest of league" flame chip — appears on
+                      {/* "Lowest of tournament" flame chip — appears on
                           whoever holds the best approved round in the
-                          whole league, wherever that round happened.
-                          Computed upstream (league page) and threaded
+                          whole tournament, wherever that round happened.
+                          Computed upstream (tournament page) and threaded
                           in via `leagueHighlights` so we don't have to
                           re-scan every match's roster from inside the
                           card. */}
@@ -870,8 +870,8 @@ export function MatchDetailCard({
                         p.score === leagueHighlights.lowestRound.score && (
                           <span
                             className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-300 to-red-500 text-white shadow-[0_1px_3px_rgba(239,68,68,0.35)] ring-[1.5px] ring-white"
-                            aria-label="Lowest round in the league"
-                            title="Lowest round in the league"
+                            aria-label="Lowest round in the tournament"
+                            title="Lowest round in the tournament"
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -1128,7 +1128,7 @@ export function MatchDetailCard({
         )}
 
       {/* Pending join requests — admin-only section. Shown to the
-          match creator when at least one league member has tapped
+          match creator when at least one tournament member has tapped
           Request to Join. Approve adds them to match_players and
           closes the request; Reject leaves the match untouched. */}
       {!editing && viewerIsCreator && pendingRequests.length > 0 && (
@@ -1173,7 +1173,7 @@ export function MatchDetailCard({
         </div>
       )}
 
-      {/* Request to Join — renders for league members who AREN'T in
+      {/* Request to Join — renders for tournament members who AREN'T in
           this match. Sent via `request_join_match` RPC; admin gets a
           notification and approves/rejects from the section above.
           Request becomes "pending" UI while awaiting. Rendered

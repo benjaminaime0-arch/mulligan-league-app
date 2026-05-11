@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { ConfirmModal } from "@/components/ConfirmModal"
 import type {
-  League,
+  Tournament,
   UserLeague,
   MemberWithProfile,
   LeaguePeriod,
@@ -33,23 +33,23 @@ interface LeaguePageProps {
 
 /**
  * Builds the "Stroke play · Best 3 of 5 cards" tagline shown below
- * the league name on the detail page. Returns null when there's
+ * the tournament name on the detail page. Returns null when there's
  * nothing meaningful to show.
  *
  * Format is surfaced explicitly — "Stroke play" or "Stableford" —
- * so viewers of a Stableford league know at a glance that scores
+ * so viewers of a Stableford tournament know at a glance that scores
  * higher=better without having to dig into the leaderboard rules.
  * Falls back to `league_type` when `format` is missing (legacy
  * rows), and omits the format segment entirely when neither is set.
  */
-function formatSubtitle(league: {
+function formatSubtitle(tournament: {
   league_type?: string | null
   scoring_cards_count?: number | null
   total_cards_count?: number | null
   format?: string | null
 }): string | null {
   const parts: string[] = []
-  const fmt = league.format || league.league_type
+  const fmt = tournament.format || tournament.league_type
   if (fmt) {
     parts.push(
       fmt
@@ -57,10 +57,10 @@ function formatSubtitle(league: {
         .replace(/\b\w/g, (c) => c.toUpperCase()),
     )
   }
-  if (league.scoring_cards_count != null) {
+  if (tournament.scoring_cards_count != null) {
     parts.push(
-      `Best ${league.scoring_cards_count}${
-        league.total_cards_count ? ` of ${league.total_cards_count}` : ""
+      `Best ${tournament.scoring_cards_count}${
+        tournament.total_cards_count ? ` of ${tournament.total_cards_count}` : ""
       } cards`,
     )
   }
@@ -75,7 +75,7 @@ function StatusChip({ status }: { status: string | null | undefined }) {
   // announced by the emerald "Completed" progress bar below the
   // header. Only surface the chip for Draft (and any other
   // non-standard state), where the user genuinely needs the
-  // heads-up that the league isn't live yet.
+  // heads-up that the tournament isn't live yet.
   if (s === "active" || s === "completed") return null
 
   // Draft / any other non-active non-completed state
@@ -118,12 +118,12 @@ export default function LeaguePage({ params }: LeaguePageProps) {
     setAutoEdit(false)
   }, [leagueId, router, searchParams])
 
-  const [league, setLeague] = useState<League | null>(null)
+  const [tournament, setLeague] = useState<Tournament | null>(null)
   const [members, setMembers] = useState<MemberWithProfile[]>([])
   const [currentPeriod, setCurrentPeriod] = useState<LeaguePeriod | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([])
   // Honors / badges list. 0–3 rows depending on how much has been
-  // played in the league. Computed on read by `get_league_badges` —
+  // played in the tournament. Computed on read by `get_league_badges` —
   // never persisted.
   const [badges, setBadges] = useState<BadgeRow[]>([])
 
@@ -156,7 +156,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   // Extracted as a useCallback so the inline match card can trigger a
   // re-fetch after mutations (save scores, approve, leave, delete,
   // etc.). `loadData` is the single source of truth for "pull fresh
-  // league + matches + players data" — the useEffect below just runs
+  // tournament + matches + players data" — the useEffect below just runs
   // it once on mount.
   const loadData = useCallback(async () => {
     if (!user) return
@@ -190,9 +190,9 @@ export default function LeaguePage({ params }: LeaguePageProps) {
         ])
 
         if (leagueRes.error) throw leagueRes.error
-        if (!leagueRes.data) throw new Error("League not found.")
+        if (!leagueRes.data) throw new Error("Tournament not found.")
 
-        setLeague(leagueRes.data as League)
+        setLeague(leagueRes.data as Tournament)
 
         if (membersRes.error) throw membersRes.error
         setMembers((membersRes.data || []) as MemberWithProfile[])
@@ -202,13 +202,13 @@ export default function LeaguePage({ params }: LeaguePageProps) {
           .from("join_requests")
           .select("id")
           .eq("requester_id", user.id)
-          .eq("target_type", "league")
+          .eq("target_type", "tournament")
           .eq("target_id", leagueId)
           .eq("status", "pending")
           .maybeSingle()
         if (existingRequest) setJoinRequestSent(true)
 
-        // Build user league list for navigation
+        // Build user tournament list for navigation
         if (!userLeaguesRes.error && userLeaguesRes.data) {
           type UserLeagueRow = { league_id: string; leagues: { id: string; name: string } | { id: string; name: string }[] | null }
           const leagueList: UserLeague[] = []
@@ -226,12 +226,12 @@ export default function LeaguePage({ params }: LeaguePageProps) {
         const active = (periodRes.data as LeaguePeriod | null) ?? null
         setCurrentPeriod(active)
 
-        // Calendar shows ALL matches in this league, not just the
+        // Calendar shows ALL matches in this tournament, not just the
         // active period's. Previously we scoped to `period_id` which
         // hid older/newer matches from the day strip — users couldn't
         // see anything past the current week. Filtering by league_id
-        // gives the day strip full league history + future matches;
-        // the date picker can now jump to anything in the league.
+        // gives the day strip full tournament history + future matches;
+        // the date picker can now jump to anything in the tournament.
         {
           const { data: matchesData, error: matchesError } = await supabase
             .from("matches")
@@ -388,7 +388,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                 "message" in err &&
                 typeof (err as { message?: unknown }).message === "string"
               ? (err as { message: string }).message
-              : "Failed to load league."
+              : "Failed to load tournament."
         setError(msg)
       } finally {
         setLoading(false)
@@ -403,12 +403,12 @@ export default function LeaguePage({ params }: LeaguePageProps) {
     loadData()
   }, [authLoading, user, loadData])
 
-  // League-wide "best moment" pointers for the match cards. Scans
+  // Tournament-wide "best moment" pointers for the match cards. Scans
   // every match's player list once to find the *best* approved score
   // (lowest in stroke play, highest in stableford). The owning match
   // card then lights up a flame chip on the exact row that holds it.
   // Computed here (not per-card) so each card doesn't re-scan the
-  // full league set on every render.
+  // full tournament set on every render.
   //
   // Tiebreak: earliest match_date, then user_id asc, so the chip
   // awards the *first* player to hit the mark when two scores tie.
@@ -420,7 +420,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   const leagueHighlights = useMemo(() => {
     type Best = { matchId: string; userId: string; score: number; date: string }
     let best: Best | null = null
-    const fmt = resolveFormat(league)
+    const fmt = resolveFormat(tournament)
     const matchById = new Map(periodMatches.map((m) => [m.id, m]))
     for (const [matchId, players] of Array.from(matchPlayersMap.entries())) {
       const match = matchById.get(matchId)
@@ -460,7 +460,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
           }
         : null,
     }
-  }, [periodMatches, matchPlayersMap, league])
+  }, [periodMatches, matchPlayersMap, tournament])
 
   // Live leaderboard: subscribe to score + match_player changes so
   // approvals landing in other tabs / other players' devices refresh
@@ -468,7 +468,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   // allows: postgres_changes has no server-side `WHERE match.league_id
   // = X` filter on the scores table (scores only carries match_id),
   // so we subscribe broadly and filter in JS by cross-referencing
-  // `matchPlayersMap`, which is already this league's matches.
+  // `matchPlayersMap`, which is already this tournament's matches.
   //
   // Debounced through a 400ms timer so a burst of approvals (the
   // approve_match_scores RPC flips multiple rows in one call) only
@@ -485,13 +485,13 @@ export default function LeaguePage({ params }: LeaguePageProps) {
     }
 
     const channel = supabase
-      .channel(`league-${leagueId}-live`)
+      .channel(`tournament-${leagueId}-live`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "scores" },
         (payload) => {
           // Only refetch when the score belongs to a match we know
-          // about in this league. Prevents cross-league noise.
+          // about in this tournament. Prevents cross-tournament noise.
           const matchId =
             (payload.new as { match_id?: string })?.match_id ??
             (payload.old as { match_id?: string })?.match_id
@@ -517,20 +517,20 @@ export default function LeaguePage({ params }: LeaguePageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, leagueId, loadData])
 
-  const isAdmin = league && user && league.admin_id === user.id
+  const isAdmin = tournament && user && tournament.admin_id === user.id
   const isMember = user && members.some((m) => {
     const profile = m.profiles as { id?: string } | null
     return profile?.id === user.id
   })
-  const isLeagueFull = league && league.max_players ? members.length >= league.max_players : false
+  const isLeagueFull = tournament && tournament.max_players ? members.length >= tournament.max_players : false
 
   const handleRequestJoinLeague = async () => {
-    if (!league || !user) return
+    if (!tournament || !user) return
     setRequestingJoin(true)
     setJoinRequestError(null)
     try {
       const { data, error: rpcError } = await supabase.rpc("request_join_league", {
-        p_league_id: league.id,
+        p_league_id: tournament.id,
       })
       if (rpcError) throw rpcError
       const result = data as { success: boolean; error?: string }
@@ -546,31 +546,31 @@ export default function LeaguePage({ params }: LeaguePageProps) {
     }
   }
 
-  // League navigation
+  // Tournament navigation
   const currentLeagueIndex = userLeagues.findIndex((l) => String(l.id) === String(leagueId))
   const prevLeague = currentLeagueIndex > 0 ? userLeagues[currentLeagueIndex - 1] : null
   const nextLeague = currentLeagueIndex >= 0 && currentLeagueIndex < userLeagues.length - 1 ? userLeagues[currentLeagueIndex + 1] : null
 
   const handleStartLeague = async () => {
-    if (!league) return
+    if (!tournament) return
     setShowStartConfirm(false)
     setStartingLeague(true)
     setError(null)
     try {
       const { error: rpcError } = await supabase.rpc("generate_league_periods", {
-        p_league_id: league.id,
+        p_league_id: tournament.id,
       })
       if (rpcError) throw rpcError
       window.location.reload()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start league.")
+      setError(err instanceof Error ? err.message : "Failed to start tournament.")
     } finally {
       setStartingLeague(false)
     }
   }
 
   const handleDeleteLeague = async () => {
-    if (!league) return
+    if (!tournament) return
     setShowDeleteConfirm(false)
     setDeletingLeague(true)
     setError(null)
@@ -578,18 +578,18 @@ export default function LeaguePage({ params }: LeaguePageProps) {
       const { error: deleteError } = await supabase
         .from("leagues")
         .delete()
-        .eq("id", league.id)
+        .eq("id", tournament.id)
       if (deleteError) throw deleteError
       router.push("/leagues")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete league.")
+      setError(err instanceof Error ? err.message : "Failed to delete tournament.")
     } finally {
       setDeletingLeague(false)
     }
   }
 
   const handleLeaveLeague = async () => {
-    if (!league || !user) return
+    if (!tournament || !user) return
     setShowLeaveConfirm(false)
     setLeavingLeague(true)
     setError(null)
@@ -597,12 +597,12 @@ export default function LeaguePage({ params }: LeaguePageProps) {
       const { error: leaveError } = await supabase
         .from("league_members")
         .delete()
-        .eq("league_id", league.id)
+        .eq("league_id", tournament.id)
         .eq("user_id", user.id)
       if (leaveError) throw leaveError
       router.push("/leagues")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to leave league.")
+      setError(err instanceof Error ? err.message : "Failed to leave tournament.")
     } finally {
       setLeavingLeague(false)
     }
@@ -623,17 +623,17 @@ export default function LeaguePage({ params }: LeaguePageProps) {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-primary/70">Loading league…</p>
+        <p className="text-primary/70">Loading tournament…</p>
       </main>
     )
   }
 
-  if (error || !league) {
+  if (error || !tournament) {
     return (
       <main className="flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-md rounded-xl border border-red-200 bg-white p-6 text-center shadow-sm">
           <p className="text-sm text-red-700">
-            {error || "We couldn\u2019t find this league."}
+            {error || "We couldn\u2019t find this tournament."}
           </p>
           <button
             type="button"
@@ -647,7 +647,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
     )
   }
 
-  const isDraft = league.status !== "active" && league.status !== "completed"
+  const isDraft = tournament.status !== "active" && tournament.status !== "completed"
 
   return (
     <main className="min-h-screen px-4 pb-6 pt-4">
@@ -674,9 +674,9 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
             <div className="flex min-w-0 items-center gap-2">
               <h1 className="truncate text-2xl font-bold text-primary sm:text-3xl">
-                {league.name}
+                {tournament.name}
               </h1>
-              <StatusChip status={league.status} />
+              <StatusChip status={tournament.status} />
             </div>
 
             {nextLeague ? (
@@ -695,39 +695,39 @@ export default function LeaguePage({ params }: LeaguePageProps) {
           </div>
 
           {/* Format line: sits right under the title — e.g. "Stroke Play · Best 3 of 5 cards" */}
-          {formatSubtitle(league) && (
+          {formatSubtitle(tournament) && (
             <p className="mt-1 text-center text-[10px] font-semibold uppercase tracking-[0.15em] text-primary/50">
-              {formatSubtitle(league)}
+              {formatSubtitle(tournament)}
             </p>
           )}
 
           {/* Meta line: course + dates */}
           <div className="mt-1.5 flex items-center justify-center gap-1.5 text-xs text-primary/70">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-            <span>{league.course_name || "Course TBA"}</span>
-            {league.start_date && league.end_date && (
+            <span>{tournament.course_name || "Course TBA"}</span>
+            {tournament.start_date && tournament.end_date && (
               <>
                 <span className="text-primary/30">·</span>
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
                 <span>
-                  {new Date(league.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – {new Date(league.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  {new Date(tournament.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – {new Date(tournament.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 </span>
               </>
             )}
           </div>
 
-          {/* Period progress bar — active leagues show days-in /
-              days-left ticking; completed leagues (all members hit
+          {/* Period progress bar — active tournaments show days-in /
+              days-left ticking; completed tournaments (all members hit
               cap with approved scores) show a filled emerald bar
               labelled "Completed" so the header stops pretending the
               season is still running. */}
-          {league.status === "active" && (
+          {tournament.status === "active" && (
             <PeriodProgress
-              startDate={league.start_date}
-              endDate={league.end_date}
+              startDate={tournament.start_date}
+              endDate={tournament.end_date}
             />
           )}
-          {league.status === "completed" && <PeriodCompleted />}
+          {tournament.status === "completed" && <PeriodCompleted />}
         </header>
 
         {/* Draft guide for admins */}
@@ -742,14 +742,14 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                 disabled={startingLeague}
                 className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {startingLeague ? "Starting…" : "Start League"}
+                {startingLeague ? "Starting…" : "Start Tournament"}
               </button>
             </div>
             <ConfirmModal
               open={showStartConfirm}
-              title="Start your league?"
-              message="This will generate weekly match periods for your league. Make sure all players have joined before starting."
-              confirmLabel="Start League"
+              title="Start your tournament?"
+              message="This will generate weekly match periods for your tournament. Make sure all players have joined before starting."
+              confirmLabel="Start Tournament"
               loading={startingLeague}
               onConfirm={handleStartLeague}
               onCancel={() => setShowStartConfirm(false)}
@@ -760,9 +760,9 @@ export default function LeaguePage({ params }: LeaguePageProps) {
         {isAdmin ? (
           <ConfirmModal
             open={showDeleteConfirm}
-            title="Delete this league?"
-            message="This will permanently delete the league, all matches, scores, and member data. This action cannot be undone."
-            confirmLabel="Delete League"
+            title="Delete this tournament?"
+            message="This will permanently delete the tournament, all matches, scores, and member data. This action cannot be undone."
+            confirmLabel="Delete Tournament"
             loading={deletingLeague}
             destructive
             onConfirm={handleDeleteLeague}
@@ -771,9 +771,9 @@ export default function LeaguePage({ params }: LeaguePageProps) {
         ) : (
           <ConfirmModal
             open={showLeaveConfirm}
-            title="Leave this league?"
-            message="You will be removed from the league and your scores will remain on record. You can rejoin later with an invite code."
-            confirmLabel="Leave League"
+            title="Leave this tournament?"
+            message="You will be removed from the tournament and your scores will remain on record. You can rejoin later with an invite code."
+            confirmLabel="Leave Tournament"
             loading={leavingLeague}
             destructive
             onConfirm={handleLeaveLeague}
@@ -783,10 +783,10 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
         {/* Next-step banner — tells the viewer what the page wants from
             them right now (play a round, submit a score, etc.). Only
-            shows up for members; skipped for draft leagues since the
-            Start-League CTA already covers that state. */}
+            shows up for members; skipped for draft tournaments since the
+            Start-Tournament CTA already covers that state. */}
         {isMember &&
-          (league.status === "active" || league.status === "completed") && (
+          (tournament.status === "active" || tournament.status === "completed") && (
           <YourStatusCard
             userId={user.id}
             leagueId={leagueId}
@@ -794,7 +794,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             matchPlayersMap={matchPlayersMap}
             mySubmittedMatchIds={mySubmittedMatchIds}
             leaderboard={leaderboard}
-            league={league}
+            tournament={tournament}
           />
         )}
 
@@ -803,7 +803,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
             alive — members see what's happening first, then drill
             into standings and matches. */}
         <section className="flex flex-col gap-6">
-          {/* League activity feed — scoped to THIS league only via
+          {/* Tournament activity feed — scoped to THIS tournament only via
               the get_league_activity_feed RPC. */}
           {isMember && <LeagueActivityCard leagueId={leagueId} />}
 
@@ -812,43 +812,43 @@ export default function LeaguePage({ params }: LeaguePageProps) {
           <LeaderboardTable
             leaderboard={leaderboard}
             currentUserId={user.id}
-            scoringCardsCount={league.scoring_cards_count ?? null}
-            leagueFormat={resolveFormat(league)}
+            scoringCardsCount={tournament.scoring_cards_count ?? null}
+            leagueFormat={resolveFormat(tournament)}
           />
 
           {/* Honors — compact achievements strip. Hidden entirely for
-              draft leagues (nothing has happened yet); once the
-              league is active, BadgesCard renders its own empty
+              draft tournaments (nothing has happened yet); once the
+              tournament is active, BadgesCard renders its own empty
               state, so we don't duplicate that logic here. */}
-          {league.status !== "draft" && (
+          {tournament.status !== "draft" && (
             <BadgesCard
               badges={badges}
               currentUserId={user.id}
-              leagueFormat={resolveFormat(league)}
+              leagueFormat={resolveFormat(tournament)}
             />
           )}
 
-          {/* Always render when there are any matches in the league,
+          {/* Always render when there are any matches in the tournament,
               even if the active period has ended or isn't set yet.
-              Empty draft leagues skip this entirely. */}
+              Empty draft tournaments skip this entirely. */}
           {periodMatches.length > 0 && (
             <MatchCalendarSection
               matches={periodMatches}
               matchPlayersMap={matchPlayersMap}
               currentUserId={user.id}
-              // All matches on this page belong to this league.
-              resolveLeague={() => league}
+              // All matches on this page belong to this tournament.
+              resolveLeague={() => tournament}
               onRefresh={loadData}
               focusMatchId={focusMatchId}
               autoEdit={autoEdit}
               onFocusConsumed={handleFocusConsumed}
-              context="league"
+              context="tournament"
               // Empty-day CTA deep-links into match-create with this
-              // league pre-selected + the tapped day pre-filled.
-              defaultLeagueId={league.id}
+              // tournament pre-selected + the tapped day pre-filled.
+              defaultLeagueId={tournament.id}
               // Forwarded to each rendered MatchDetailCard so the
-              // "Lowest of league" flame chip lights up on the row
-              // that holds the best approved round in this league.
+              // "Lowest of tournament" flame chip lights up on the row
+              // that holds the best approved round in this tournament.
               leagueHighlights={leagueHighlights}
             />
           )}
@@ -865,10 +865,10 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                 Request pending — waiting for admin approval
               </div>
             ) : isLeagueFull ? (
-              <p className="text-sm text-primary/50">This league is full ({members.length}/{league.max_players} players)</p>
+              <p className="text-sm text-primary/50">This tournament is full ({members.length}/{tournament.max_players} players)</p>
             ) : (
               <>
-                <p className="mb-3 text-sm text-primary/60">Want to join this league?</p>
+                <p className="mb-3 text-sm text-primary/60">Want to join this tournament?</p>
                 <button
                   type="button"
                   onClick={handleRequestJoinLeague}
@@ -878,7 +878,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                   </svg>
-                  {requestingJoin ? "Sending request…" : "Request to Join League"}
+                  {requestingJoin ? "Sending request…" : "Request to Join Tournament"}
                 </button>
                 {joinRequestError && (
                   <p className="mt-2 text-xs text-red-600">{joinRequestError}</p>
@@ -888,25 +888,25 @@ export default function LeaguePage({ params }: LeaguePageProps) {
           </section>
         )}
 
-        {/* League settings — mirrors the match card pattern: the
+        {/* Tournament settings — mirrors the match card pattern: the
             destructive action is a small icon button on the right of
             the action row, not a full-width button inside a Danger
             zone disclosure. The existing ConfirmModal (higher up in
             this file) still handles the "are you sure?" step, so the
             safety check is preserved even though the button itself
             is tiny. Admins see Delete, members see Leave. */}
-        {(league.invite_code || isMember || isAdmin) && (
+        {(tournament.invite_code || isMember || isAdmin) && (
           <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-sm font-semibold text-primary">League settings</h2>
+            <h2 className="mb-4 text-sm font-semibold text-primary">Tournament settings</h2>
 
             <div className="flex items-center justify-between gap-3">
-              {league.invite_code ? (
+              {tournament.invite_code ? (
                 <>
                   <span className="text-xs text-primary/60">Invite code</span>
                   <div className="flex items-center gap-2">
                     <LeagueInviteCode
-                      inviteCode={league.invite_code}
-                      leagueName={league.name}
+                      inviteCode={tournament.invite_code}
+                      leagueName={tournament.name}
                       variant="bottom"
                     />
                     {isAdmin ? (
@@ -914,8 +914,8 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                         type="button"
                         onClick={() => setShowDeleteConfirm(true)}
                         disabled={deletingLeague}
-                        aria-label="Delete this league"
-                        title="Delete this league"
+                        aria-label="Delete this tournament"
+                        title="Delete this tournament"
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-60"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" /></svg>
@@ -925,8 +925,8 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                         type="button"
                         onClick={() => setShowLeaveConfirm(true)}
                         disabled={leavingLeague}
-                        aria-label="Leave this league"
-                        title="Leave this league"
+                        aria-label="Leave this tournament"
+                        title="Leave this tournament"
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-60"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
@@ -936,7 +936,7 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                 </>
               ) : (isAdmin || isMember) ? (
                 <>
-                  {/* Fallback: no invite code on this league, but the
+                  {/* Fallback: no invite code on this tournament, but the
                       viewer can still leave / delete. Right-align the
                       icon against a subtle label so it doesn't float
                       alone on the row. */}
@@ -948,8 +948,8 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                       type="button"
                       onClick={() => setShowDeleteConfirm(true)}
                       disabled={deletingLeague}
-                      aria-label="Delete this league"
-                      title="Delete this league"
+                      aria-label="Delete this tournament"
+                      title="Delete this tournament"
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-60"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" /></svg>
@@ -959,8 +959,8 @@ export default function LeaguePage({ params }: LeaguePageProps) {
                       type="button"
                       onClick={() => setShowLeaveConfirm(true)}
                       disabled={leavingLeague}
-                      aria-label="Leave this league"
-                      title="Leave this league"
+                      aria-label="Leave this tournament"
+                      title="Leave this tournament"
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-60"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
@@ -978,8 +978,8 @@ export default function LeaguePage({ params }: LeaguePageProps) {
 
 /* ── PeriodProgress ────────────────────────────────────── */
 /**
- * A thin horizontal progress bar shown under the league header that
- * visualises elapsed time in the league's current period (e.g. Day 6
+ * A thin horizontal progress bar shown under the tournament header that
+ * visualises elapsed time in the tournament's current period (e.g. Day 6
  * of 15). Nothing fancy — just enough to turn a static header into
  * something that changes every time you open it.
  *
@@ -1033,9 +1033,9 @@ function PeriodProgress({
 }
 
 /**
- * Completed-league replacement for the active-period progress bar.
+ * Completed-tournament replacement for the active-period progress bar.
  * Filled emerald bar + single caption. The "Day X of N · M days
- * left" pair stops making sense once the league is decided — every
+ * left" pair stops making sense once the tournament is decided — every
  * member has filled their card allowance — so we swap it for a
  * single celebratory line that matches the footer badge on the
  * match cards ("Completed").
@@ -1058,7 +1058,7 @@ function PeriodCompleted() {
 
 /* ── YourStatusCard ────────────────────────────────────── */
 /**
- * "Your status" block under the league header. Gives the viewer an
+ * "Your status" block under the tournament header. Gives the viewer an
  * instant read of where they stand and what to do next, without
  * scanning the whole page:
  *   - Rank (or "Leading" if #1)
@@ -1090,7 +1090,7 @@ function YourStatusCard({
   matchPlayersMap,
   mySubmittedMatchIds,
   leaderboard,
-  league,
+  tournament,
 }: {
   userId: string
   leagueId: string
@@ -1098,7 +1098,7 @@ function YourStatusCard({
   matchPlayersMap: Map<string | number, MatchPlayer[]>
   mySubmittedMatchIds: Set<string>
   leaderboard: LeaderboardRow[]
-  league: League
+  tournament: Tournament
 }) {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
 
@@ -1119,7 +1119,7 @@ function YourStatusCard({
   // TRAILING the leader, 0 when you are the leader (or no leader
   // exists). Stroke play: you-trail when your total is higher than
   // the leader's; Stableford: you-trail when your total is lower.
-  const fmt = resolveFormat(league)
+  const fmt = resolveFormat(tournament)
   const fmtCopy = formatCopy(fmt)
   const leaderTotal = leader?.total_score ?? null
   const gap =
@@ -1128,11 +1128,11 @@ function YourStatusCard({
         ? leaderTotal - myTotal
         : myTotal - leaderTotal
       : 0
-  const cap = league.total_cards_count ?? null
+  const cap = tournament.total_cards_count ?? null
   // Best-of-N threshold. When set, a viewer isn't "ranked for real"
   // until their counted-round bucket hits this number. Surfaces as a
   // qualification nudge before the generic "X/N played" progress pill.
-  const scoringCards = league.scoring_cards_count ?? null
+  const scoringCards = tournament.scoring_cards_count ?? null
 
   /* ── Next-action decision ───────────────────────────── */
   const action = useMemo<Action>(() => {
@@ -1257,7 +1257,7 @@ function YourStatusCard({
             ? "1 more round to lock your rank"
             : `${toGo} more rounds to lock your rank`,
         subtitle: "",
-        href: `/matches/create?league=${leagueId}`,
+        href: `/matches/create?tournament=${leagueId}`,
       }
     }
 
@@ -1277,11 +1277,11 @@ function YourStatusCard({
         title: `${myPlayed}/${cap} played`,
         subtitle: "",
         // Amber pill is tappable — taking the user to match-create
-        // prefilled with this league is the natural next step when
+        // prefilled with this tournament is the natural next step when
         // they have rounds left in the allowance. The filled
         // counterpart stays informational (no href) since there's
         // nothing to do at cap.
-        href: `/matches/create?league=${leagueId}`,
+        href: `/matches/create?tournament=${leagueId}`,
       }
     }
     if (cap != null && myPlayed >= cap) {
@@ -1391,7 +1391,7 @@ function YourStatusCard({
           </div>
 
           {/* Subline: narrative. For non-leaders, shows the gap;
-              for leaders, a simple "the league" affirmation. Noun
+              for leaders, a simple "the tournament" affirmation. Noun
               flips per format ("strokes" / "points"). */}
           {rank !== null && !leading && gap > 0 && (
             <p className="mt-1 truncate text-[11px] text-primary/60">
@@ -1399,7 +1399,7 @@ function YourStatusCard({
             </p>
           )}
           {leading && (
-            <p className="mt-1 text-[11px] text-primary/60">the league</p>
+            <p className="mt-1 text-[11px] text-primary/60">the tournament</p>
           )}
         </div>
 
