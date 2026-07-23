@@ -308,7 +308,14 @@ export default function ProfilePage() {
 
         // Pull profile, memberships, and count of played matches in parallel
         const [profileRes, membershipsRes, scoresCountRes] = await Promise.all([
-          supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+          // Explicit columns: email is not client-readable since T0.3
+          // (column-level grant) — the account email comes from the auth
+          // session (user.email), never from profiles.
+          supabase
+            .from("profiles")
+            .select("id, first_name, last_name, club, handicap, avatar_url, town, username")
+            .eq("id", userId)
+            .maybeSingle(),
           supabase
             .from("game_members")
             .select("id, game_id, games(*)")
