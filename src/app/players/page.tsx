@@ -23,20 +23,32 @@ export default function PlayersPage() {
   const { user, loading: authLoading } = useAuth()
   const [recentPlayers, setRecentPlayers] = useState<RecentPlayer[]>([])
   const [loadingRecent, setLoadingRecent] = useState(true)
+  // Whether the first fetch has resolved (success OR error). The empty
+  // state must never render before this flips true, and a failed fetch
+  // must surface an error rather than the misleading "join a game" copy.
+  const [recentError, setRecentError] = useState<string | null>(null)
 
   // Load players from the user's games (people they play with)
   useEffect(() => {
     if (authLoading || !user) return
+    let cancelled = false
 
     const fetchGameMates = async () => {
       setLoadingRecent(true)
+      setRecentError(null)
 
       // Get all game IDs the user is in
-      const { data: memberships } = await supabase
+      const { data: memberships, error: membershipError } = await supabase
         .from("game_members")
         .select("game_id")
         .eq("user_id", user.id)
 
+      if (cancelled) return
+      if (membershipError) {
+        setRecentError("Couldn’t load your games. Pull to refresh.")
+        setLoadingRecent(false)
+        return
+      }
       if (!memberships || memberships.length === 0) {
         setLoadingRecent(false)
         return
@@ -45,11 +57,18 @@ export default function PlayersPage() {
       const gameIds = memberships.map((m) => m.game_id)
 
       // Get unique fellow members from those games
-      const { data: fellows } = await supabase
+      const { data: fellows, error: fellowsError } = await supabase
         .from("game_members")
         .select("user_id, profiles!inner(id, username, first_name, last_name, avatar_url, club, town, handicap)")
         .in("game_id", gameIds)
         .neq("user_id", user.id)
+
+      if (cancelled) return
+      if (fellowsError) {
+        setRecentError("Couldn’t load players from your games. Pull to refresh.")
+        setLoadingRecent(false)
+        return
+      }
 
       if (fellows) {
         // Deduplicate by user_id
@@ -68,6 +87,9 @@ export default function PlayersPage() {
     }
 
     fetchGameMates()
+    return () => {
+      cancelled = true
+    }
   }, [authLoading, user])
 
   const handleSelect = (player: PlayerResult) => {
@@ -101,6 +123,10 @@ export default function PlayersPage() {
           <div className="flex justify-center py-8">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
           </div>
+        ) : recentError ? (
+          <p className="rounded-xl border border-dashed border-red-200 px-4 py-8 text-center text-sm text-red-600">
+            {recentError}
+          </p>
         ) : recentPlayers.length === 0 ? (
           <p className="rounded-xl border border-dashed border-primary/15 px-4 py-8 text-center text-sm text-primary/40">
             Join a game to see other players here.
