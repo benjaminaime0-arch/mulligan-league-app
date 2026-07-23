@@ -1,5 +1,15 @@
 -- ============================================================================
--- Fix game creation — broken in production since ~Apr 21 (T0.2 discovery)
+-- Fix RPCs broken in production (T0.2 discoveries)
+-- ============================================================================
+-- Two independent production bugs surfaced while exporting the Dashboard-
+-- authored RPCs and running the core-loop replay:
+--   A. Game creation (create_game / generate_game_periods / advance_game_period)
+--   B. Player search (search_players) — see the bottom of this file.
+-- Both are faithfully broken in the export snapshot (20260723150000); this
+-- migration carries the corrected versions so a fresh replay ends working
+-- and prod can be updated to match.
+-- ============================================================================
+-- (A) Game creation — broken in production since ~Apr 21
 -- ============================================================================
 -- WHY
 -- Verified against prod on 2026-07-23 (BEGIN…ROLLBACK probe): calling
@@ -199,4 +209,35 @@ $function$;
 --   WHERE n.nspname='public' AND prokind='f'
 --     AND pg_get_functiondef(p.oid) ILIKE '%activity_log%';
 --   -- expect zero rows
+-- ============================================================================
+
+-- ============================================================================
+-- (B) Player search — search_players raised 42804 on EVERY call
+-- ============================================================================
+-- search_players declares RETURNS TABLE(... handicap numeric) but
+-- profiles.handicap is `integer`, so RETURN QUERY raised
+--   42804 structure of query does not match function result type
+--   (Returned type integer does not match expected type numeric in column 8)
+-- on every invocation — player search (PlayerSearchBar) has been dead in
+-- production. Verified against prod 2026-07-23. Fix: cast handicap to
+-- numeric so the row shape matches the declared return type. Signature and
+-- return columns unchanged.
+CREATE OR REPLACE FUNCTION public.search_players(p_query text, p_limit integer DEFAULT 10)
+ RETURNS TABLE(id uuid, username text, first_name text, last_name text, avatar_url text, club text, town text, handicap numeric)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  RETURN QUERY
+  SELECT p.id, p.username, p.first_name, p.last_name,
+         p.avatar_url, p.club, p.town, p.handicap::numeric
+  FROM profiles p
+  WHERE p.username   ILIKE '%' || p_query || '%'
+     OR p.first_name ILIKE '%' || p_query || '%'
+     OR p.last_name  ILIKE '%' || p_query || '%'
+  LIMIT p_limit;
+END;
+$function$;
+-- Verification: SELECT count(*) FROM search_players('a', 5);  -- no 42804
 -- ============================================================================
