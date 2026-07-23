@@ -1,0 +1,47 @@
+# Replays every migration on a clean local Supabase stack, then runs the SQL
+# test suite (auto-validation regression + core-loop smoke). This is the
+# acceptance gate for AUD#6: a fresh `supabase db reset` must yield a schema
+# where create game → join → match → submit → approve → leaderboard all work.
+name: db-replay
+
+on:
+  pull_request:
+    paths:
+      - "supabase/**"
+      - ".github/workflows/db-replay.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/**"
+      - ".github/workflows/db-replay.yml"
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local database
+        run: supabase db start
+
+      - name: Replay all migrations from scratch
+        run: supabase db reset --local
+
+      - name: Install psql
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Run SQL test suite
+        env:
+          # Local development stack credentials (supabase db start defaults —
+          # not secrets; this database lives only for this job)
+          PGURL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: |
+          for f in supabase/tests/*.sql; do
+            echo "=== $f"
+            psql "$PGURL" -v ON_ERROR_STOP=1 -f "$f"
+          done
