@@ -9,8 +9,15 @@ BASE="http://127.0.0.1:${PORT}"
 SERVER_PID=""
 
 start_server() {
-  # $@ = extra env VAR=value pairs for this server instance
-  env -u PUSH_WEBHOOK_SECRET "$@" npx next start -p "$PORT" >/dev/null 2>&1 &
+  # $@ = extra env VAR=value pairs for this server instance. Combining
+  # `env -u NAME` with `NAME=value` behaves differently across coreutils
+  # versions (GNU vs BSD), so branch cleanly: no args → run with the
+  # secret unset; args → run with exactly those assignments.
+  if [ "$#" -eq 0 ]; then
+    env -u PUSH_WEBHOOK_SECRET npx next start -p "$PORT" >/dev/null 2>&1 &
+  else
+    env "$@" npx next start -p "$PORT" >/dev/null 2>&1 &
+  fi
   SERVER_PID=$!
   for _ in $(seq 1 120); do
     if curl -s -o /dev/null "$BASE"; then return 0; fi
