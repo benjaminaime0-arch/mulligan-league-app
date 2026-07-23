@@ -7,8 +7,9 @@
 --
 -- Run order:
 --   1. baseline_core_schema.sql       (tables exist)
---   2. baseline_core_constraints.sql  (triggers reference these functions)
---   3. add_dashboard_function_bodies.sql ← this file
+--   2. this file                      (trigger callees must exist first —
+--      CREATE TRIGGER validates the function reference at creation time)
+--   3. baseline_core_constraints.sql  (creates the triggers)
 --
 -- HISTORICAL: originally also contained on_match_created and
 -- on_score_submitted that wrote to a dead activity_log table.
