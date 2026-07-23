@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { timingSafeEqual } from "crypto"
 
 // web-push ships CJS and has no bundled types. Keep the require but pin a
 // precise local type so callers get real inference.
@@ -13,44 +14,63 @@ type WebPush = {
 }
 const webpush = require("web-push") as WebPush
 
+/** Constant-time string comparison — a plain === leaks length/prefix timing. */
+function secureEquals(a: string, b: string): boolean {
+  const bufA = Buffer.from(a)
+  const bufB = Buffer.from(b)
+  if (bufA.length !== bufB.length) return false
+  return timingSafeEqual(bufA, bufB)
+}
+
 /**
  * POST /api/push
  *
  * Sends web-push notifications for a given notification record.
- * Invoked by a Supabase Database Webhook on notifications INSERT
- * (configured in the Supabase Dashboard, not here). Can also be
- * called manually for smoke-tests.
+ * Invoked by the send_push_on_notification DB trigger on notifications
+ * INSERT. Can also be called manually for smoke-tests — with the secret.
+ *
+ * FAIL-CLOSED CONTRACT (T0.4, AUD#4):
+ *   - PUSH_WEBHOOK_SECRET unset  → 500 on every request. The endpoint
+ *     never operates unauthenticated.
+ *   - Bearer mismatch            → 401, uniform body, constant-time compare.
+ *   - Push content is NEVER taken from the request body. The body only
+ *     names a notification id; title/body/type/data/user_id are re-read
+ *     from the notifications table, so even a caller holding the secret
+ *     cannot push content that does not exist in the database.
  *
  * Expected body (either shape):
- *   { "record": { ...notifications row } }
- *   { ...notifications row }
+ *   { "record": { "id": "<notification uuid>", ... } }
+ *   { "id": "<notification uuid>", ... }
  *
  * Required env vars:
- *   SUPABASE_SERVICE_ROLE_KEY    — read push_subscriptions
+ *   PUSH_WEBHOOK_SECRET          — bearer secret; REQUIRED (fail closed)
+ *   SUPABASE_SERVICE_ROLE_KEY    — read notifications + push_subscriptions
  *   VAPID_PRIVATE_KEY            — web-push signing
  *   NEXT_PUBLIC_VAPID_PUBLIC_KEY — web-push signing
- *   PUSH_WEBHOOK_SECRET          — optional; if set, the webhook must
- *                                  send Authorization: Bearer <secret>
  */
 export async function POST(request: NextRequest) {
-  // Verify webhook secret (optional but recommended)
   const webhookSecret = process.env.PUSH_WEBHOOK_SECRET
-  if (webhookSecret) {
-    const authHeader = request.headers.get("authorization")
-    if (authHeader !== `Bearer ${webhookSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+  if (!webhookSecret) {
+    console.error("PUSH_WEBHOOK_SECRET is not set — /api/push refuses to serve")
+    return NextResponse.json(
+      { error: "Push endpoint not configured" },
+      { status: 500 },
+    )
+  }
+
+  const authHeader = request.headers.get("authorization") ?? ""
+  if (!secureEquals(authHeader, `Bearer ${webhookSecret}`)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   try {
     const body = await request.json()
-    const record = body.record || body
+    const notificationId: unknown = (body.record || body)?.id
 
-    if (!record.user_id || !record.title) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    if (typeof notificationId !== "string" || notificationId.length === 0) {
+      return NextResponse.json({ error: "Missing notification id" }, { status: 400 })
     }
 
-    // Use service role to read push subscriptions
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!supabaseUrl || !serviceRoleKey) {
@@ -61,6 +81,22 @@ export async function POST(request: NextRequest) {
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
+
+    // The database is the only source of push content — every other field
+    // in the request body is ignored.
+    const { data: record, error: recordError } = await supabaseAdmin
+      .from("notifications")
+      .select("id, user_id, type, title, body, data, created_at")
+      .eq("id", notificationId)
+      .maybeSingle()
+
+    if (recordError) {
+      console.error("Push API: notification lookup failed:", recordError)
+      return NextResponse.json({ error: "Lookup failed" }, { status: 500 })
+    }
+    if (!record) {
+      return NextResponse.json({ error: "Unknown notification" }, { status: 404 })
+    }
 
     // ── Rapid-fire throttle ─────────────────────────────────────
     // If the user already received 3+ notifications in the last 60
