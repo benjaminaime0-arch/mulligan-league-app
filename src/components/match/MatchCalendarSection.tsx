@@ -66,6 +66,12 @@ export interface MatchCalendarSectionProps {
    */
   defaultGameId?: string | number | null
   /**
+   * When true, empty days show a read-only "no match" tile instead of
+   * a "Create match" CTA. Set for completed games — no new rounds may
+   * be created against a finished game (T0.6).
+   */
+  disableCreate?: boolean
+  /**
    * Forwarded to each rendered MatchDetailCard. Lets the "Lowest of
    * game" flame chip show up on the specific card/row that holds
    * the game-wide best approved round. Computed once upstream so
@@ -106,6 +112,7 @@ export function MatchCalendarSection({
   daysAfter = 15,
   context = "profile",
   defaultGameId = null,
+  disableCreate = false,
   gameHighlights = null,
 }: MatchCalendarSectionProps) {
   const todayIso = useMemo(() => toIso(new Date()), [])
@@ -394,6 +401,7 @@ export function MatchCalendarSection({
             iso={selectedDate}
             todayIso={todayIso}
             defaultGameId={defaultGameId}
+            disableCreate={disableCreate}
           />
         ) : (
           <DayMatchesCarousel
@@ -724,10 +732,12 @@ function EmptyTile({
   iso,
   todayIso,
   defaultGameId,
+  disableCreate = false,
 }: {
   iso: string
   todayIso: string
   defaultGameId: string | number | null
+  disableCreate?: boolean
 }) {
   const d = new Date(iso)
   const isToday = iso === todayIso
@@ -739,10 +749,10 @@ function EmptyTile({
   })
 
   // Past empty days are read-only — you can't retroactively create a
-  // round that never happened. Fall back to a quiet "nothing here"
-  // tile so the day is still explorable from the strip without
-  // dangling a misleading CTA.
-  if (isPast) {
+  // round that never happened. A completed game is read-only on EVERY
+  // day (no new rounds anywhere). Either way, fall back to a quiet
+  // "nothing here" tile rather than dangling a misleading CTA.
+  if (isPast || disableCreate) {
     return (
       <div className="flex items-center justify-center rounded-lg border border-dashed border-primary/15 bg-cream/20 px-4 py-4 text-center">
         <p className="text-xs text-primary/50">No match on {dayLabel}</p>
