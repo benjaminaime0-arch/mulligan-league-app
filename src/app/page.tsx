@@ -37,7 +37,7 @@ function HomeContent() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
-        router.replace("/profile")
+        router.replace("/home")
       } else {
         setChecking(false)
       }

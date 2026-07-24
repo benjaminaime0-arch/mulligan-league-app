@@ -85,7 +85,7 @@ export function SignupForm() {
         throw signUpError
       }
 
-      router.push("/profile")
+      router.push("/home")
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
