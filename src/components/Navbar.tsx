@@ -7,38 +7,58 @@ import { Logo } from "@/components/Logo"
 import { Avatar } from "@/components/Avatar"
 import { NotificationBell } from "@/components/NotificationBell"
 import { NotificationReadSync } from "@/components/NotificationReadSync"
+import { useAuthContext } from "@/components/AuthProvider"
 import { supabase } from "@/lib/supabase"
 
 const authFreeRoutes = ["/"]
 
+/** First initial from the session user, for the avatar fallback. */
+function initialOf(user: { email?: string; user_metadata?: Record<string, unknown> } | null): string {
+  const meta = user?.user_metadata ?? {}
+  const name =
+    (meta.username as string) ||
+    (meta.first_name as string) ||
+    (meta.full_name as string) ||
+    user?.email ||
+    ""
+  return name.trim().charAt(0).toUpperCase() || " "
+}
+
 export function Navbar() {
   const pathname = usePathname()
+  const { user } = useAuthContext()
   const [showActions, setShowActions] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
+  // Fetch the avatar once per authenticated user — not per route change.
+  // The shared session (AuthProvider) means no getSession round-trip here,
+  // and the fallback initial comes from session metadata immediately, so
+  // the avatar slot never flashes a generic "U" first.
   useEffect(() => {
-    const fetchAvatar = async () => {
-      const { data: sessionData } = await supabase.auth.getSession()
-      if (!sessionData.session) return
-
-      const { data } = await supabase
-        .from("profiles")
-        .select("avatar_url")
-        .eq("id", sessionData.session.user.id)
-        .maybeSingle()
-
-      if (data?.avatar_url) setAvatarUrl(data.avatar_url)
+    if (!user) {
+      setAvatarUrl(null)
+      return
     }
-
-    if (!authFreeRoutes.includes(pathname)) {
-      fetchAvatar()
+    let active = true
+    supabase
+      .from("profiles")
+      .select("avatar_url")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (active && data?.avatar_url) setAvatarUrl(data.avatar_url)
+      })
+    return () => {
+      active = false
     }
-  }, [pathname])
+  }, [user])
 
   // Close action menu on route change
   useEffect(() => {
     setShowActions(false)
   }, [pathname])
+
+  const avatarFallback = initialOf(user)
 
   // Hide navbar entirely on auth-free routes
   if (authFreeRoutes.includes(pathname)) {
@@ -90,7 +110,7 @@ export function Navbar() {
             </Link>
             <NotificationBell />
             <Link href="/profile" className="ml-1">
-              <Avatar src={avatarUrl} alt="Profile" size={32} fallback="U" />
+              <Avatar src={avatarUrl} alt="Profile" size={32} fallback={avatarFallback} />
             </Link>
           </nav>
         </div>
@@ -200,7 +220,7 @@ export function Navbar() {
               src={avatarUrl}
               alt="Profile"
               size={22}
-              fallback="U"
+              fallback={avatarFallback}
             />
             <span className={`text-[10px] font-medium ${isActive("/profile") ? "text-primary" : "text-primary/40"}`}>
               Profile

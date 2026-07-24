@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import localFont from "next/font/local"
 import Script from "next/script"
 import "./globals.css"
+import { AuthProvider } from "@/components/AuthProvider"
 import { Navbar } from "@/components/Navbar"
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
@@ -105,8 +106,10 @@ export default function RootLayout({
             </Script>
           </>
         )}
-        <Navbar />
-        <div className="pb-[4.5rem] md:pb-0">{children}</div>
+        <AuthProvider>
+          <Navbar />
+          <div className="pb-[4.5rem] md:pb-0">{children}</div>
+        </AuthProvider>
       </body>
     </html>
   )

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, useCallback } from "react"
+import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
@@ -42,26 +42,34 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Monotonic token so rapid game-switching (goPrev/goNext) can't let a
+  // slow earlier RPC response stomp a newer one (AUD#15).
+  const seqRef = useRef(0)
+
   const loadLeaderboard = useCallback(async (gameId: string | number) => {
+    const myToken = ++seqRef.current
+    const fresh = () => myToken === seqRef.current
     setLoading(true)
     setError(null)
     try {
       const { data, error } = await supabase.rpc("get_leaderboard", {
         p_game_id: gameId,
       })
-
+      if (!fresh()) return
       if (error) throw error
       setRows((data || []) as LeaderboardRow[])
     } catch (err) {
+      if (!fresh()) return
       setError(err instanceof Error ? err.message : "Failed to load leaderboard.")
       setRows([])
     } finally {
-      setLoading(false)
+      if (fresh()) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
     if (authLoading || !user) return
+    let cancelled = false
 
     const init = async () => {
       try {
@@ -73,6 +81,7 @@ export default function LeaderboardPage() {
           .select("*, games(*)")
           .eq("user_id", user.id)
 
+        if (cancelled) return
         if (memberError) throw memberError
 
         const typedMembers = (memberRows || []) as MemberWithGame[]
@@ -90,15 +99,19 @@ export default function LeaderboardPage() {
           await loadLeaderboard(userGames[0].id)
         } else {
           setRows([])
+          setLoading(false)
         }
       } catch (err) {
+        if (cancelled) return
         setError(err instanceof Error ? err.message : "Failed to load leaderboard.")
-      } finally {
         setLoading(false)
       }
     }
 
     init()
+    return () => {
+      cancelled = true
+    }
   }, [authLoading, user, loadLeaderboard])
 
   const goNext = useCallback(async () => {

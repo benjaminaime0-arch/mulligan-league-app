@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
@@ -26,6 +26,7 @@ import {
   isBetter,
   resolveFormat,
 } from "@/lib/gameFormat"
+import { todayLocalIso } from "@/lib/date"
 
 interface GamePageProps {
   params: { id: string }
@@ -158,10 +159,20 @@ export default function GamePage({ params }: GamePageProps) {
   // etc.). `loadData` is the single source of truth for "pull fresh
   // game + matches + players data" — the useEffect below just runs
   // it once on mount.
+  // Monotonic token so overlapping loadData runs (mount + realtime bumps +
+  // post-mutation refreshes) can't stomp each other: a run only applies its
+  // results while it is still the latest (AUD#15).
+  const loadSeqRef = useRef(0)
+
   const loadData = useCallback(async () => {
     if (!user) return
+    const myToken = ++loadSeqRef.current
+    const fresh = () => myToken === loadSeqRef.current
     const init = async () => {
       try {
+        // Only the first load blanks the page; refetches update in place
+        // (the render gate is `loading && !game`), so realtime bumps and
+        // saving a score no longer flash the full-screen spinner (AUD#13).
         setLoading(true)
         setError(null)
 
@@ -199,6 +210,9 @@ export default function GamePage({ params }: GamePageProps) {
         if (gameRes.error) throw gameRes.error
         if (!gameRes.data) throw new Error("Game not found.")
 
+        // A newer run superseded this one while awaiting — drop its results.
+        if (!fresh()) return
+
         setGame(gameRes.data as Game)
 
         if (membersRes.error) throw membersRes.error
@@ -213,6 +227,7 @@ export default function GamePage({ params }: GamePageProps) {
           .eq("target_id", gameId)
           .eq("status", "pending")
           .maybeSingle()
+        if (!fresh()) return
         if (existingRequest) setJoinRequestSent(true)
 
         // Build user game list for navigation
@@ -247,6 +262,7 @@ export default function GamePage({ params }: GamePageProps) {
             .order("match_date", { ascending: true })
 
           if (matchesError) throw matchesError
+          if (!fresh()) return
 
           const matches = (matchesData || []) as Match[]
           setPeriodMatches(matches)
@@ -387,6 +403,7 @@ export default function GamePage({ params }: GamePageProps) {
         // generic fallback, hiding the real failure. Dig out the
         // message however we can and log the full payload for DevTools.
         console.error("[GamePage] init failed", err)
+        if (!fresh()) return
         const msg =
           err instanceof Error
             ? err.message
@@ -398,7 +415,8 @@ export default function GamePage({ params }: GamePageProps) {
               : "Failed to load game."
         setError(msg)
       } finally {
-        setLoading(false)
+        // Only the latest run owns the loading flag.
+        if (fresh()) setLoading(false)
       }
     }
 
@@ -498,11 +516,17 @@ export default function GamePage({ params }: GamePageProps) {
         { event: "*", schema: "public", table: "scores" },
         (payload) => {
           // Only refetch when the score belongs to a match we know
-          // about in this game. Prevents cross-game noise.
+          // about in this game. Prevents cross-game noise. When the
+          // payload carries no match_id (typical for DELETE events,
+          // whose `old` only holds replica-identity columns) we cannot
+          // tell which game it belongs to — so we do NOT refetch, rather
+          // than blindly bumping on every unrelated game's deletes
+          // (AUD#14; the previous `return bump()` did the opposite of
+          // what the comment above promised).
           const matchId =
             (payload.new as { match_id?: string })?.match_id ??
             (payload.old as { match_id?: string })?.match_id
-          if (!matchId) return bump()
+          if (!matchId) return
           if (matchPlayersMap.has(matchId)) bump()
         },
       )
@@ -627,7 +651,10 @@ export default function GamePage({ params }: GamePageProps) {
 
   if (!user) return null
 
-  if (loading) {
+  // Full-screen spinner only on the very first load. Once `game` is set,
+  // realtime bumps and post-mutation refetches update in place without
+  // blanking the page and destroying child state (AUD#13).
+  if (loading && !game) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <p className="text-primary/70">Loading game…</p>
@@ -644,10 +671,10 @@ export default function GamePage({ params }: GamePageProps) {
           </p>
           <button
             type="button"
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.push("/games")}
             className="mt-4 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream"
           >
-            Back to dashboard
+            Back to games
           </button>
         </div>
       </main>
@@ -1107,7 +1134,10 @@ function YourStatusCard({
   leaderboard: LeaderboardRow[]
   game: Game
 }) {
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
+  // Local date, not UTC — see AUD#17 / src/lib/date.ts. `match_date` is a
+  // plain calendar date; comparing it against a UTC "today" mis-buckets
+  // matches for viewers around midnight.
+  const today = useMemo(() => todayLocalIso(), [])
 
   /* ── Status metrics ─────────────────────────────────── */
   const myRow = leaderboard.find((r) => r.user_id === userId) ?? null
