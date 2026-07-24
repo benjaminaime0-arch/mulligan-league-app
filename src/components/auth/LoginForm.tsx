@@ -46,7 +46,7 @@ export function LoginForm() {
       if (signInError) throw signInError
 
       router.refresh()
-      router.push(redirectTo || "/profile")
+      router.push(redirectTo || "/home")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid email or password")
     } finally {
