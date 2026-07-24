@@ -174,7 +174,14 @@ export default function GamePage({ params }: GamePageProps) {
           badgesRes,
         ] = await Promise.all([
           supabase.from("games").select("*").eq("id", gameId).single(),
-          supabase.from("game_members").select("*, profiles(*)").eq("game_id", gameId),
+          // profiles columns listed explicitly: email is not client-readable
+          // since T0.3 (column-level grant), so an embedded * would 42501.
+          supabase
+            .from("game_members")
+            .select(
+              "*, profiles(id, first_name, last_name, club, handicap, avatar_url, town, username)",
+            )
+            .eq("game_id", gameId),
           supabase
             .from("game_periods")
             .select("*")
