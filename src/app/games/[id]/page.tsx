@@ -880,6 +880,9 @@ export default function GamePage({ params }: GamePageProps) {
               // Empty-day CTA deep-links into match-create with this
               // game pre-selected + the tapped day pre-filled.
               defaultGameId={game.id}
+              // Completed games accept no new rounds — the empty-day
+              // "Create match" CTA is suppressed everywhere (T0.6).
+              disableCreate={game.status === "completed"}
               // Forwarded to each rendered MatchDetailCard so the
               // "Lowest of game" flame chip lights up on the row
               // that holds the best approved round in this game.
@@ -1170,6 +1173,10 @@ function YourStatusCard({
   // until their counted-round bucket hits this number. Surfaces as a
   // qualification nudge before the generic "X/N played" progress pill.
   const scoringCards = game.scoring_cards_count ?? null
+  // A completed game accepts no new rounds — the two "play more" pills
+  // below (4a/4b) deep-link into match creation, so they must not appear
+  // once the game is done (T0.6: completed games offer no create anywhere).
+  const gameCompleted = game.status === "completed"
 
   /* ── Next-action decision ───────────────────────────── */
   const action = useMemo<Action>(() => {
@@ -1279,7 +1286,7 @@ function YourStatusCard({
     // counting cards. Takes precedence over the generic cap pill
     // below, since qualification is the narrower and more urgent
     // milestone.
-    if (scoringCards != null && myCounted < scoringCards) {
+    if (!gameCompleted && scoringCards != null && myCounted < scoringCards) {
       const toGo = scoringCards - myCounted
       return {
         tone: "amber",
@@ -1302,7 +1309,7 @@ function YourStatusCard({
     // — playing more rounds can still improve the total by replacing
     // a higher-counted score, but rank is locked. In-progress =
     // amber, filled = emerald.
-    if (cap != null && myPlayed < cap) {
+    if (!gameCompleted && cap != null && myPlayed < cap) {
       return {
         tone: "amber",
         icon: (
@@ -1356,6 +1363,7 @@ function YourStatusCard({
     myPlayed,
     myCounted,
     scoringCards,
+    gameCompleted,
   ])
 
   /* ── Tone-dependent classes for the action strip ────── */

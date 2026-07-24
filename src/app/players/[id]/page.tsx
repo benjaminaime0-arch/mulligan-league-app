@@ -9,6 +9,7 @@ import { Avatar } from "@/components/Avatar"
 import { RecordsCard, type RecordsData } from "@/components/profile/RecordsCard"
 import { CoursesCard, type CoursePlay } from "@/components/profile/CoursesCard"
 import { ScoreTrendCard } from "@/components/profile/ScoreTrendCard"
+import { loadUserGames, type EnrichedGame } from "@/lib/userGames"
 
 /**
  * Other-player profile page. Mirrors the structure of `/profile` so
@@ -29,44 +30,8 @@ type Profile = {
   handicap: number | null
 }
 
-type GameData = {
-  id: string
-  name: string
-  course_name?: string | null
-  max_players?: number | null
-  status?: string | null
-  game_type?: string | null
-  scoring_cards_count?: number | null
-  total_cards_count?: number | null
-  start_date?: string | null
-  end_date?: string | null
-}
-
-type GameMemberProfile = {
-  user_id: string
-  profiles?: {
-    id: string
-    first_name?: string | null
-    last_name?: string | null
-    username?: string | null
-    avatar_url?: string | null
-  } | null
-}
-
-type PeriodData = {
-  id: string | number
-  game_id: string | number
-  name?: string | null
-  start_date?: string | null
-  end_date?: string | null
-  status?: string | null
-}
-
-type EnrichedGame = GameData & {
-  members: GameMemberProfile[]
-  memberCount: number
-  activePeriod?: PeriodData | null
-}
+// Game types (GameRow / MemberProfile / EnrichedGame) come from the shared
+// loader in src/lib/userGames — no more per-page duplication (AUD#23).
 
 export default function PlayerProfilePage() {
   const { id } = useParams<{ id: string }>()
@@ -121,60 +86,12 @@ export default function PlayerProfilePage() {
       }
       setProfile(profileRes.data as Profile)
 
-      // Build enriched games for the carousel
-      type MemberRow = { id: string; game_id: string; games?: GameData | null }
-      const membershipData = (membershipsRes.data as unknown as MemberRow[]) || []
-      const gameMap = new Map<string, GameData>()
-      for (const m of membershipData) {
-        const l = m.games as GameData | null
-        if (l && !gameMap.has(String(l.id))) {
-          gameMap.set(String(l.id), l)
-        }
-      }
-      const gameList = Array.from(gameMap.values())
-      setGameCount(gameList.length)
-
-      if (gameList.length > 0) {
-        const gameIds = gameList.map((l) => l.id)
-        const [gameMembersRes, periodsRes] = await Promise.all([
-          supabase
-            .from("game_members")
-            .select("game_id, user_id, profiles(id, first_name, last_name, username, avatar_url)")
-            .in("game_id", gameIds),
-          supabase
-            .from("game_periods")
-            .select("*")
-            .in("game_id", gameIds)
-            .order("start_date", { ascending: true }),
-        ])
-
-        const membersByGame: Record<string, GameMemberProfile[]> = {}
-        for (const m of gameMembersRes.data || []) {
-          const key = String(m.game_id)
-          if (!membersByGame[key]) membersByGame[key] = []
-          membersByGame[key].push(m as unknown as GameMemberProfile)
-        }
-
-        const periodByGame: Record<string, PeriodData> = {}
-        for (const p of (periodsRes.data || []) as PeriodData[]) {
-          const key = String(p.game_id)
-          if (!periodByGame[key] || p.status === "active") {
-            periodByGame[key] = p
-          }
-        }
-
-        const enriched: EnrichedGame[] = gameList.map((l) => {
-          const key = String(l.id)
-          const members = membersByGame[key] || []
-          return {
-            ...l,
-            members,
-            memberCount: members.length,
-            activePeriod: periodByGame[key] || null,
-          }
-        })
-        setEnrichedGames(enriched)
-      }
+      // Games this player belongs to (shared with the viewer, per RLS),
+      // enriched with members + active period — via the one shared loader
+      // (AUD#23). RLS scopes this to games the viewer can see.
+      const enriched = await loadUserGames(id)
+      setGameCount(enriched.length)
+      setEnrichedGames(enriched)
 
       if (!recordsRes.error && recordsRes.data) {
         setRecords(recordsRes.data as RecordsData)
