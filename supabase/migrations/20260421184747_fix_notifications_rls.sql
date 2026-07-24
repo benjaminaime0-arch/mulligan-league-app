@@ -14,6 +14,9 @@
 -- ============================================================
 
 DROP POLICY IF EXISTS "System can insert notifications" ON notifications;
+-- add_notifications_system.sql already creates this exact policy, so on a
+-- clean replay the name exists — drop first to stay idempotent.
+DROP POLICY IF EXISTS "Block direct client inserts on notifications" ON notifications;
 
 CREATE POLICY "Block direct client inserts on notifications"
   ON notifications FOR INSERT

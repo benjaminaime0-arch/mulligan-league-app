@@ -1,0 +1,2 @@
+-- Intentionally empty: CI replays migrations on a clean database and the
+-- SQL tests create their own fixtures inside rolled-back transactions.

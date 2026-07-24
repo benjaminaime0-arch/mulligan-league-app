@@ -18,6 +18,10 @@
 -- ============================================================
 
 DROP POLICY IF EXISTS "Authenticated users can insert activity" ON activity_events;
+-- add_activity_events.sql was later edited in place to already create the
+-- blocked policy, so on a clean replay this name already exists — drop it
+-- first to keep this migration idempotent (prod carries it exactly once).
+DROP POLICY IF EXISTS "Block direct client inserts on activity_events" ON activity_events;
 
 CREATE POLICY "Block direct client inserts on activity_events"
   ON activity_events FOR INSERT
