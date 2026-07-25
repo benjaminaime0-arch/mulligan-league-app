@@ -38,6 +38,7 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npx next lint
+      - run: bash scripts/test_apple_gate.sh
 
   push-route:
     runs-on: ubuntu-latest
