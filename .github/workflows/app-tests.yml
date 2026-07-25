@@ -38,6 +38,10 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npx next lint
+      # Locale parity + no undefined t() keys. Both fail silently at runtime:
+      # a key missing from fr shows English to French users, and a key missing
+      # from both renders the raw key ("games.create.title") on the page.
+      - run: python3 scripts/check_i18n.py --check
 
   push-route:
     runs-on: ubuntu-latest

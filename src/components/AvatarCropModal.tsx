@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 
+import { useT } from "@/lib/i18n"
+
 type Props = {
   file: File
   onCrop: (croppedBlob: Blob) => void
@@ -11,6 +13,7 @@ type Props = {
 const OUTPUT_SIZE = 256 // final avatar is 256×256
 
 export default function AvatarCropModal({ file, onCrop, onCancel }: Props) {
+  const t = useT()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
 
@@ -173,7 +176,7 @@ export default function AvatarCropModal({ file, onCrop, onCancel }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
         <p className="mb-4 text-center text-sm font-semibold uppercase tracking-[0.15em] text-primary/70">
-          Crop your photo
+          {t("profile.avatar.crop")}
         </p>
 
         {/* Crop area */}
@@ -229,7 +232,7 @@ export default function AvatarCropModal({ file, onCrop, onCancel }: Props) {
             onClick={onCancel}
             className="flex-1 rounded-lg border border-primary/20 bg-white px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             type="button"
@@ -237,7 +240,7 @@ export default function AvatarCropModal({ file, onCrop, onCancel }: Props) {
             disabled={!imageLoaded}
             className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-cream hover:bg-primary/90 disabled:opacity-60"
           >
-            Save
+            {t("common.save")}
           </button>
         </div>
       </div>

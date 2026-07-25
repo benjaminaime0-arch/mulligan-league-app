@@ -1,3 +1,7 @@
+"use client"
+
+import { useT } from "@/lib/i18n"
+
 interface GameInviteCodeProps {
   inviteCode: string
   gameName: string
@@ -6,6 +10,8 @@ interface GameInviteCodeProps {
 }
 
 export function GameInviteCode({ inviteCode, gameName, variant }: GameInviteCodeProps) {
+  const t = useT()
+
   const handleCopy = async () => {
     if (typeof navigator === "undefined" || !navigator.clipboard) return
     try {
@@ -19,7 +25,7 @@ export function GameInviteCode({ inviteCode, gameName, variant }: GameInviteCode
     // Deep link (T1.3): shows a pre-auth preview of the game and joins the
     // invitee automatically after sign-up — no code re-typing.
     const joinUrl = `${window.location.origin}/join/${inviteCode}`
-    const message = `Join my golf game "${gameName}" on Mulligan!\n${joinUrl}`
+    const message = `${t("invite.share.message.link", { name: gameName })}\n${joinUrl}`
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ text: message, url: joinUrl })
@@ -50,7 +56,7 @@ export function GameInviteCode({ inviteCode, gameName, variant }: GameInviteCode
         type="button"
         onClick={handleCopy}
         className="flex h-8 items-center rounded-md bg-primary/10 px-2.5 font-mono text-sm tracking-[0.15em] text-primary hover:bg-primary/15"
-        title={variant === "mobile" ? "Tap to copy invite code" : "Click to copy invite code"}
+        title={variant === "mobile" ? t("invite.code.copy.tap") : t("invite.code.copy.click")}
       >
         {inviteCode}
       </button>
@@ -58,7 +64,7 @@ export function GameInviteCode({ inviteCode, gameName, variant }: GameInviteCode
         type="button"
         onClick={handleShare}
         className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-white px-3 text-xs font-medium text-primary hover:bg-primary/5"
-        aria-label="Share invite"
+        aria-label={t("invite.share.cta")}
       >
         {/* Same share-node glyph used elsewhere (match-detail "Share
             score card") so the share affordance reads consistently
@@ -77,7 +83,7 @@ export function GameInviteCode({ inviteCode, gameName, variant }: GameInviteCode
         >
           <path d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
         </svg>
-        Share
+        {t("games.share.cta")}
       </button>
     </div>
   )

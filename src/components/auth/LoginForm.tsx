@@ -3,8 +3,10 @@
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { useT } from "@/lib/i18n"
 
 export function LoginForm() {
+  const t = useT()
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get("redirect")
@@ -21,11 +23,11 @@ export function LoginForm() {
 
   const validate = () => {
     const errors: Record<string, string> = {}
-    if (!formData.email.trim()) errors.email = "Email is required"
+    if (!formData.email.trim()) errors.email = t("auth.error.email.required")
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = "Please enter a valid email"
+      errors.email = t("auth.error.email.invalid")
     }
-    if (!formData.password) errors.password = "Password is required"
+    if (!formData.password) errors.password = t("auth.error.password.required")
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -48,7 +50,7 @@ export function LoginForm() {
       router.refresh()
       router.push(redirectTo || "/home")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid email or password")
+      setError(err instanceof Error ? err.message : t("auth.error.credentials"))
     } finally {
       setLoading(false)
     }
@@ -67,7 +69,7 @@ export function LoginForm() {
 
       <div>
         <label htmlFor="login-email" className="mb-1 block text-sm font-medium text-primary">
-          Email
+          {t("auth.email")}
         </label>
         <input
           id="login-email"
@@ -86,7 +88,7 @@ export function LoginForm() {
 
       <div>
         <label htmlFor="login-password" className="mb-1 block text-sm font-medium text-primary">
-          Password
+          {t("auth.password")}
         </label>
         <input
           id="login-password"
@@ -108,12 +110,12 @@ export function LoginForm() {
         disabled={loading}
         className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {loading ? "Logging in…" : "Log In"}
+        {loading ? t("auth.login.submitting") : t("auth.login")}
       </button>
 
       <p className="text-center text-sm text-primary/70">
         {resetSent ? (
-          <span className="text-emerald-700">Check your email for a reset link.</span>
+          <span className="text-emerald-700">{t("auth.reset.sent")}</span>
         ) : (
           <button
             type="button"
@@ -121,7 +123,7 @@ export function LoginForm() {
             onClick={async () => {
               const email = formData.email.trim()
               if (!email) {
-                setError("Enter your email above, then click forgot password.")
+                setError(t("auth.reset.needemail"))
                 return
               }
               setResetLoading(true)
@@ -136,14 +138,14 @@ export function LoginForm() {
                 if (resetError) throw resetError
                 setResetSent(true)
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Failed to send reset email.")
+                setError(err instanceof Error ? err.message : t("auth.reset.failed"))
               } finally {
                 setResetLoading(false)
               }
             }}
             className="font-medium text-primary underline hover:no-underline disabled:opacity-60"
           >
-            {resetLoading ? "Sending…" : "Forgot password?"}
+            {resetLoading ? t("games.match.sending") : t("auth.forgot")}
           </button>
         )}
       </p>

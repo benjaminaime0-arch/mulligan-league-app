@@ -4,8 +4,10 @@ import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { track } from "@/lib/analytics"
+import { useT } from "@/lib/i18n"
 
 export function SignupForm() {
+  const t = useT()
   const router = useRouter()
   // Honour `?redirect=` so an invite link (/join/[code]) returns the new
   // user straight to the game they were invited to (T1.3).
@@ -28,26 +30,26 @@ export function SignupForm() {
   const validate = () => {
     const errors: Record<string, string> = {}
     const username = formData.username.trim()
-    if (!username) errors.username = "Username is required"
-    else if (username.length < 3) errors.username = "Username must be at least 3 characters"
-    else if (!/^[a-zA-Z0-9]+$/.test(username)) errors.username = "Letters and numbers only"
-    if (!formData.firstName.trim()) errors.firstName = "First name is required"
-    if (!formData.lastName.trim()) errors.lastName = "Last name is required"
-    if (!formData.email.trim()) errors.email = "Email is required"
+    if (!username) errors.username = t("auth.error.username.required")
+    else if (username.length < 3) errors.username = t("auth.error.username.short")
+    else if (!/^[a-zA-Z0-9]+$/.test(username)) errors.username = t("auth.username.rule")
+    if (!formData.firstName.trim()) errors.firstName = t("auth.error.firstname.required")
+    if (!formData.lastName.trim()) errors.lastName = t("auth.error.lastname.required")
+    if (!formData.email.trim()) errors.email = t("auth.error.email.required")
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = "Please enter a valid email"
+      errors.email = t("auth.error.email.invalid")
     }
-    if (!formData.password) errors.password = "Password is required"
+    if (!formData.password) errors.password = t("auth.error.password.required")
     else if (formData.password.length < 6) {
-      errors.password = "Password must be at least 6 characters"
+      errors.password = t("auth.error.password.short")
     }
     if (formData.password && formData.confirmPassword !== formData.password) {
-      errors.confirmPassword = "Passwords do not match"
+      errors.confirmPassword = t("auth.error.password.mismatch")
     }
     if (formData.handicap) {
       const h = parseFloat(formData.handicap)
       if (isNaN(h) || h < 0 || h > 54) {
-        errors.handicap = "Handicap must be between 0 and 54"
+        errors.handicap = t("auth.error.handicap.range")
       }
     }
     setFieldErrors(errors)
@@ -84,7 +86,7 @@ export function SignupForm() {
 
       if (signUpError) {
         if (signUpError.message?.includes("profiles_username_unique") || signUpError.message?.includes("duplicate")) {
-          throw new Error("This username is already taken. Please choose another.")
+          throw new Error(t("onboarding.username.taken"))
         }
         throw signUpError
       }
@@ -94,7 +96,7 @@ export function SignupForm() {
       router.push(redirectTo || "/welcome")
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      setError(err instanceof Error ? err.message : t("common.error.generic"))
     } finally {
       setLoading(false)
     }
@@ -114,7 +116,7 @@ export function SignupForm() {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="signup-username" className="mb-1 block text-sm font-medium text-primary">
-            Username
+            {t("onboarding.username")}
           </label>
           <input
             id="signup-username"
@@ -129,7 +131,7 @@ export function SignupForm() {
             maxLength={30}
             disabled={loading}
           />
-          <p className="mt-1 text-[11px] text-primary/40">Letters and numbers only</p>
+          <p className="mt-1 text-[11px] text-primary/40">{t("auth.username.rule")}</p>
           {fieldErrors.username && (
             <p className="mt-1 text-sm text-red-600">{fieldErrors.username}</p>
           )}
@@ -137,7 +139,7 @@ export function SignupForm() {
 
         <div>
           <label htmlFor="signup-email" className="mb-1 block text-sm font-medium text-primary">
-            Email
+            {t("auth.email")}
           </label>
           <input
             id="signup-email"
@@ -158,7 +160,7 @@ export function SignupForm() {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="signup-firstName" className="mb-1 block text-sm font-medium text-primary">
-            First name
+            {t("auth.firstname")}
           </label>
           <input
             id="signup-firstName"
@@ -177,7 +179,7 @@ export function SignupForm() {
 
         <div>
           <label htmlFor="signup-lastName" className="mb-1 block text-sm font-medium text-primary">
-            Last name
+            {t("auth.lastname")}
           </label>
           <input
             id="signup-lastName"
@@ -197,7 +199,7 @@ export function SignupForm() {
 
       <div>
         <label htmlFor="signup-password" className="mb-1 block text-sm font-medium text-primary">
-          Password
+          {t("auth.password")}
         </label>
         <input
           id="signup-password"
@@ -216,7 +218,7 @@ export function SignupForm() {
 
       <div>
         <label htmlFor="signup-confirmPassword" className="mb-1 block text-sm font-medium text-primary">
-          Confirm password
+          {t("auth.password.confirm")}
         </label>
         <input
           id="signup-confirmPassword"
@@ -235,7 +237,7 @@ export function SignupForm() {
 
       <div>
         <label htmlFor="signup-club" className="mb-1 block text-sm font-medium text-primary">
-          Home golf club <span className="font-normal text-primary/60">(optional)</span>
+          {t("onboarding.club")} <span className="font-normal text-primary/60">{t("common.optional")}</span>
         </label>
         <input
           id="signup-club"
@@ -250,7 +252,7 @@ export function SignupForm() {
 
       <div>
         <label htmlFor="signup-handicap" className="mb-1 block text-sm font-medium text-primary">
-          Handicap <span className="font-normal text-primary/60">(optional, 0–54)</span>
+          {t("auth.handicap")} <span className="font-normal text-primary/60">{t("auth.handicap.optional")}</span>
         </label>
         <input
           id="signup-handicap"
@@ -274,7 +276,7 @@ export function SignupForm() {
         disabled={loading}
         className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {loading ? "Creating account…" : "Create Account"}
+        {loading ? t("auth.signup.creating") : t("auth.signup.submit")}
       </button>
     </form>
   )

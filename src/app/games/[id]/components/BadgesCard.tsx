@@ -22,6 +22,7 @@ import Link from "next/link"
 import { Avatar } from "@/components/Avatar"
 import type { GameFormat } from "@/components/match/types"
 import { formatCopy } from "@/lib/gameFormat"
+import { useT } from "@/lib/i18n"
 
 export interface BadgeRow {
   badge_key: "best_round" | "most_active" | "most_consistent" | string
@@ -47,13 +48,14 @@ interface BadgesCardProps {
 }
 
 export function BadgesCard({ badges, currentUserId, gameFormat = "stroke_play" }: BadgesCardProps) {
+  const t = useT()
   return (
     <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-sm font-semibold text-primary">Honors</h2>
+      <h2 className="mb-4 text-sm font-semibold text-primary">{t("games.honors.title")}</h2>
 
       {badges.length === 0 ? (
         <p className="py-2 text-center text-xs text-primary/50">
-          Play a few rounds and the honors start earning themselves.
+          {t("games.honors.empty")}
         </p>
       ) : (
         <div className="flex flex-col divide-y divide-primary/5">
@@ -82,7 +84,8 @@ function BadgeRow({
   isMe: boolean
   gameFormat: GameFormat
 }) {
-  const meta = badgeMeta(badge.badge_key, gameFormat)
+  const t = useT()
+  const meta = badgeMeta(badge.badge_key, gameFormat, t)
   const bg = isMe ? "bg-cream/50" : ""
 
   const body = (
@@ -108,7 +111,7 @@ function BadgeRow({
             />
           )}
           <span className="truncate">
-            {badge.player_name || "Player"}
+            {badge.player_name || t("common.player")}
             {badge.sub ? ` · ${badge.sub}` : ""}
           </span>
         </p>
@@ -165,26 +168,34 @@ type BadgeMeta = {
   valueSuffix?: (b: BadgeRow) => string
 }
 
-function badgeMeta(key: string, format: GameFormat): BadgeMeta {
+function badgeMeta(
+  key: string,
+  format: GameFormat,
+  t: ReturnType<typeof useT>,
+): BadgeMeta {
   switch (key) {
     case "best_round":
       return {
-        label: formatCopy(format).bestRoundLabel,
+        label:
+          format === "stableford"
+            ? t("games.badge.bestround.stableford")
+            : t("games.badge.bestround.stroke"),
         icon: <TargetIcon />,
         iconBg: "bg-amber-50",
         iconColor: "text-amber-600",
       }
     case "most_active":
       return {
-        label: "Most active",
+        label: t("games.badge.mostactive"),
         icon: <BoltIcon />,
         iconBg: "bg-orange-50",
         iconColor: "text-orange-500",
-        valueSuffix: (b) => (Number(b.value) === 1 ? "round" : "rounds"),
+        valueSuffix: (b) =>
+          Number(b.value) === 1 ? t("games.unit.round") : t("games.unit.rounds"),
       }
     case "most_consistent":
       return {
-        label: "Most consistent",
+        label: t("games.badge.mostconsistent"),
         icon: <EqualizerIcon />,
         iconBg: "bg-primary/5",
         iconColor: "text-primary",

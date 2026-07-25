@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
+import { useI18n, useT } from "@/lib/i18n"
 import { Avatar } from "@/components/Avatar"
 import { RecordsCard, type RecordsData } from "@/components/profile/RecordsCard"
 import { CoursesCard, type CoursePlay } from "@/components/profile/CoursesCard"
@@ -37,6 +38,7 @@ export default function PlayerProfilePage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const t = useT()
 
   const [profile, setProfile] = useState<Profile | null>(null)
   const [enrichedGames, setEnrichedGames] = useState<EnrichedGame[]>([])
@@ -118,18 +120,18 @@ export default function PlayerProfilePage() {
   if (!profile) {
     return (
       <main className="mx-auto max-w-2xl px-4 pb-6 pt-10 text-center">
-        <p className="text-primary/60">Player not found.</p>
+        <p className="text-primary/60">{t("profile.notfound")}</p>
         <button
           onClick={() => router.back()}
           className="mt-4 text-sm font-medium text-primary underline underline-offset-2"
         >
-          Go back
+          {t("common.back")}
         </button>
       </main>
     )
   }
 
-  const displayName = profile.username || "Player"
+  const displayName = profile.username || t("common.player")
 
   return (
     <main className="min-h-screen px-4 pb-6 pt-4">
@@ -142,7 +144,7 @@ export default function PlayerProfilePage() {
           <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
-          Back
+          {t("common.back")}
         </button>
 
         {/* 1. Identity card — mirrors /profile */}
@@ -174,7 +176,7 @@ export default function PlayerProfilePage() {
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                 <circle cx="12" cy="10" r="3" />
               </svg>
-              {profile.town || "No town"}
+              {profile.town || t("profile.notown")}
             </span>
             <span className="text-primary/30">·</span>
             <span>
@@ -182,11 +184,15 @@ export default function PlayerProfilePage() {
             </span>
             <span className="text-primary/30">·</span>
             <span className="tabular-nums">
-              {matchesPlayed} {matchesPlayed === 1 ? "match" : "matches"}
+              {matchesPlayed === 1
+                ? t("profile.stat.matches.one")
+                : t("profile.stat.matches", { n: matchesPlayed })}
             </span>
             <span className="text-primary/30">·</span>
             <span className="tabular-nums">
-              {gameCount} {gameCount === 1 ? "game" : "games"}
+              {gameCount === 1
+                ? t("profile.stat.games.one")
+                : t("profile.stat.games", { n: gameCount })}
             </span>
           </div>
         </section>
@@ -209,25 +215,30 @@ export default function PlayerProfilePage() {
 
 /* ── Game Carousel ───────────────────────────────────────── */
 
-function formatGameType(type?: string | null): string {
-  if (!type) return "Standard"
+// Translator signature — the two formatters below live outside the
+// component, so the active translation (and locale) is handed in.
+type Translate = (key: string, vars?: Record<string, string | number>) => string
+
+function formatGameType(type: string | null | undefined, t: Translate): string {
+  if (!type) return t("games.format.standard")
   return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function formatDateShort(iso?: string | null): string {
-  if (!iso) return "TBD"
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+function formatDateShort(iso: string | null | undefined, locale: string, t: Translate): string {
+  if (!iso) return t("games.tba")
+  return new Date(iso).toLocaleDateString(locale, { month: "short", day: "numeric" })
 }
 
 function GameCarousel({ games, playerName }: { games: EnrichedGame[]; playerName: string }) {
   const [idx, setIdx] = useState(0)
   const router = useRouter()
+  const { t, locale } = useI18n()
 
   if (games.length === 0) {
     return (
       <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-primary">{playerName}&apos;s Games</h2>
-        <p className="text-sm text-primary/70">Not in any games yet.</p>
+        <h2 className="mb-3 text-sm font-semibold text-primary">{t("profile.games.other", { name: playerName })}</h2>
+        <p className="text-sm text-primary/70">{t("profile.games.empty")}</p>
       </section>
     )
   }
@@ -244,21 +255,21 @@ function GameCarousel({ games, playerName }: { games: EnrichedGame[]; playerName
         {games.length > 1 && (
           <button type="button" onClick={(e) => { e.stopPropagation(); setIdx((i) => (i - 1 + games.length) % games.length) }}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-            aria-label="Previous game">
+            aria-label={t("games.carousel.prev")}>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
         )}
         <div className="min-w-0 flex-1 text-center">
-          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-primary/40">{playerName}&apos;s Games</p>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-primary/40">{t("profile.games.other", { name: playerName })}</p>
           <h2 className="text-lg font-bold text-primary">{game.name}</h2>
           <p className="text-xs uppercase tracking-[0.2em] text-primary/50">
-            {game.course_name || "Course TBA"}
+            {game.course_name || t("games.card.nocourse")}
           </p>
         </div>
         {games.length > 1 && (
           <button type="button" onClick={(e) => { e.stopPropagation(); setIdx((i) => (i + 1) % games.length) }}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-            aria-label="Next game">
+            aria-label={t("games.carousel.next")}>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
           </button>
         )}
@@ -270,7 +281,7 @@ function GameCarousel({ games, playerName }: { games: EnrichedGame[]; playerName
           {games.map((l, i) => (
             <button key={l.id} type="button" onClick={(e) => { e.stopPropagation(); setIdx(i) }}
               className={`h-1.5 rounded-full transition-all ${i === idx ? "w-5 bg-primary" : "w-1.5 bg-primary/20 hover:bg-primary/40"}`}
-              aria-label={`View ${l.name}`} />
+              aria-label={t("games.carousel.view", { name: l.name })} />
           ))}
         </div>
       )}
@@ -284,7 +295,11 @@ function GameCarousel({ games, playerName }: { games: EnrichedGame[]; playerName
             ? "bg-primary/10 text-primary"
             : "bg-amber-50 text-amber-700"
         }`}>
-          {game.status || "draft"}
+          {(game.status || "draft") === "active"
+            ? t("games.status.active")
+            : (game.status || "draft") === "completed"
+            ? t("games.status.completed")
+            : t("games.status.draft")}
         </span>
       </div>
 
@@ -297,8 +312,8 @@ function GameCarousel({ games, playerName }: { games: EnrichedGame[]; playerName
             </svg>
           </div>
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Format</p>
-            <p className="text-xs font-semibold text-primary">{formatGameType(game.game_type)}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">{t("invite.format")}</p>
+            <p className="text-xs font-semibold text-primary">{formatGameType(game.game_type, t)}</p>
           </div>
         </div>
 
@@ -309,11 +324,16 @@ function GameCarousel({ games, playerName }: { games: EnrichedGame[]; playerName
             </svg>
           </div>
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Cards</p>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">{t("games.field.cards")}</p>
             <p className="text-xs font-semibold text-primary">
               {game.scoring_cards_count != null
-                ? `Best ${game.scoring_cards_count}${game.total_cards_count ? ` of ${game.total_cards_count}` : ""}`
-                : "All count"}
+                ? game.total_cards_count
+                  ? t("games.bestof.total", {
+                      n: game.scoring_cards_count,
+                      total: game.total_cards_count,
+                    })
+                  : t("games.bestof", { n: game.scoring_cards_count })
+                : t("games.cards.all")}
             </p>
           </div>
         </div>
@@ -325,11 +345,11 @@ function GameCarousel({ games, playerName }: { games: EnrichedGame[]; playerName
             </svg>
           </div>
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">Duration</p>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-primary/40">{t("games.field.duration")}</p>
             <p className="text-xs font-semibold text-primary">
               {game.start_date
-                ? `${formatDateShort(game.start_date)} – ${formatDateShort(game.end_date)}`
-                : "No season set"}
+                ? `${formatDateShort(game.start_date, locale, t)} – ${formatDateShort(game.end_date, locale, t)}`
+                : t("games.season.none")}
             </p>
           </div>
         </div>
@@ -350,7 +370,7 @@ function GameCarousel({ games, playerName }: { games: EnrichedGame[]; playerName
                 router.push(`/players/${m.user_id}`)
               }}
               className="rounded-full transition-opacity hover:opacity-80"
-              aria-label={m.profiles?.username || m.profiles?.first_name || "Player"}
+              aria-label={m.profiles?.username || m.profiles?.first_name || t("common.player")}
             >
               <Avatar
                 src={m.profiles?.avatar_url}
@@ -367,8 +387,10 @@ function GameCarousel({ games, playerName }: { games: EnrichedGame[]; playerName
         </div>
         <span className="text-xs text-primary/60">
           {game.max_players != null
-            ? `${game.memberCount}/${game.max_players} players`
-            : `${game.memberCount} player${game.memberCount !== 1 ? "s" : ""}`}
+            ? t("games.players.max", { n: game.memberCount, max: game.max_players })
+            : game.memberCount === 1
+            ? t("games.players.one")
+            : t("games.players.count", { n: game.memberCount })}
         </span>
       </div>
     </section>
