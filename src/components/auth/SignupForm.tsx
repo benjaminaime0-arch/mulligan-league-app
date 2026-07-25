@@ -99,7 +99,7 @@ export function SignupForm() {
       {error && (
         <div
           role="alert"
-          className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700"
+          className="rounded-[10px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
           {error}
         </div>
@@ -107,7 +107,7 @@ export function SignupForm() {
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor="signup-username" className="mb-1 block text-sm font-medium text-primary">
+          <label htmlFor="signup-username" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
             Username
           </label>
           <input
@@ -117,20 +117,20 @@ export function SignupForm() {
             onChange={(e) =>
               setFormData((p) => ({ ...p, username: e.target.value.replace(/[^a-zA-Z0-9]/g, "") }))
             }
-            className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-[10px] border border-primary/20 bg-white px-3.5 py-2.5 text-base text-charcoal placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             placeholder="JohnnyGolf"
             autoComplete="username"
             maxLength={30}
             disabled={loading}
           />
-          <p className="mt-1 text-[11px] text-primary/40">Letters and numbers only</p>
+          <p className="mt-1 text-[11px] text-primary/70">Letters and numbers only</p>
           {fieldErrors.username && (
             <p className="mt-1 text-sm text-red-600">{fieldErrors.username}</p>
           )}
         </div>
 
         <div>
-          <label htmlFor="signup-email" className="mb-1 block text-sm font-medium text-primary">
+          <label htmlFor="signup-email" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
             Email
           </label>
           <input
@@ -138,7 +138,7 @@ export function SignupForm() {
             type="email"
             value={formData.email}
             onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
-            className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-[10px] border border-primary/20 bg-white px-3.5 py-2.5 text-base text-charcoal placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             placeholder="john@example.com"
             autoComplete="email"
             disabled={loading}
@@ -151,7 +151,7 @@ export function SignupForm() {
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor="signup-firstName" className="mb-1 block text-sm font-medium text-primary">
+          <label htmlFor="signup-firstName" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
             First name
           </label>
           <input
@@ -159,7 +159,7 @@ export function SignupForm() {
             type="text"
             value={formData.firstName}
             onChange={(e) => setFormData((p) => ({ ...p, firstName: e.target.value }))}
-            className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-[10px] border border-primary/20 bg-white px-3.5 py-2.5 text-base text-charcoal placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             placeholder="John"
             autoComplete="given-name"
             disabled={loading}
@@ -170,7 +170,7 @@ export function SignupForm() {
         </div>
 
         <div>
-          <label htmlFor="signup-lastName" className="mb-1 block text-sm font-medium text-primary">
+          <label htmlFor="signup-lastName" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
             Last name
           </label>
           <input
@@ -178,7 +178,7 @@ export function SignupForm() {
             type="text"
             value={formData.lastName}
             onChange={(e) => setFormData((p) => ({ ...p, lastName: e.target.value }))}
-            className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-[10px] border border-primary/20 bg-white px-3.5 py-2.5 text-base text-charcoal placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             placeholder="Smith"
             autoComplete="family-name"
             disabled={loading}
@@ -190,7 +190,7 @@ export function SignupForm() {
       </div>
 
       <div>
-        <label htmlFor="signup-password" className="mb-1 block text-sm font-medium text-primary">
+        <label htmlFor="signup-password" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
           Password
         </label>
         <input
@@ -198,7 +198,7 @@ export function SignupForm() {
           type="password"
           value={formData.password}
           onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
-          className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full rounded-[10px] border border-primary/20 bg-white px-3.5 py-2.5 text-base text-charcoal placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           placeholder="••••••••"
           autoComplete="new-password"
           disabled={loading}
@@ -209,7 +209,7 @@ export function SignupForm() {
       </div>
 
       <div>
-        <label htmlFor="signup-confirmPassword" className="mb-1 block text-sm font-medium text-primary">
+        <label htmlFor="signup-confirmPassword" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
           Confirm password
         </label>
         <input
@@ -217,7 +217,7 @@ export function SignupForm() {
           type="password"
           value={formData.confirmPassword}
           onChange={(e) => setFormData((p) => ({ ...p, confirmPassword: e.target.value }))}
-          className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full rounded-[10px] border border-primary/20 bg-white px-3.5 py-2.5 text-base text-charcoal placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           placeholder="••••••••"
           autoComplete="new-password"
           disabled={loading}
@@ -228,23 +228,23 @@ export function SignupForm() {
       </div>
 
       <div>
-        <label htmlFor="signup-club" className="mb-1 block text-sm font-medium text-primary">
-          Home golf club <span className="font-normal text-primary/60">(optional)</span>
+        <label htmlFor="signup-club" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
+          Home golf club <span className="font-normal normal-case tracking-normal text-primary/70">(optional)</span>
         </label>
         <input
           id="signup-club"
           type="text"
           value={formData.club}
           onChange={(e) => setFormData((p) => ({ ...p, club: e.target.value }))}
-          className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full rounded-[10px] border border-primary/20 bg-white px-3.5 py-2.5 text-base text-charcoal placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           placeholder="Pebble Beach Golf Links"
           disabled={loading}
         />
       </div>
 
       <div>
-        <label htmlFor="signup-handicap" className="mb-1 block text-sm font-medium text-primary">
-          Handicap <span className="font-normal text-primary/60">(optional, 0–54)</span>
+        <label htmlFor="signup-handicap" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
+          Handicap <span className="font-normal normal-case tracking-normal text-primary/70">(optional, 0–54)</span>
         </label>
         <input
           id="signup-handicap"
@@ -254,7 +254,7 @@ export function SignupForm() {
           step={0.1}
           value={formData.handicap}
           onChange={(e) => setFormData((p) => ({ ...p, handicap: e.target.value }))}
-          className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full rounded-[10px] border border-primary/20 bg-white px-3.5 py-2.5 text-base text-charcoal placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           placeholder="18"
           disabled={loading}
         />
@@ -266,7 +266,7 @@ export function SignupForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-[10px] bg-primary px-4 py-3 text-[15px] font-bold tracking-[-0.02em] text-cream transition-all hover:bg-primary-deep active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? "Creating account…" : "Create Account"}
       </button>

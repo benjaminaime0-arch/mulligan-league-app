@@ -59,14 +59,14 @@ export function LoginForm() {
       {error && (
         <div
           role="alert"
-          className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700"
+          className="rounded-[10px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
           {error}
         </div>
       )}
 
       <div>
-        <label htmlFor="login-email" className="mb-1 block text-sm font-medium text-primary">
+        <label htmlFor="login-email" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
           Email
         </label>
         <input
@@ -74,7 +74,7 @@ export function LoginForm() {
           type="email"
           value={formData.email}
           onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
-          className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full rounded-[10px] border border-primary/20 bg-white px-3.5 py-2.5 text-base text-charcoal placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           placeholder="john@example.com"
           autoComplete="email"
           disabled={loading}
@@ -85,7 +85,7 @@ export function LoginForm() {
       </div>
 
       <div>
-        <label htmlFor="login-password" className="mb-1 block text-sm font-medium text-primary">
+        <label htmlFor="login-password" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
           Password
         </label>
         <input
@@ -93,7 +93,7 @@ export function LoginForm() {
           type="password"
           value={formData.password}
           onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
-          className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full rounded-[10px] border border-primary/20 bg-white px-3.5 py-2.5 text-base text-charcoal placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           placeholder="••••••••"
           autoComplete="current-password"
           disabled={loading}
@@ -106,14 +106,14 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-[10px] bg-primary px-4 py-3 text-[15px] font-bold tracking-[-0.02em] text-cream transition-all hover:bg-primary-deep active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? "Logging in…" : "Log In"}
       </button>
 
-      <p className="text-center text-sm text-primary/70">
+      <p className="text-center text-sm text-charcoal/70">
         {resetSent ? (
-          <span className="text-emerald-700">Check your email for a reset link.</span>
+          <span className="text-primary">Check your email for a reset link.</span>
         ) : (
           <button
             type="button"
@@ -141,7 +141,7 @@ export function LoginForm() {
                 setResetLoading(false)
               }
             }}
-            className="font-medium text-primary underline hover:no-underline disabled:opacity-60"
+            className="text-charcoal underline hover:no-underline disabled:opacity-60"
           >
             {resetLoading ? "Sending…" : "Forgot password?"}
           </button>

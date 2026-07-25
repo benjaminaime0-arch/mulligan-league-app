@@ -1,9 +1,9 @@
 "use client"
 
 import { Suspense, useEffect, useState } from "react"
+import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import { Logo } from "@/components/Logo"
 import { LoginForm } from "@/components/auth/LoginForm"
 import { SignupForm } from "@/components/auth/SignupForm"
 
@@ -15,9 +15,16 @@ export default function Home() {
   )
 }
 
+// The layout wraps every page in pb-[4.5rem] to clear the mobile bottom
+// nav, but the Navbar doesn't render on "/" — the -mb cancels the padding
+// so the bone/green surfaces reach the bottom edge instead of a white strip.
+const NAV_PAD_CANCEL = "-mb-[4.5rem] md:mb-0"
+
 function HomeLoading() {
   return (
-    <main className="flex min-h-screen items-center justify-center">
+    <main
+      className={`flex min-h-screen items-center justify-center bg-bone ${NAV_PAD_CANCEL}`}
+    >
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
     </main>
   )
@@ -47,37 +54,78 @@ function HomeContent() {
   if (checking) return <HomeLoading />
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
-      <div className="mx-auto w-full max-w-[440px]">
-        <div className="mb-8 flex flex-col items-center">
-          <Logo size={160} priority />
-          <span className="-mt-6 text-4xl font-bold text-primary">Mulligan</span>
-        </div>
-        <h1 className="sr-only">Mulligan</h1>
-        <p className="mb-1 text-center text-lg text-primary/90">
-          Your weekend golf crew, organized.
-        </p>
-        <p className="mb-6 text-center text-sm text-primary/60">
-          Games, scores, bragging rights, all in one place.
-        </p>
-
-        <div
-          role="tablist"
-          aria-label="Authentication"
-          className="mb-6 grid grid-cols-2 rounded-lg border border-primary/15 bg-cream p-1"
-        >
-          <TabButton active={tab === "login"} onClick={() => setTab("login")}>
-            Log In
-          </TabButton>
-          <TabButton active={tab === "signup"} onClick={() => setTab("signup")}>
-            Sign Up
-          </TabButton>
+    <main className={`flex min-h-screen flex-col lg:flex-row ${NAV_PAD_CANCEL}`}>
+      {/* Brand panel — full-height left split on desktop, top band on mobile. */}
+      <section className="flex flex-col bg-primary px-6 py-8 text-cream lg:min-h-screen lg:w-[55%] lg:px-14 lg:py-12">
+        <div className="flex items-center gap-3">
+          <Image
+            src="/logo-mark-white.png"
+            alt=""
+            width={44}
+            height={44}
+            priority
+            className="h-10 w-10 lg:h-11 lg:w-11"
+          />
+          {/* 0.4em tracking adds a trailing gap after the last letter, so the
+              wordmark is left-aligned rather than centered. */}
+          <span className="text-sm font-bold uppercase tracking-[0.4em] lg:text-base">
+            Mulligan
+          </span>
         </div>
 
-        <div role="tabpanel">
-          {tab === "login" ? <LoginForm /> : <SignupForm />}
+        <div className="mt-8 lg:my-auto lg:py-16">
+          {/* -0.04em is the brand kit's display tracking (.t-display). */}
+          <h1 className="text-4xl font-black leading-[1.08] tracking-[-0.04em] sm:text-5xl lg:text-6xl xl:text-7xl">
+            Your Game.
+            <br />
+            <span className="text-gold">Your League.</span>
+          </h1>
+          <p className="mt-4 max-w-md text-base font-light text-sage lg:mt-6 lg:text-xl">
+            Games, scores, bragging rights — all in one place.
+          </p>
+
+          {/* Brand kit badge component (pill, 700 weight, 0.1em tracking).
+              Outlined on green so the gold stays reserved for the headline —
+              and unlike a separator row these wrap without a dangling glyph. */}
+          <ul className="mt-6 flex flex-wrap gap-2 lg:mt-8">
+            {["Live leaderboards", "Net scoring", "Private games"].map((label) => (
+              <li
+                key={label}
+                className="rounded-full border border-cream/25 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-cream/80 lg:text-[11px]"
+              >
+                {label}
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
+      </section>
+
+      {/* Auth panel */}
+      <section className="flex flex-1 justify-center bg-bone px-4 py-10 lg:items-center lg:overflow-y-auto lg:px-8">
+        {/* Card matches the app's surface treatment — white card, green
+            hairline, shadow-sm, exactly as /profile's cards — at the brand
+            kit's 14px panel radius. The kit's #E7E1D2 hairline is specified
+            for panels sitting on the off-white body; against bone it has
+            almost no edge, so the green tint the app already uses wins. */}
+        <div className="auth-card h-fit w-full max-w-[460px] rounded-[14px] border border-primary/15 bg-white p-6 shadow-sm sm:p-7">
+          <div
+            role="tablist"
+            aria-label="Authentication"
+            className="mb-7 grid grid-cols-2 gap-1 rounded-full bg-primary/5 p-1"
+          >
+            <TabButton active={tab === "login"} onClick={() => setTab("login")}>
+              Log In
+            </TabButton>
+            <TabButton active={tab === "signup"} onClick={() => setTab("signup")}>
+              Sign Up
+            </TabButton>
+          </div>
+
+          <div role="tabpanel">
+            {tab === "login" ? <LoginForm /> : <SignupForm />}
+          </div>
+        </div>
+      </section>
     </main>
   )
 }
@@ -97,10 +145,13 @@ function TabButton({
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={`rounded-md py-2 text-sm font-semibold transition-colors ${
+      // ring-offset-white puts a gap between pill and ring so the indicator is
+      // visible on BOTH states — a plain primary ring vanishes on the active
+      // green pill, and primary/40 was only 2.34:1 on the card (WCAG wants 3:1).
+      className={`rounded-full py-2.5 text-sm font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
         active
-          ? "bg-primary text-cream shadow-sm"
-          : "text-primary/70 hover:text-primary"
+          ? "bg-primary text-cream"
+          : "text-primary/70 hover:bg-primary/5 hover:text-primary"
       }`}
     >
       {children}

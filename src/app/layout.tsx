@@ -7,9 +7,16 @@ import { Navbar } from "@/components/Navbar"
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
 
-// Nobel TRIAL — Mulligan brand font. Letter-spacing default (-0.05em / -50)
-// is set globally on `body` in tailwind.config.ts so every element using
-// this font inherits the tight tracking without per-class repetition.
+// Nobel TRIAL — Mulligan brand font. The brand's default tracking (-0.02em)
+// is set on `body` in globals.css so every element inherits it without
+// per-class repetition; headings opt into tighter values themselves.
+//
+// NOTE: these files ship the TRIAL cut, which draws a "TRIAL" watermark
+// instead of the real glyph for most punctuation and every accented letter.
+// globals.css carries a generated per-weight @font-face fallback keyed to the
+// hashed family name next/font emits for THIS config — change the weights or
+// files below and that hash changes, silently disabling the fallback. Re-run
+// scripts/gen_nobel_fallback_range.py if you touch this block.
 const nobel = localFont({
   src: [
     { path: "../../public/fonts/nobel/NobelTRIAL-ExtraLight.otf",       weight: "200", style: "normal" },

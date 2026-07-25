@@ -2,28 +2,60 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Nobel TRIAL is glyph-restricted (no @, em-dash, bullet, smart quotes,
-   etc.) and renders missing chars as .notdef boxes. We declare an extra
-   @font-face entry under the SAME generated family name that next/font
-   produced (`__nobel_3fad05`) but with a `unicode-range` limited to the
-   problem code points and `src: local(...)` pointing at system fonts —
-   the browser picks this entry for those code points only and stays on
-   Nobel for everything else. The hash matches what next/font/local
-   currently emits in src/app/layout.tsx; update it here if the font
-   config in layout.tsx changes. */
+/* BEGIN generated: nobel-trial-watermark-fallback */
+/* Do not edit by hand — run scripts/gen_nobel_fallback_range.py.
+   Nobel TRIAL draws a rotated "TRIAL" watermark instead of the real
+   glyph for 481 of its codepoints (ASCII punctuation such as - @ ? ( )
+   % / & + =, every accented Latin letter, the euro sign, dashes, smart
+   quotes, the bullet, the ellipsis and U+2212 MINUS). These faces hand
+   exactly those code points to a system font and leave the rest on Nobel.
+   One face per weight is required: CSS font matching prefers the narrowest
+   weight descriptor, so a single face would lose to Nobel's own exact-weight
+   faces everywhere except its own weight. Derived from 12 font files.
+   Deleting this block is the first step after licensing the retail font. */
 @font-face {
   font-family: "__nobel_3fad05";
   src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
-  unicode-range: U+0040,          /* @ */
-                 U+2013-2014,     /* en-dash, em-dash */
-                 U+2018-2019,     /* curly single quotes */
-                 U+201C-201D,     /* curly double quotes */
-                 U+2022,          /* bullet */
-                 U+2026,          /* ellipsis */
-                 U+00B7,          /* middle dot */
-                 U+00A0;          /* nbsp */
+  font-weight: 200;
+  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
   font-display: swap;
 }
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 300;
+  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
+  font-display: swap;
+}
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 400;
+  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
+  font-display: swap;
+}
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 500;
+  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
+  font-display: swap;
+}
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 700;
+  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
+  font-display: swap;
+}
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 900;
+  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
+  font-display: swap;
+}
+/* END generated: nobel-trial-watermark-fallback */
 
 :root {
   --primary: #003800;
@@ -35,8 +67,39 @@
 body {
   color: var(--primary);
   background: var(--cream);
+  /* Brand kit sets `body { letter-spacing: -0.02em }` and the type spec calls
+     for -0.02 to -0.05em throughout. Comments in layout.tsx and
+     tailwind.config.ts had long claimed this default was already applied, but
+     nothing ever set it — every element outside the handful with an explicit
+     `tracking-*` class rendered at 0. Tighter headings opt in per element
+     (-0.03em headings, -0.04em display); `tracking-brand` is the -0.05em end. */
+  letter-spacing: -0.02em;
 }
 
+
+/* Chrome/Safari paint autofilled inputs with a pale-blue overlay that
+   ignores `background-color`. An opaque inset box-shadow is the only
+   reliable way to cover it, so autofilled auth fields stay white on the
+   bone-colored panel. Scoped to .auth-card to leave other pages alone. */
+.auth-card input:-webkit-autofill,
+.auth-card input:-webkit-autofill:hover {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+  -webkit-text-fill-color: #1a1a1a;
+  caret-color: #1a1a1a;
+}
+
+/* Tailwind's `focus:ring-1` is itself a box-shadow, so the rule above would
+   erase the focus ring on an autofilled field — keyboard users would lose
+   the focus indicator on exactly the fields a password manager filled.
+   Re-draw the ring alongside the inset fill. Keep the 1px ring in sync with
+   `focus:ring-primary` on the inputs in the auth forms. */
+.auth-card input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset, 0 0 0 1px var(--primary);
+  box-shadow: 0 0 0 1000px #ffffff inset, 0 0 0 1px var(--primary);
+  -webkit-text-fill-color: #1a1a1a;
+  caret-color: #1a1a1a;
+}
 
 /* Mobile bottom nav safe area */
 .mobile-nav-safe {
