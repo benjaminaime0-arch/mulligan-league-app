@@ -6,6 +6,8 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { Logo } from "@/components/Logo"
+import { useI18n } from "@/lib/i18n"
+import { track } from "@/lib/analytics"
 
 /**
  * Onboarding — 3 screens, <90s (T1.2, MVP "Écran Onboarding").
@@ -42,6 +44,7 @@ function WelcomeContent() {
   const searchParams = useSearchParams()
   const next = searchParams.get("next")
   const { user, loading: authLoading } = useAuth()
+  const { t } = useI18n()
 
   const [step, setStep] = useState(1)
   const [username, setUsername] = useState("")
@@ -87,7 +90,7 @@ function WelcomeContent() {
   const saveProfile = async () => {
     const name = username.trim()
     if (name.length < 2) {
-      setError("Pick a username (at least 2 characters).")
+      setError(t("onboarding.username.short"))
       return false
     }
     setSaving(true)
@@ -105,14 +108,17 @@ function WelcomeContent() {
       return true
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Couldn't save your profile."
-      setError(/duplicate|unique/i.test(msg) ? "That username is taken — try another." : msg)
+      setError(/duplicate|unique/i.test(msg) ? t("onboarding.username.taken") : msg)
       return false
     } finally {
       setSaving(false)
     }
   }
 
-  const finish = () => router.replace(next || "/home")
+  const finish = () => {
+    track("onboarding_completed", { step })
+    router.replace(next || "/home")
+  }
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 py-8">
@@ -141,18 +147,17 @@ function WelcomeContent() {
       {step === 1 && (
         <section className="flex flex-1 flex-col items-center justify-center text-center">
           <Logo size={120} />
-          <h1 className="mt-4 text-2xl font-bold text-primary">Welcome to Mulligan</h1>
-          <p className="mt-2 text-lg text-primary/80">Your Game. Your League.</p>
+          <h1 className="mt-4 text-2xl font-bold text-primary">{t("onboarding.welcome")}</h1>
+          <p className="mt-2 text-lg text-primary/80">{t("onboarding.brandline")}</p>
           <p className="mt-4 max-w-xs text-sm text-primary/60">
-            Turn your regular golf crew into a real competition — schedule rounds,
-            log scores, and settle who&apos;s actually best.
+            {t("onboarding.pitch")}
           </p>
           <button
             type="button"
             onClick={() => setStep(2)}
             className="mt-8 w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98]"
           >
-            Get started
+            {t("onboarding.start")}
           </button>
         </section>
       )}
@@ -160,15 +165,15 @@ function WelcomeContent() {
       {/* ── 2. Minimal profile ─────────────────────────────── */}
       {step === 2 && (
         <section className="flex flex-1 flex-col">
-          <h1 className="text-xl font-bold text-primary">What should we call you?</h1>
+          <h1 className="text-xl font-bold text-primary">{t("onboarding.name.title")}</h1>
           <p className="mt-1 text-sm text-primary/60">
-            This is the name your crew sees on the leaderboard.
+            {t("onboarding.name.subtitle")}
           </p>
 
           <div className="mt-6 space-y-4">
             <div>
               <label htmlFor="ob-username" className="mb-1 block text-sm font-medium text-primary">
-                Username <span className="text-primary/40">(required)</span>
+                {t("onboarding.username")} <span className="text-primary/40">{t("common.required")}</span>
               </label>
               <input
                 id="ob-username"
@@ -184,7 +189,7 @@ function WelcomeContent() {
 
             <div>
               <label htmlFor="ob-club" className="mb-1 block text-sm font-medium text-primary">
-                Home club <span className="text-primary/40">(optional)</span>
+                {t("onboarding.club")} <span className="text-primary/40">{t("common.optional")}</span>
               </label>
               <input
                 id="ob-club"
@@ -199,7 +204,7 @@ function WelcomeContent() {
 
             <div>
               <label htmlFor="ob-town" className="mb-1 block text-sm font-medium text-primary">
-                Town <span className="text-primary/40">(optional)</span>
+                {t("onboarding.town")} <span className="text-primary/40">{t("common.optional")}</span>
               </label>
               <input
                 id="ob-town"
@@ -213,7 +218,7 @@ function WelcomeContent() {
             </div>
 
             <p className="text-xs text-primary/40">
-              No handicap needed — you can add a photo and details later from your profile.
+              {t("onboarding.nohandicap")}
             </p>
           </div>
 
@@ -222,11 +227,14 @@ function WelcomeContent() {
               type="button"
               disabled={saving}
               onClick={async () => {
-                if (await saveProfile()) setStep(3)
+                if (await saveProfile()) {
+                  track("onboarding_completed", { step: 2 })
+                  setStep(3)
+                }
               }}
               className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-60"
             >
-              {saving ? "Saving…" : "Continue"}
+              {saving ? t("common.loading") : t("common.continue")}
             </button>
           </div>
         </section>
@@ -235,9 +243,9 @@ function WelcomeContent() {
       {/* ── 3. Join or create ──────────────────────────────── */}
       {step === 3 && (
         <section className="flex flex-1 flex-col">
-          <h1 className="text-xl font-bold text-primary">Get into a game</h1>
+          <h1 className="text-xl font-bold text-primary">{t("onboarding.join.title")}</h1>
           <p className="mt-1 text-sm text-primary/60">
-            Got an invite code from a friend? Use it. Otherwise start your own.
+            {t("onboarding.join.subtitle")}
           </p>
 
           <div className="mt-6 space-y-3">
@@ -246,9 +254,9 @@ function WelcomeContent() {
               className="flex items-center justify-between rounded-xl border border-primary/15 bg-white px-4 py-4 shadow-sm transition-colors hover:border-primary/30 hover:bg-cream/40"
             >
               <span>
-                <span className="block text-sm font-semibold text-primary">Join with a code</span>
+                <span className="block text-sm font-semibold text-primary">{t("onboarding.join.code")}</span>
                 <span className="mt-0.5 block text-xs text-primary/55">
-                  Your crew already has a game going
+                  {t("onboarding.join.code.sub")}
                 </span>
               </span>
               <Arrow />
@@ -259,9 +267,9 @@ function WelcomeContent() {
               className="flex items-center justify-between rounded-xl border border-primary/15 bg-white px-4 py-4 shadow-sm transition-colors hover:border-primary/30 hover:bg-cream/40"
             >
               <span>
-                <span className="block text-sm font-semibold text-primary">Create a game</span>
+                <span className="block text-sm font-semibold text-primary">{t("onboarding.join.create")}</span>
                 <span className="mt-0.5 block text-xs text-primary/55">
-                  Start a league and invite your friends
+                  {t("onboarding.join.create.sub")}
                 </span>
               </span>
               <Arrow />
@@ -274,7 +282,7 @@ function WelcomeContent() {
               onClick={finish}
               className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-3 text-sm font-medium text-primary hover:bg-primary/5"
             >
-              Skip for now
+              {t("common.skip")}
             </button>
           </div>
         </section>

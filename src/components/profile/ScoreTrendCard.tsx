@@ -12,6 +12,7 @@ import {
 } from "recharts"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
+import { useI18n } from "@/lib/i18n"
 
 export interface ScoreTrendPoint {
   score: number
@@ -39,6 +40,12 @@ interface ScoreTrendCardProps {
    * component keeps working on `/profile` without extra wiring.
    */
   userId?: string
+  /**
+   * Display name of the profile being viewed. When present (and not the
+   * viewer), the heading reads "X's trajectory" instead of "Your
+   * trajectory" — the copy bug on other players' pages (T1.7).
+   */
+  ownerName?: string | null
 }
 
 const MIN_ROUNDS_FOR_TREND = 3
@@ -50,7 +57,8 @@ const RANGE_OPTIONS: Array<{ value: Range; label: string }> = [
   { value: "recent", label: "All" },
 ]
 
-export function ScoreTrendCard({ handicap, userId }: ScoreTrendCardProps) {
+export function ScoreTrendCard({ handicap, userId, ownerName }: ScoreTrendCardProps) {
+  const { t } = useI18n()
   const { user, loading: authLoading } = useAuth()
   const [range, setRange] = useState<Range>("month")
   const [trend, setTrend] = useState<ScoreTrendData | null>(null)
@@ -97,7 +105,7 @@ export function ScoreTrendCard({ handicap, userId }: ScoreTrendCardProps) {
     <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-primary">
-          Your trajectory
+          {ownerName ? t("profile.trajectory.other", { name: ownerName }) : t("profile.trajectory.own")}
           {fetching && trend !== null && (
             <span
               aria-hidden="true"

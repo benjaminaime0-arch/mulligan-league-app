@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import { useI18n } from "@/lib/i18n"
 
 /**
  * Type-ahead over the Île-de-France course base (T1.6).
@@ -30,7 +31,7 @@ export function CourseAutocomplete({
   onChange,
   onSelect,
   id = "course",
-  placeholder = "Start typing a course name…",
+  placeholder,
   disabled = false,
 }: {
   value: string
@@ -41,6 +42,7 @@ export function CourseAutocomplete({
   placeholder?: string
   disabled?: boolean
 }) {
+  const { t } = useI18n()
   const [suggestions, setSuggestions] = useState<CourseSuggestion[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -138,7 +140,7 @@ export function CourseAutocomplete({
         onKeyDown={handleKeyDown}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
         className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-        placeholder={placeholder}
+        placeholder={placeholder ?? t("course.placeholder")}
         autoComplete="off"
         role="combobox"
         aria-expanded={open}
@@ -155,16 +157,16 @@ export function CourseAutocomplete({
             <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            Verified
+            {t("course.verified")}
           </span>
           {picked.city && <span>{picked.city}{picked.dept_no ? ` (${picked.dept_no})` : ""}</span>}
-          {picked.holes != null && <span>{picked.holes} holes</span>}
-          {picked.par != null && <span>Par {picked.par}</span>}
+          {picked.holes != null && <span>{t("course.holes", { n: picked.holes })}</span>}
+          {picked.par != null && <span>{t("course.par", { n: picked.par })}</span>}
         </p>
       )}
       {!picked && value.trim().length >= 2 && !loading && !open && (
         <p className="mt-1 text-xs text-primary/40">
-          Not in our course list — we&apos;ll save it as typed.
+          {t("course.freetext")}
         </p>
       )}
 
@@ -192,8 +194,8 @@ export function CourseAutocomplete({
                   {[
                     c.city,
                     c.dept_no ? `(${c.dept_no})` : null,
-                    c.holes != null ? `${c.holes} holes` : c.course_type,
-                    c.par != null ? `Par ${c.par}` : null,
+                    c.holes != null ? t("course.holes", { n: c.holes }) : c.course_type,
+                    c.par != null ? t("course.par", { n: c.par }) : null,
                   ]
                     .filter(Boolean)
                     .join(" · ")}

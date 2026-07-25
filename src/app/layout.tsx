@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next"
 import localFont from "next/font/local"
-import Script from "next/script"
 import "./globals.css"
 import { AuthProvider } from "@/components/AuthProvider"
+import { I18nProvider } from "@/lib/i18n"
+import { ConsentBanner } from "@/components/ConsentBanner"
 import { Navbar } from "@/components/Navbar"
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
@@ -86,30 +87,19 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={nobel.variable}>
+    <html lang="fr" className={nobel.variable}>
       <body
         className={`${nobel.className} min-h-screen bg-white text-primary antialiased`}
       >
-        {GA_MEASUREMENT_ID && (
-          <>
-            <Script
-              src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-              strategy="afterInteractive"
-            />
-            <Script id="google-analytics" strategy="afterInteractive">
-              {`
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', '${GA_MEASUREMENT_ID}');
-              `}
-            </Script>
-          </>
-        )}
-        <AuthProvider>
-          <Navbar />
-          <div className="pb-[4.5rem] md:pb-0">{children}</div>
-        </AuthProvider>
+        <I18nProvider>
+          <AuthProvider>
+            <Navbar />
+            <div className="pb-[4.5rem] md:pb-0">{children}</div>
+            {/* GA is loaded from inside the banner, only after consent
+                (CNIL) — never on first paint. */}
+            <ConsentBanner measurementId={GA_MEASUREMENT_ID} />
+          </AuthProvider>
+        </I18nProvider>
       </body>
     </html>
   )

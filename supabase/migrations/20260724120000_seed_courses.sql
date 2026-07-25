@@ -33,8 +33,13 @@ CREATE TABLE IF NOT EXISTS public.courses (
 -- Idempotent seeding key + the index that powers type-ahead search.
 CREATE UNIQUE INDEX IF NOT EXISTS courses_name_city_uq
   ON public.courses (lower(name), lower(coalesce(city, '')));
+-- pg_trgm lives in `extensions` on hosted Supabase and in `public` on the
+-- local CLI stack; resolve the operator class through search_path so this
+-- migration replays in both (CI caught the hard-coded schema).
+SET search_path = public, extensions;
 CREATE INDEX IF NOT EXISTS courses_name_trgm_idx
-  ON public.courses USING gin (name extensions.gin_trgm_ops);
+  ON public.courses USING gin (name gin_trgm_ops);
+SET search_path = public;
 
 ALTER TABLE public.courses ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS courses_select_authenticated ON public.courses;
@@ -211,7 +216,7 @@ AS $fn$
     -- exact prefix first, then holes-bearing courses, then similarity
     (c.name ILIKE btrim(p_query) || '%') DESC,
     (c.holes IS NOT NULL) DESC,
-    extensions.similarity(c.name, btrim(p_query)) DESC,
+    similarity(c.name, btrim(p_query)) DESC,
     c.name ASC
   LIMIT LEAST(GREATEST(p_limit, 1), 25);
 $fn$;

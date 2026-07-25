@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 import { supabase } from "@/lib/supabase"
+import { useI18n } from "@/lib/i18n"
+import { track } from "@/lib/analytics"
 
 /**
  * Google / Apple sign-in (T1.1, US1).
@@ -19,12 +21,14 @@ import { supabase } from "@/lib/supabase"
  * which is what works inside an installed PWA and iOS Safari.
  */
 export function OAuthButtons({ redirectTo }: { redirectTo?: string | null }) {
+  const { t } = useI18n()
   const [loading, setLoading] = useState<"google" | "apple" | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const signIn = async (provider: "google" | "apple") => {
     setError(null)
     setLoading(provider)
+    track("signup_started", { provider })
     try {
       const next = redirectTo ? `?next=${encodeURIComponent(redirectTo)}` : ""
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
@@ -40,7 +44,7 @@ export function OAuthButtons({ redirectTo }: { redirectTo?: string | null }) {
       const msg = err instanceof Error ? err.message : "Sign-in failed."
       setError(
         /provider is not enabled/i.test(msg)
-          ? `${provider === "google" ? "Google" : "Apple"} sign-in isn't switched on yet.`
+          ? t("auth.provider.off", { provider: provider === "google" ? "Google" : "Apple" })
           : msg,
       )
     }
@@ -61,7 +65,7 @@ export function OAuthButtons({ redirectTo }: { redirectTo?: string | null }) {
         className="flex w-full items-center justify-center gap-3 rounded-lg border border-primary/20 bg-white px-4 py-3 font-medium text-primary transition-all hover:bg-cream active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
       >
         <GoogleMark />
-        {loading === "google" ? "Redirecting…" : "Continue with Google"}
+        {loading === "google" ? t("auth.redirecting") : t("auth.google")}
       </button>
 
       <button
@@ -71,12 +75,12 @@ export function OAuthButtons({ redirectTo }: { redirectTo?: string | null }) {
         className="flex w-full items-center justify-center gap-3 rounded-lg border border-primary/20 bg-black px-4 py-3 font-medium text-white transition-all hover:bg-black/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
       >
         <AppleMark />
-        {loading === "apple" ? "Redirecting…" : "Continue with Apple"}
+        {loading === "apple" ? t("auth.redirecting") : t("auth.apple")}
       </button>
 
       <div className="flex items-center gap-3 pt-1">
         <span className="h-px flex-1 bg-primary/10" />
-        <span className="text-xs uppercase tracking-wide text-primary/40">or</span>
+        <span className="text-xs uppercase tracking-wide text-primary/40">{t("auth.or")}</span>
         <span className="h-px flex-1 bg-primary/10" />
       </div>
     </div>

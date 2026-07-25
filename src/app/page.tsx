@@ -7,6 +7,7 @@ import { Logo } from "@/components/Logo"
 import { LoginForm } from "@/components/auth/LoginForm"
 import { SignupForm } from "@/components/auth/SignupForm"
 import { OAuthButtons } from "@/components/auth/OAuthButtons"
+import { useI18n } from "@/lib/i18n"
 
 export default function Home() {
   return (
@@ -29,6 +30,7 @@ type Tab = "login" | "signup"
 function HomeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { t } = useI18n()
   const [checking, setChecking] = useState(true)
   // `?tab=signup` deep-links into the signup tab so /signup redirects can
   // land on the right pane.
@@ -56,10 +58,10 @@ function HomeContent() {
         </div>
         <h1 className="sr-only">Mulligan</h1>
         <p className="mb-1 text-center text-lg text-primary/90">
-          Your weekend golf crew, organized.
+          {t("auth.tagline")}
         </p>
         <p className="mb-6 text-center text-sm text-primary/60">
-          Games, scores, bragging rights, all in one place.
+          {t("auth.subtitle")}
         </p>
 
         {/* Social sign-in first — the lowest-friction entry (T1.1). */}
@@ -73,10 +75,10 @@ function HomeContent() {
           className="mb-6 grid grid-cols-2 rounded-lg border border-primary/15 bg-cream p-1"
         >
           <TabButton active={tab === "login"} onClick={() => setTab("login")}>
-            Log In
+            {t("auth.login")}
           </TabButton>
           <TabButton active={tab === "signup"} onClick={() => setTab("signup")}>
-            Sign Up
+            {t("auth.signup")}
           </TabButton>
         </div>
 

@@ -24,6 +24,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { track } from "@/lib/analytics"
 import { Avatar } from "@/components/Avatar"
 import type { Game, Match, MatchPlayer } from "./types"
 import {
@@ -524,6 +525,7 @@ export function MatchDetailCard({
         setScoreError(result.error || "Failed to save scores.")
         return
       }
+      track("score_entered", { players: entries.length })
       setEditing(false)
       await onRefresh()
     } catch (err) {
@@ -547,6 +549,7 @@ export function MatchDetailCard({
         setActionError(result.error || "Could not approve scores.")
         return
       }
+      track("score_confirmed", {})
       await onRefresh()
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to approve.")

@@ -6,6 +6,8 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { useAuthContext } from "@/components/AuthProvider"
 import { Logo } from "@/components/Logo"
+import { useI18n } from "@/lib/i18n"
+import { track } from "@/lib/analytics"
 
 /**
  * Invite deep link — `/join/[code]` (T1.3).
@@ -41,6 +43,7 @@ export default function InviteLandingPage() {
   const params = useParams<{ code: string }>()
   const router = useRouter()
   const { user, loading: authLoading } = useAuthContext()
+  const { t } = useI18n()
 
   const code = (params?.code || "").toUpperCase().slice(0, 6)
   const [preview, setPreview] = useState<Preview | null>(null)
@@ -55,15 +58,18 @@ export default function InviteLandingPage() {
     let cancelled = false
     const run = async () => {
       setLoading(true)
+      track("invite_link_opened", { code_len: code.length })
       const { data, error: rpcError } = await supabase.rpc("get_invite_preview", {
         p_code: code,
       })
       if (cancelled) return
       if (rpcError) {
-        setError("We couldn't look up that invite.")
+        setError(t("invite.lookupfailed"))
         setPreview({ found: false })
       } else {
-        setPreview((data || { found: false }) as Preview)
+        const p = (data || { found: false }) as Preview
+        setPreview(p)
+        if (p.found) track("invite_preview_viewed", { authed: !!user })
       }
       setLoading(false)
     }
@@ -71,7 +77,7 @@ export default function InviteLandingPage() {
     return () => {
       cancelled = true
     }
-  }, [code])
+  }, [code, t, user])
 
   // 2. Auto-join once we know the viewer is signed in and the game is joinable.
   const autoJoin = useCallback(async () => {
@@ -86,6 +92,7 @@ export default function InviteLandingPage() {
       if (rpcError) throw rpcError
       const res = (data || {}) as { success?: boolean; game_id?: string; error?: string }
       if (res.success && res.game_id) {
+        track("invite_joined", {})
         router.replace(`/games/${res.game_id}`)
         return
       }
@@ -94,13 +101,13 @@ export default function InviteLandingPage() {
         router.replace("/games")
         return
       }
-      setError(res.error || "We couldn't add you to this game.")
+      setError(res.error || t("invite.failed"))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "We couldn't add you to this game.")
+      setError(err instanceof Error ? err.message : t("invite.failed"))
     } finally {
       setJoining(false)
     }
-  }, [code, router])
+  }, [code, router, t])
 
   useEffect(() => {
     if (authLoading || !user || !preview?.found) return
@@ -120,17 +127,16 @@ export default function InviteLandingPage() {
   if (!preview?.found) {
     return (
       <Shell>
-        <h1 className="text-xl font-bold text-primary">This invite isn&apos;t valid</h1>
+        <h1 className="text-xl font-bold text-primary">{t("invite.invalid.title")}</h1>
         <p className="mt-2 text-sm text-primary/60">
-          The code <span className="font-mono font-semibold">{code}</span> doesn&apos;t match
-          any game. It may have been mistyped or the game was deleted.
+          {t("invite.invalid.body", { code })}
         </p>
         <div className="mt-6 flex flex-col gap-2">
           <Link href="/games/join" className="rounded-lg bg-primary px-4 py-3 text-center text-sm font-medium text-cream hover:bg-primary/90">
-            Enter a code manually
+            {t("invite.manual")}
           </Link>
           <Link href={user ? "/games" : "/"} className="rounded-lg border border-primary/20 bg-cream px-4 py-3 text-center text-sm font-medium text-primary hover:bg-primary/5">
-            {user ? "Browse your games" : "Go to Mulligan"}
+            {user ? t("invite.browse") : t("invite.gomulligan")}
           </Link>
         </div>
       </Shell>
@@ -145,15 +151,15 @@ export default function InviteLandingPage() {
   return (
     <Shell>
       <p className="text-xs font-semibold uppercase tracking-wide text-primary/40">
-        You&apos;re invited to
+        {t("invite.invited")}
       </p>
       <h1 className="mt-1 text-2xl font-bold text-primary">{preview.name}</h1>
 
       <dl className="mt-4 space-y-1.5 text-sm">
-        <Row label="Course" value={preview.course_name || "Not set"} />
-        <Row label="Format" value={formatLabel(preview.format)} />
+        <Row label={t("invite.course")} value={preview.course_name || t("invite.notset")} />
+        <Row label={t("invite.format")} value={formatLabel(preview.format)} />
         <Row
-          label="Players"
+          label={t("invite.players")}
           value={
             preview.max_players != null
               ? `${preview.member_count} of ${preview.max_players}`
@@ -171,17 +177,17 @@ export default function InviteLandingPage() {
       {/* Dead ends that still show the game details */}
       {preview.is_completed ? (
         <Note>
-          This game has already finished, so it isn&apos;t taking new players.
+          {t("invite.completed")}
         </Note>
       ) : preview.is_full ? (
-        <Note>This game is full ({preview.max_players} players).</Note>
+        <Note>{t("invite.full", { max: preview.max_players ?? 0 })}</Note>
       ) : null}
 
       <div className="mt-6 flex flex-col gap-2">
         {user ? (
           preview.is_completed || preview.is_full ? (
             <Link href="/games" className="rounded-lg bg-primary px-4 py-3 text-center text-sm font-medium text-cream hover:bg-primary/90">
-              Browse your games
+              {t("invite.browse")}
             </Link>
           ) : (
             <button
@@ -190,12 +196,12 @@ export default function InviteLandingPage() {
               onClick={autoJoin}
               className="rounded-lg bg-primary px-4 py-3 text-sm font-medium text-cream hover:bg-primary/90 disabled:opacity-60"
             >
-              {joining ? "Joining…" : "Join this game"}
+              {joining ? t("invite.joining") : t("invite.join")}
             </button>
           )
         ) : preview.is_completed || preview.is_full ? (
           <Link href="/" className="rounded-lg border border-primary/20 bg-cream px-4 py-3 text-center text-sm font-medium text-primary hover:bg-primary/5">
-            Go to Mulligan
+            {t("invite.gomulligan")}
           </Link>
         ) : (
           <>
@@ -205,17 +211,17 @@ export default function InviteLandingPage() {
               href={`/?tab=signup&redirect=${encodeURIComponent(`/join/${code}`)}`}
               className="rounded-lg bg-primary px-4 py-3 text-center text-sm font-medium text-cream hover:bg-primary/90"
             >
-              Sign up &amp; join
+              {t("invite.signup")}
             </Link>
             <Link
               href={`/?redirect=${encodeURIComponent(`/join/${code}`)}`}
               className="rounded-lg border border-primary/20 bg-cream px-4 py-3 text-center text-sm font-medium text-primary hover:bg-primary/5"
             >
-              I already have an account
+              {t("invite.havelogin")}
             </Link>
             {spotsLeft != null && spotsLeft > 0 && (
               <p className="text-center text-xs text-primary/40">
-                {spotsLeft} spot{spotsLeft === 1 ? "" : "s"} left
+                {spotsLeft === 1 ? t("invite.spots.one") : t("invite.spots", { n: spotsLeft })}
               </p>
             )}
           </>

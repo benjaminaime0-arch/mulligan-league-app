@@ -8,6 +8,7 @@ import { Avatar } from "@/components/Avatar"
 import { NotificationBell } from "@/components/NotificationBell"
 import { NotificationReadSync } from "@/components/NotificationReadSync"
 import { useAuthContext } from "@/components/AuthProvider"
+import { useI18n } from "@/lib/i18n"
 import { supabase } from "@/lib/supabase"
 
 /**
@@ -19,11 +20,13 @@ const authFreeRoutes = ["/", "/auth/callback", "/welcome"]
 const authFreePrefixes = ["/join/"]
 
 /** The three "+ New" actions, shared by the desktop menu and mobile FAB. */
-const NEW_ACTIONS = [
-  { href: "/matches/create", label: "Record a round", icon: <FlagIcon /> },
-  { href: "/games/create", label: "Create a game", icon: <PlusCircleIcon /> },
-  { href: "/games/join", label: "Join with code", icon: <JoinIcon /> },
-]
+function newActions(t: (k: string) => string) {
+  return [
+    { href: "/matches/create", label: t("nav.new.round"), icon: <FlagIcon /> },
+    { href: "/games/create", label: t("nav.new.game"), icon: <PlusCircleIcon /> },
+    { href: "/games/join", label: t("nav.new.join"), icon: <JoinIcon /> },
+  ]
+}
 
 /** First initial from the session user, for the avatar fallback. */
 function initialOf(user: { email?: string; user_metadata?: Record<string, unknown> } | null): string {
@@ -41,7 +44,9 @@ export function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
   const { user } = useAuthContext()
+  const { t, locale, setLocale } = useI18n()
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const NEW_ACTIONS = newActions(t)
 
   // Menu open states
   const [showActions, setShowActions] = useState(false) // mobile FAB sheet
@@ -127,9 +132,9 @@ export function Navbar() {
           </Link>
 
           <nav className="flex items-center gap-6 text-sm font-medium">
-            <DesktopLink href="/home" label="Home" pathname={pathname} />
-            <DesktopLink href="/games" label="Games" pathname={pathname} />
-            <DesktopLink href="/players" label="Players" pathname={pathname} />
+            <DesktopLink href="/home" label={t("nav.home")} pathname={pathname} />
+            <DesktopLink href="/games" label={t("nav.games")} pathname={pathname} />
+            <DesktopLink href="/players" label={t("nav.players")} pathname={pathname} />
 
             {/* + New menu */}
             <div ref={newRef} className="relative">
@@ -144,7 +149,7 @@ export function Navbar() {
                 aria-expanded={showNew}
               >
                 <PlusIcon />
-                New
+                {t("nav.new")}
                 <ChevronDown open={showNew} />
               </button>
               {showNew && (
@@ -169,16 +174,39 @@ export function Navbar() {
                 className="ml-1 flex items-center gap-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                 aria-haspopup="menu"
                 aria-expanded={showAvatar}
-                aria-label="Account menu"
+                aria-label={t("nav.account")}
               >
                 <Avatar src={avatarUrl} alt="Profile" size={32} fallback={avatarFallback} />
                 <ChevronDown open={showAvatar} />
               </button>
               {showAvatar && (
                 <div className="animate-slide-up absolute right-0 top-12 z-50 w-56 rounded-2xl border border-primary/10 bg-white p-1.5 shadow-xl">
-                  <MenuLink href="/profile" icon={<UserIcon />} label="Profile" />
-                  <MenuLink href="/profile/matches" icon={<CalendarIcon />} label="My calendar" />
-                  <MenuLink href="/notifications" icon={<BellSmallIcon />} label="Notification settings" />
+                  <MenuLink href="/profile" icon={<UserIcon />} label={t("nav.menu.profile")} />
+                  <MenuLink href="/profile/matches" icon={<CalendarIcon />} label={t("nav.menu.calendar")} />
+                  <MenuLink href="/notifications" icon={<BellSmallIcon />} label={t("nav.menu.notifications")} />
+                  <div className="my-1 border-t border-primary/5" />
+                  {/* Language switcher (T1.7) — FR default, EN fallback */}
+                  <div className="flex items-center justify-between gap-2 px-3 py-2">
+                    <span className="text-sm font-medium text-primary/60">
+                      {t("nav.menu.language")}
+                    </span>
+                    <span className="flex overflow-hidden rounded-lg border border-primary/15">
+                      {(["fr", "en"] as const).map((l) => (
+                        <button
+                          key={l}
+                          type="button"
+                          onClick={() => setLocale(l)}
+                          className={`px-2 py-1 text-xs font-semibold uppercase transition-colors ${
+                            locale === l
+                              ? "bg-primary text-cream"
+                              : "bg-white text-primary/50 hover:bg-cream"
+                          }`}
+                        >
+                          {l}
+                        </button>
+                      ))}
+                    </span>
+                  </div>
                   <div className="my-1 border-t border-primary/5" />
                   <button
                     type="button"
@@ -188,7 +216,7 @@ export function Navbar() {
                     <span className="flex h-5 w-5 items-center justify-center text-red-500">
                       <LogoutIcon />
                     </span>
-                    Log out
+                    {t("nav.menu.logout")}
                   </button>
                 </div>
               )}
@@ -205,8 +233,8 @@ export function Navbar() {
       {/* Mobile bottom nav: Home · Games · [+] · Players · Profile */}
       <nav className="mobile-nav-safe fixed bottom-0 left-0 right-0 z-40 border-t border-primary/10 bg-white/95 backdrop-blur md:hidden">
         <div className="mx-auto flex max-w-md items-end justify-between px-2 pt-1.5">
-          <MobileNavTab href="/home" label="Home" active={isActive("/home")} icon={<HomeIcon />} activeIcon={<HomeIconFilled />} />
-          <MobileNavTab href="/games" label="Games" active={isActive("/games")} icon={<TrophyIcon />} activeIcon={<TrophyIconFilled />} />
+          <MobileNavTab href="/home" label={t("nav.home")} active={isActive("/home")} icon={<HomeIcon />} activeIcon={<HomeIconFilled />} />
+          <MobileNavTab href="/games" label={t("nav.games")} active={isActive("/games")} icon={<TrophyIcon />} activeIcon={<TrophyIconFilled />} />
 
           {/* Center FAB */}
           <div className="relative flex flex-col items-center justify-end" style={{ minWidth: 56 }}>
@@ -253,7 +281,7 @@ export function Navbar() {
             </button>
           </div>
 
-          <MobileNavTab href="/players" label="Players" active={isActive("/players")} icon={<PlayersIcon />} activeIcon={<PlayersIconFilled />} />
+          <MobileNavTab href="/players" label={t("nav.players")} active={isActive("/players")} icon={<PlayersIcon />} activeIcon={<PlayersIconFilled />} />
 
           {/* Profile tab (avatar) */}
           <Link
@@ -267,7 +295,7 @@ export function Navbar() {
             />
             <Avatar src={avatarUrl} alt="Profile" size={22} fallback={avatarFallback} />
             <span className={`text-[10px] font-medium ${isActive("/profile") ? "text-primary" : "text-primary/40"}`}>
-              Profile
+              {t("nav.profile")}
             </span>
           </Link>
         </div>

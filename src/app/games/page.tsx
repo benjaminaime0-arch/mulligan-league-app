@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { Avatar } from "@/components/Avatar"
 import { todayLocalIso } from "@/lib/date"
+import { useI18n } from "@/lib/i18n"
 import {
   loadUserGames,
   loadMyStandings,
@@ -29,25 +30,26 @@ function formatGameType(type: string | null | undefined): string {
   return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function formatDateShort(iso: string | null | undefined): string {
-  if (!iso) return "TBD"
+function formatDateShort(iso: string | null | undefined, locale = "fr"): string {
+  if (!iso) return "—"
   // Parse as a local date to avoid a UTC day shift.
   const [y, m, d] = iso.split("-").map(Number)
-  return new Date(y, (m ?? 1) - 1, d ?? 1).toLocaleDateString("en-US", {
+  return new Date(y, (m ?? 1) - 1, d ?? 1).toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
   })
 }
 
-const SECTION_META: Record<HubSection, { title: string; blurb: string }> = {
-  active: { title: "Active", blurb: "Games in play right now" },
-  upcoming: { title: "Upcoming", blurb: "Created, not started yet" },
-  completed: { title: "Completed", blurb: "Wrapped up" },
+const SECTION_KEY: Record<HubSection, string> = {
+  active: "games.section.active",
+  upcoming: "games.section.upcoming",
+  completed: "games.section.completed",
 }
 
 export default function GamesHubPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const { t, locale } = useI18n()
 
   const [games, setGames] = useState<HubGame[]>([])
   const [invites, setInvites] = useState<PendingInvite[]>([])
@@ -113,7 +115,7 @@ export default function GamesHubPage() {
   if (authLoading || (loading && games.length === 0)) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-primary/70">Loading games…</p>
+        <p className="text-primary/70">{t("games.loading")}</p>
       </main>
     )
   }
@@ -126,21 +128,21 @@ export default function GamesHubPage() {
     <main className="mx-auto min-h-screen max-w-2xl px-4 pb-10 pt-6 md:pt-8">
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-primary">Games</h1>
-          <p className="text-sm text-primary/60">Your crews and competitions.</p>
+          <h1 className="text-xl font-bold text-primary">{t("games.title")}</h1>
+          <p className="text-sm text-primary/60">{t("games.subtitle")}</p>
         </div>
         <div className="hidden gap-2 sm:flex">
           <Link
             href="/games/join"
             className="rounded-lg border border-primary/30 bg-white px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/5"
           >
-            Join
+            {t("games.join")}
           </Link>
           <Link
             href="/games/create"
             className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-cream hover:bg-primary/90"
           >
-            Create
+            {t("games.create")}
           </Link>
         </div>
       </div>
@@ -158,7 +160,7 @@ export default function GamesHubPage() {
       {invites.length > 0 && (
         <section className="mb-6">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary/50">
-            Requests to review
+            {t("games.requests")}
           </h2>
           <ul className="divide-y divide-primary/5 overflow-hidden rounded-xl border border-primary/10 bg-white">
             {invites.map((inv) => (
@@ -171,11 +173,11 @@ export default function GamesHubPage() {
                   <span className="text-sm text-primary">
                     <span className="font-medium">{inv.requesterName}</span>
                     {inv.target_type === "match"
-                      ? " wants to join a match"
-                      : " wants to join a game"}
+                      ? t("games.requests.match")
+                      : t("games.requests.game")}
                   </span>
                   <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                    Review
+                    {t("games.requests.review")}
                   </span>
                 </button>
               </li>
@@ -186,22 +188,22 @@ export default function GamesHubPage() {
 
       {!hasAnyGame ? (
         <section className="rounded-xl border border-dashed border-primary/20 bg-white p-6 text-center shadow-sm">
-          <h2 className="text-base font-semibold text-primary">No games yet</h2>
+          <h2 className="text-base font-semibold text-primary">{t("games.empty.title")}</h2>
           <p className="mx-auto mt-2 max-w-sm text-sm text-primary/70">
-            Start a game for your crew, or ask a buddy for their invite code.
+            {t("games.empty.body")}
           </p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
             <Link
               href="/games/create"
               className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream hover:bg-primary/90"
             >
-              Create Game
+              {t("games.create.full")}
             </Link>
             <Link
               href="/games/join"
               className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-cream px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
             >
-              Join Game
+              {t("games.join.full")}
             </Link>
           </div>
         </section>
@@ -213,6 +215,8 @@ export default function GamesHubPage() {
                 key={section}
                 section={section}
                 games={grouped[section]}
+                t={t}
+                locale={locale}
                 onOpen={(id) => router.push(`/games/${id}`)}
               />
             ) : null,
@@ -227,10 +231,10 @@ export default function GamesHubPage() {
                 className="mb-2 flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary/50"
               >
                 <span>
-                  {SECTION_META.completed.title} ({grouped.completed.length})
+                  {t("games.section.completed")} ({grouped.completed.length})
                 </span>
                 <span className="text-primary/40">
-                  {showCompleted ? "Hide" : "Show"}
+                  {showCompleted ? t("games.hide") : t("games.show")}
                 </span>
               </button>
               {showCompleted && (
@@ -239,6 +243,8 @@ export default function GamesHubPage() {
                     <GameCard
                       key={g.id}
                       game={g}
+                      t={t}
+                      locale={locale}
                       onOpen={() => router.push(`/games/${g.id}`)}
                     />
                   ))}
@@ -255,13 +261,13 @@ export default function GamesHubPage() {
           href="/games/create"
           className="flex flex-1 items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream"
         >
-          Create Game
+          {t("games.create.full")}
         </Link>
         <Link
           href="/games/join"
           className="flex flex-1 items-center justify-center rounded-lg border border-primary/30 bg-cream px-4 py-2.5 text-sm font-medium text-primary"
         >
-          Join Game
+          {t("games.join.full")}
         </Link>
       </div>
     </main>
@@ -272,28 +278,32 @@ function GameSection({
   section,
   games,
   onOpen,
+  t,
+  locale,
 }: {
   section: HubSection
   games: HubGame[]
   onOpen: (id: string) => void
+  t: (k: string, v?: Record<string, string | number>) => string
+  locale: string
 }) {
   return (
     <section>
       <div className="mb-2">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-primary/50">
-          {SECTION_META[section].title} ({games.length})
+          {t(SECTION_KEY[section])} ({games.length})
         </h2>
       </div>
       <div className="flex flex-col gap-3">
         {games.map((g) => (
-          <GameCard key={g.id} game={g} onOpen={() => onOpen(String(g.id))} />
+          <GameCard key={g.id} game={g} t={t} locale={locale} onOpen={() => onOpen(String(g.id))} />
         ))}
       </div>
     </section>
   )
 }
 
-function StatusChip({ section }: { section: HubSection }) {
+function StatusChip({ section, t }: { section: HubSection; t: (k: string) => string }) {
   const styles: Record<HubSection, string> = {
     active: "bg-emerald-50 text-emerald-700",
     upcoming: "bg-amber-50 text-amber-700",
@@ -303,17 +313,27 @@ function StatusChip({ section }: { section: HubSection }) {
     <span
       className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${styles[section]}`}
     >
-      {SECTION_META[section].title}
+      {t(SECTION_KEY[section])}
     </span>
   )
 }
 
-function GameCard({ game, onOpen }: { game: HubGame; onOpen: () => void }) {
+function GameCard({
+  game,
+  onOpen,
+  t,
+  locale,
+}: {
+  game: HubGame
+  onOpen: () => void
+  t: (k: string, v?: Record<string, string | number>) => string
+  locale: string
+}) {
   const isCompleted = game.section === "completed"
   const cap = game.total_cards_count
   const counted = game.standing.roundsCounted
   const cardsProgress =
-    cap != null && counted != null ? `${counted}/${cap} cards` : null
+    cap != null && counted != null ? t("home.cards", { counted, total: cap }) : null
   const position = game.standing.position != null ? `P${game.standing.position}` : null
 
   const visibleMembers = game.members.slice(0, 5)
@@ -331,10 +351,10 @@ function GameCard({ game, onOpen }: { game: HubGame; onOpen: () => void }) {
             <h3 className="truncate text-base font-semibold text-primary">
               {game.name}
             </h3>
-            <StatusChip section={game.section} />
+            <StatusChip section={game.section} t={t} />
           </div>
           <p className="mt-0.5 truncate text-xs text-primary/50">
-            {game.course_name || "No course set"} · {formatGameType(game.game_type)}
+            {game.course_name || t("games.card.nocourse")} · {formatGameType(game.game_type)}
           </p>
         </div>
         {position && (
@@ -373,12 +393,12 @@ function GameCard({ game, onOpen }: { game: HubGame; onOpen: () => void }) {
           {cardsProgress && <span>{cardsProgress}</span>}
           {!isCompleted && game.nextMatchDate ? (
             <span className="rounded-md bg-primary/5 px-2 py-1 font-medium text-primary">
-              Next {formatDateShort(game.nextMatchDate)}
+              {t("games.card.next", { date: formatDateShort(game.nextMatchDate, locale) })}
             </span>
           ) : isCompleted ? (
-            <span className="text-primary/40">Final</span>
+            <span className="text-primary/40">{t("games.card.final")}</span>
           ) : (
-            <span className="text-primary/40">No match yet</span>
+            <span className="text-primary/40">{t("games.card.nomatch")}</span>
           )}
         </div>
       </div>

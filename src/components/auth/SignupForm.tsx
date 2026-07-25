@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { track } from "@/lib/analytics"
 
 export function SignupForm() {
   const router = useRouter()
@@ -89,6 +90,7 @@ export function SignupForm() {
       }
 
       // New accounts go through onboarding unless an invite is pending.
+      track("signup_completed", { provider: "email" })
       router.push(redirectTo || "/welcome")
       router.refresh()
     } catch (err) {
