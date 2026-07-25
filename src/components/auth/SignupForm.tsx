@@ -1,11 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 
 export function SignupForm() {
   const router = useRouter()
+  // Honour `?redirect=` so an invite link (/join/[code]) returns the new
+  // user straight to the game they were invited to (T1.3).
+  const redirectTo = useSearchParams().get("redirect")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -85,7 +88,8 @@ export function SignupForm() {
         throw signUpError
       }
 
-      router.push("/home")
+      // New accounts go through onboarding unless an invite is pending.
+      router.push(redirectTo || "/welcome")
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")

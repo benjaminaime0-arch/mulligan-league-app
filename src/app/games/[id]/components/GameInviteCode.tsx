@@ -16,7 +16,9 @@ export function GameInviteCode({ inviteCode, gameName, variant }: GameInviteCode
   }
 
   const handleShare = async () => {
-    const joinUrl = `${window.location.origin}/games/join?code=${inviteCode}`
+    // Deep link (T1.3): shows a pre-auth preview of the game and joins the
+    // invitee automatically after sign-up — no code re-typing.
+    const joinUrl = `${window.location.origin}/join/${inviteCode}`
     const message = `Join my golf game "${gameName}" on Mulligan!\n${joinUrl}`
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
