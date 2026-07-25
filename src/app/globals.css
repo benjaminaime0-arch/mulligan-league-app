@@ -2,26 +2,333 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Nobel TRIAL is glyph-restricted (no @, em-dash, bullet, smart quotes,
-   etc.) and renders missing chars as .notdef boxes. We declare an extra
-   @font-face entry under the SAME generated family name that next/font
-   produced (`__nobel_3fad05`) but with a `unicode-range` limited to the
-   problem code points and `src: local(...)` pointing at system fonts —
-   the browser picks this entry for those code points only and stays on
-   Nobel for everything else. The hash matches what next/font/local
-   currently emits in src/app/layout.tsx; update it here if the font
-   config in layout.tsx changes. */
+/* Nobel TRIAL is a watermarked trial font: 481 codepoints — every accent,
+   @, dashes, bullets, ellipsis — render a "TRIAL" stamp instead of the
+   glyph. Now that the UI is French-first (T1.7) this hits almost every
+   sentence ("organisée", "fierté", "même", "façon").
+
+   Fix: re-declare the SAME family next/font generates (`__nobel_3fad05`)
+   with `src: local(...)` system fonts, restricted by `unicode-range` to the
+   affected codepoints, so the browser uses a system face for those glyphs
+   and Nobel for everything else.
+
+   One rule PER WEIGHT is required. CSS font matching prefers an exact
+   weight match, so a single rule (or a 100–900 range) only wins at the
+   weight it exactly matches — which is why a range fixed bold text but
+   regressed regular. next/font emits 200/300/400/500/700/900 × normal +
+   italic, so we mirror all twelve.
+
+   If the font config in layout.tsx changes, update the family hash here. */
+
 @font-face {
   font-family: "__nobel_3fad05";
   src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
-  unicode-range: U+0040,          /* @ */
-                 U+2013-2014,     /* en-dash, em-dash */
+  font-weight: 200;
+  font-style: normal;
+  unicode-range: U+0021-002B,      /* ! " # $ % & ' ( ) * +  */
+                 U+002D, U+002F,  /* - /   (, and . are fine in Nobel) */
+                 U+003A-0040,     /* : ; < = > ? @ */
+                 U+005B-0060,     /* [ \ ] ^ _ ` */
+                 U+007B-007E,     /* { | } ~ */
+                 U+2013-2014,     /* en/em dash */
                  U+2018-2019,     /* curly single quotes */
                  U+201C-201D,     /* curly double quotes */
                  U+2022,          /* bullet */
                  U+2026,          /* ellipsis */
+                 U+2212,          /* minus */
+                 U+20AC,          /* € */
                  U+00B7,          /* middle dot */
-                 U+00A0;          /* nbsp */
+                 U+00A0,          /* nbsp */
+                 U+00C0-00FF,     /* À-ÿ accented Latin */
+                 U+0152-0153,     /* Œ œ */
+                 U+0178,          /* Ÿ */
+                 U+00AB, U+00BB;  /* « » */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 200;
+  font-style: italic;
+  unicode-range: U+0021-002B,      /* ! " # $ % & ' ( ) * +  */
+                 U+002D, U+002F,  /* - /   (, and . are fine in Nobel) */
+                 U+003A-0040,     /* : ; < = > ? @ */
+                 U+005B-0060,     /* [ \ ] ^ _ ` */
+                 U+007B-007E,     /* { | } ~ */
+                 U+2013-2014,     /* en/em dash */
+                 U+2018-2019,     /* curly single quotes */
+                 U+201C-201D,     /* curly double quotes */
+                 U+2022,          /* bullet */
+                 U+2026,          /* ellipsis */
+                 U+2212,          /* minus */
+                 U+20AC,          /* € */
+                 U+00B7,          /* middle dot */
+                 U+00A0,          /* nbsp */
+                 U+00C0-00FF,     /* À-ÿ accented Latin */
+                 U+0152-0153,     /* Œ œ */
+                 U+0178,          /* Ÿ */
+                 U+00AB, U+00BB;  /* « » */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 300;
+  font-style: normal;
+  unicode-range: U+0021-002B,      /* ! " # $ % & ' ( ) * +  */
+                 U+002D, U+002F,  /* - /   (, and . are fine in Nobel) */
+                 U+003A-0040,     /* : ; < = > ? @ */
+                 U+005B-0060,     /* [ \ ] ^ _ ` */
+                 U+007B-007E,     /* { | } ~ */
+                 U+2013-2014,     /* en/em dash */
+                 U+2018-2019,     /* curly single quotes */
+                 U+201C-201D,     /* curly double quotes */
+                 U+2022,          /* bullet */
+                 U+2026,          /* ellipsis */
+                 U+2212,          /* minus */
+                 U+20AC,          /* € */
+                 U+00B7,          /* middle dot */
+                 U+00A0,          /* nbsp */
+                 U+00C0-00FF,     /* À-ÿ accented Latin */
+                 U+0152-0153,     /* Œ œ */
+                 U+0178,          /* Ÿ */
+                 U+00AB, U+00BB;  /* « » */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 300;
+  font-style: italic;
+  unicode-range: U+0021-002B,      /* ! " # $ % & ' ( ) * +  */
+                 U+002D, U+002F,  /* - /   (, and . are fine in Nobel) */
+                 U+003A-0040,     /* : ; < = > ? @ */
+                 U+005B-0060,     /* [ \ ] ^ _ ` */
+                 U+007B-007E,     /* { | } ~ */
+                 U+2013-2014,     /* en/em dash */
+                 U+2018-2019,     /* curly single quotes */
+                 U+201C-201D,     /* curly double quotes */
+                 U+2022,          /* bullet */
+                 U+2026,          /* ellipsis */
+                 U+2212,          /* minus */
+                 U+20AC,          /* € */
+                 U+00B7,          /* middle dot */
+                 U+00A0,          /* nbsp */
+                 U+00C0-00FF,     /* À-ÿ accented Latin */
+                 U+0152-0153,     /* Œ œ */
+                 U+0178,          /* Ÿ */
+                 U+00AB, U+00BB;  /* « » */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 400;
+  font-style: normal;
+  unicode-range: U+0021-002B,      /* ! " # $ % & ' ( ) * +  */
+                 U+002D, U+002F,  /* - /   (, and . are fine in Nobel) */
+                 U+003A-0040,     /* : ; < = > ? @ */
+                 U+005B-0060,     /* [ \ ] ^ _ ` */
+                 U+007B-007E,     /* { | } ~ */
+                 U+2013-2014,     /* en/em dash */
+                 U+2018-2019,     /* curly single quotes */
+                 U+201C-201D,     /* curly double quotes */
+                 U+2022,          /* bullet */
+                 U+2026,          /* ellipsis */
+                 U+2212,          /* minus */
+                 U+20AC,          /* € */
+                 U+00B7,          /* middle dot */
+                 U+00A0,          /* nbsp */
+                 U+00C0-00FF,     /* À-ÿ accented Latin */
+                 U+0152-0153,     /* Œ œ */
+                 U+0178,          /* Ÿ */
+                 U+00AB, U+00BB;  /* « » */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 400;
+  font-style: italic;
+  unicode-range: U+0021-002B,      /* ! " # $ % & ' ( ) * +  */
+                 U+002D, U+002F,  /* - /   (, and . are fine in Nobel) */
+                 U+003A-0040,     /* : ; < = > ? @ */
+                 U+005B-0060,     /* [ \ ] ^ _ ` */
+                 U+007B-007E,     /* { | } ~ */
+                 U+2013-2014,     /* en/em dash */
+                 U+2018-2019,     /* curly single quotes */
+                 U+201C-201D,     /* curly double quotes */
+                 U+2022,          /* bullet */
+                 U+2026,          /* ellipsis */
+                 U+2212,          /* minus */
+                 U+20AC,          /* € */
+                 U+00B7,          /* middle dot */
+                 U+00A0,          /* nbsp */
+                 U+00C0-00FF,     /* À-ÿ accented Latin */
+                 U+0152-0153,     /* Œ œ */
+                 U+0178,          /* Ÿ */
+                 U+00AB, U+00BB;  /* « » */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 500;
+  font-style: normal;
+  unicode-range: U+0021-002B,      /* ! " # $ % & ' ( ) * +  */
+                 U+002D, U+002F,  /* - /   (, and . are fine in Nobel) */
+                 U+003A-0040,     /* : ; < = > ? @ */
+                 U+005B-0060,     /* [ \ ] ^ _ ` */
+                 U+007B-007E,     /* { | } ~ */
+                 U+2013-2014,     /* en/em dash */
+                 U+2018-2019,     /* curly single quotes */
+                 U+201C-201D,     /* curly double quotes */
+                 U+2022,          /* bullet */
+                 U+2026,          /* ellipsis */
+                 U+2212,          /* minus */
+                 U+20AC,          /* € */
+                 U+00B7,          /* middle dot */
+                 U+00A0,          /* nbsp */
+                 U+00C0-00FF,     /* À-ÿ accented Latin */
+                 U+0152-0153,     /* Œ œ */
+                 U+0178,          /* Ÿ */
+                 U+00AB, U+00BB;  /* « » */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 500;
+  font-style: italic;
+  unicode-range: U+0021-002B,      /* ! " # $ % & ' ( ) * +  */
+                 U+002D, U+002F,  /* - /   (, and . are fine in Nobel) */
+                 U+003A-0040,     /* : ; < = > ? @ */
+                 U+005B-0060,     /* [ \ ] ^ _ ` */
+                 U+007B-007E,     /* { | } ~ */
+                 U+2013-2014,     /* en/em dash */
+                 U+2018-2019,     /* curly single quotes */
+                 U+201C-201D,     /* curly double quotes */
+                 U+2022,          /* bullet */
+                 U+2026,          /* ellipsis */
+                 U+2212,          /* minus */
+                 U+20AC,          /* € */
+                 U+00B7,          /* middle dot */
+                 U+00A0,          /* nbsp */
+                 U+00C0-00FF,     /* À-ÿ accented Latin */
+                 U+0152-0153,     /* Œ œ */
+                 U+0178,          /* Ÿ */
+                 U+00AB, U+00BB;  /* « » */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 700;
+  font-style: normal;
+  unicode-range: U+0021-002B,      /* ! " # $ % & ' ( ) * +  */
+                 U+002D, U+002F,  /* - /   (, and . are fine in Nobel) */
+                 U+003A-0040,     /* : ; < = > ? @ */
+                 U+005B-0060,     /* [ \ ] ^ _ ` */
+                 U+007B-007E,     /* { | } ~ */
+                 U+2013-2014,     /* en/em dash */
+                 U+2018-2019,     /* curly single quotes */
+                 U+201C-201D,     /* curly double quotes */
+                 U+2022,          /* bullet */
+                 U+2026,          /* ellipsis */
+                 U+2212,          /* minus */
+                 U+20AC,          /* € */
+                 U+00B7,          /* middle dot */
+                 U+00A0,          /* nbsp */
+                 U+00C0-00FF,     /* À-ÿ accented Latin */
+                 U+0152-0153,     /* Œ œ */
+                 U+0178,          /* Ÿ */
+                 U+00AB, U+00BB;  /* « » */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 700;
+  font-style: italic;
+  unicode-range: U+0021-002B,      /* ! " # $ % & ' ( ) * +  */
+                 U+002D, U+002F,  /* - /   (, and . are fine in Nobel) */
+                 U+003A-0040,     /* : ; < = > ? @ */
+                 U+005B-0060,     /* [ \ ] ^ _ ` */
+                 U+007B-007E,     /* { | } ~ */
+                 U+2013-2014,     /* en/em dash */
+                 U+2018-2019,     /* curly single quotes */
+                 U+201C-201D,     /* curly double quotes */
+                 U+2022,          /* bullet */
+                 U+2026,          /* ellipsis */
+                 U+2212,          /* minus */
+                 U+20AC,          /* € */
+                 U+00B7,          /* middle dot */
+                 U+00A0,          /* nbsp */
+                 U+00C0-00FF,     /* À-ÿ accented Latin */
+                 U+0152-0153,     /* Œ œ */
+                 U+0178,          /* Ÿ */
+                 U+00AB, U+00BB;  /* « » */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 900;
+  font-style: normal;
+  unicode-range: U+0021-002B,      /* ! " # $ % & ' ( ) * +  */
+                 U+002D, U+002F,  /* - /   (, and . are fine in Nobel) */
+                 U+003A-0040,     /* : ; < = > ? @ */
+                 U+005B-0060,     /* [ \ ] ^ _ ` */
+                 U+007B-007E,     /* { | } ~ */
+                 U+2013-2014,     /* en/em dash */
+                 U+2018-2019,     /* curly single quotes */
+                 U+201C-201D,     /* curly double quotes */
+                 U+2022,          /* bullet */
+                 U+2026,          /* ellipsis */
+                 U+2212,          /* minus */
+                 U+20AC,          /* € */
+                 U+00B7,          /* middle dot */
+                 U+00A0,          /* nbsp */
+                 U+00C0-00FF,     /* À-ÿ accented Latin */
+                 U+0152-0153,     /* Œ œ */
+                 U+0178,          /* Ÿ */
+                 U+00AB, U+00BB;  /* « » */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "__nobel_3fad05";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
+  font-weight: 900;
+  font-style: italic;
+  unicode-range: U+0021-002B,      /* ! " # $ % & ' ( ) * +  */
+                 U+002D, U+002F,  /* - /   (, and . are fine in Nobel) */
+                 U+003A-0040,     /* : ; < = > ? @ */
+                 U+005B-0060,     /* [ \ ] ^ _ ` */
+                 U+007B-007E,     /* { | } ~ */
+                 U+2013-2014,     /* en/em dash */
+                 U+2018-2019,     /* curly single quotes */
+                 U+201C-201D,     /* curly double quotes */
+                 U+2022,          /* bullet */
+                 U+2026,          /* ellipsis */
+                 U+2212,          /* minus */
+                 U+20AC,          /* € */
+                 U+00B7,          /* middle dot */
+                 U+00A0,          /* nbsp */
+                 U+00C0-00FF,     /* À-ÿ accented Latin */
+                 U+0152-0153,     /* Œ œ */
+                 U+0178,          /* Ÿ */
+                 U+00AB, U+00BB;  /* « » */
   font-display: swap;
 }
 

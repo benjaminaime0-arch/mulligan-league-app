@@ -192,7 +192,7 @@ export default function PlayerProfilePage() {
         </section>
 
         {/* 2. Score trajectory */}
-        <ScoreTrendCard handicap={profile.handicap} userId={profile.id} />
+        <ScoreTrendCard handicap={profile.handicap} userId={profile.id} ownerName={displayName} />
 
         {/* 3. Records */}
         <RecordsCard records={records} />

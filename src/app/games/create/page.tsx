@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { CourseAutocomplete } from "@/components/CourseAutocomplete"
+import { track } from "@/lib/analytics"
 
 // Only stroke play and Stableford have real calculation support in
 // the leaderboard + badges engines today (see `get_leaderboard` and
@@ -86,6 +87,7 @@ export default function CreateGamePage() {
         return
       }
 
+      track("game_created", { format })
       setGameId(result.game_id)
       setInviteCode(result.invite_code)
     } catch (err) {

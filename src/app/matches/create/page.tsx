@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
+import { track } from "@/lib/analytics"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 
 type Game = {
@@ -260,6 +261,7 @@ function CreateMatchContent() {
 
       if (playersError) throw playersError
 
+      track("match_created", {})
       router.push(`/matches/${matchId}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create match. Please try again.")
