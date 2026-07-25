@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase"
 import { Logo } from "@/components/Logo"
 import { LoginForm } from "@/components/auth/LoginForm"
 import { SignupForm } from "@/components/auth/SignupForm"
+import { OAuthButtons } from "@/components/auth/OAuthButtons"
 
 export default function Home() {
   return (
@@ -60,6 +61,11 @@ function HomeContent() {
         <p className="mb-6 text-center text-sm text-primary/60">
           Games, scores, bragging rights, all in one place.
         </p>
+
+        {/* Social sign-in first — the lowest-friction entry (T1.1). */}
+        <div className="mb-6">
+          <OAuthButtons redirectTo={searchParams.get("redirect")} />
+        </div>
 
         <div
           role="tablist"

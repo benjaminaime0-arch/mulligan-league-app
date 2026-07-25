@@ -10,7 +10,13 @@ import { NotificationReadSync } from "@/components/NotificationReadSync"
 import { useAuthContext } from "@/components/AuthProvider"
 import { supabase } from "@/lib/supabase"
 
-const authFreeRoutes = ["/"]
+/**
+ * Routes that render their own full-screen shell and must not show the app
+ * chrome: the landing/auth page, the OAuth callback, onboarding, and invite
+ * deep links (which are viewable logged-out).
+ */
+const authFreeRoutes = ["/", "/auth/callback", "/welcome"]
+const authFreePrefixes = ["/join/"]
 
 /** The three "+ New" actions, shared by the desktop menu and mobile FAB. */
 const NEW_ACTIONS = [
@@ -84,7 +90,12 @@ export function Navbar() {
 
   const avatarFallback = initialOf(user)
 
-  if (authFreeRoutes.includes(pathname)) return null
+  if (
+    authFreeRoutes.includes(pathname) ||
+    authFreePrefixes.some((p) => pathname.startsWith(p))
+  ) {
+    return null
+  }
 
   const isActive = (href: string) => {
     if (href === "/home") return pathname === "/home"

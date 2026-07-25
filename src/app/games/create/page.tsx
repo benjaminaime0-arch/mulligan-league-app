@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
+import { CourseAutocomplete } from "@/components/CourseAutocomplete"
 
 // Only stroke play and Stableford have real calculation support in
 // the leaderboard + badges engines today (see `get_leaderboard` and
@@ -154,13 +155,13 @@ export default function CreateGamePage() {
             <label htmlFor="course" className="mb-1 block text-sm font-medium text-primary">
               Golf course
             </label>
-            <input
+            {/* Type-ahead over the 129-course Île-de-France base (T1.6).
+                Free text still allowed — see CourseAutocomplete. */}
+            <CourseAutocomplete
               id="course"
-              type="text"
               value={course}
-              onChange={(e) => setCourse(e.target.value)}
-              className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="Pebble Beach Golf Links"
+              onChange={setCourse}
+              placeholder="Golf National, Saint-Nom-la-Bretêche…"
               disabled={submitting}
             />
           </div>
