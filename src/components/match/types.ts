@@ -24,6 +24,11 @@ export type MatchPlayer = {
    * server-side once every player's approved_at is non-null.
    */
   approved_at?: string | null
+  /**
+   * Handicap snapshot frozen when this player's first score row appeared
+   * (Phase C). Drives the net display; never re-read from the live profile.
+   */
+  playing_handicap?: number | null
   isBestScore?: boolean
 }
 
@@ -74,4 +79,10 @@ export type Game = {
    * existing rows, so treat missing/unknown values as stroke play.
    */
   format?: GameFormat | string | null
+  /**
+   * What the leaderboard aggregates (Phase C): gross (default) | net |
+   * stableford_net. Only meaningful for stroke_play games — resolve via
+   * resolveBasis/effectiveFormat, never read raw.
+   */
+  scoring_basis?: string | null
 }

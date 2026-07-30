@@ -39,6 +39,7 @@ export default function CreateGamePage() {
   const [scoringCards, setScoringCards] = useState(1)
   const [totalCards, setTotalCards] = useState(1)
   const [format, setFormat] = useState("stroke_play")
+  const [basis, setBasis] = useState<"gross" | "net" | "stableford_net">("gross")
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -83,6 +84,8 @@ export default function CreateGamePage() {
         p_total_cards: totalCards,
         p_game_type: format,
         p_course_id: pickedCourse?.id ?? null,
+        // Basis is a stroke-play concept; a Stableford game is always gross.
+        p_scoring_basis: format === "stroke_play" ? basis : "gross",
       })
 
       if (rpcError) throw rpcError
@@ -307,6 +310,42 @@ export default function CreateGamePage() {
                 : t("games.create.format.strokeplay.hint")}
             </p>
           </div>
+
+          {/* Scoring basis (Phase C) — stroke play only: a Stableford game
+              already is points, so the picker would be nonsense there. */}
+          {format === "stroke_play" && (
+            <div>
+              <p className="mb-1 block text-sm font-medium text-primary">
+                {t("games.create.basis")}
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {(["gross", "net", "stableford_net"] as const).map((b) => (
+                  <label
+                    key={b}
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                      basis === b
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-primary/15 bg-cream text-primary/70"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="basis"
+                      value={b}
+                      checked={basis === b}
+                      onChange={() => setBasis(b)}
+                      disabled={submitting}
+                      className="accent-primary"
+                    />
+                    <span className="font-medium">{t(`games.basis.${b}`)}</span>
+                    <span className="ml-auto text-xs text-primary/50">
+                      {t(`games.basis.${b}.hint`)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"
