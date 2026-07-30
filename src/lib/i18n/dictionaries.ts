@@ -683,6 +683,16 @@ export const en: Dict = {
 
   // ── Live scoring (Phase E) ──────────────────────────────────────────────
   "games.match.live": "Live",
+
+  // ── Courses & conquests (Phase F) ───────────────────────────────────────
+  "courses.mystats.title": "Your record here",
+  "courses.mystats.rounds": "Rounds",
+  "courses.mystats.best": "Best gross",
+  "courses.mystats.bestnet": "Best net",
+  "courses.mystats.avgvspar": "Avg vs par",
+  "profile.conquest.title": "Conquered courses",
+  "profile.conquest.subtitle": "{n}/{total} conquered",
+  "profile.conquest.hint": "A course is conquered when your best net round matched its par.",
 }
 
 export const fr: Dict = {
@@ -1347,6 +1357,16 @@ export const fr: Dict = {
 
   // ── Score en direct (Phase E) ───────────────────────────────────────────
   "games.match.live": "En direct",
+
+  // ── Parcours & conquêtes (Phase F) ──────────────────────────────────────
+  "courses.mystats.title": "Votre record ici",
+  "courses.mystats.rounds": "Tours",
+  "courses.mystats.best": "Meilleur brut",
+  "courses.mystats.bestnet": "Meilleur net",
+  "courses.mystats.avgvspar": "Moy. vs par",
+  "profile.conquest.title": "Parcours conquis",
+  "profile.conquest.subtitle": "{n}/{total} conquis",
+  "profile.conquest.hint": "Un parcours est conquis quand votre meilleur tour en net atteint son par.",
 }
 
 export const dictionaries: Record<Locale, Dict> = { fr, en }
