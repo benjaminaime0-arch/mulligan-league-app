@@ -143,6 +143,8 @@ export default function GamePage({ params }: GamePageProps) {
   const [badges, setBadges] = useState<BadgeRow[]>([])
 
   const [periodMatches, setPeriodMatches] = useState<Match[]>([])
+  // course id → par, covering the game's course + any per-match courses.
+  const [coursePars, setCoursePars] = useState<Record<string, number>>({})
   const [matchPlayersMap, setMatchPlayersMap] = useState<Map<string | number, MatchPlayer[]>>(new Map())
   // Set of match ids where the current user has ANY score row (pending
   // / approved / rejected). Separate from matchPlayersMap because the
@@ -282,6 +284,33 @@ export default function GamePage({ params }: GamePageProps) {
 
           const matches = (matchesData || []) as Match[]
           setPeriodMatches(matches)
+
+          // Course pars for the "88 (+16)" display (Phase B). One batched
+          // read over every distinct course this game's rounds touch —
+          // usually a single row (the game's home course).
+          {
+            const courseIds = Array.from(
+              new Set(
+                [gameRes.data?.course_id, ...matches.map((m) => m.course_id)].filter(
+                  (x): x is string => !!x,
+                ),
+              ),
+            )
+            if (courseIds.length > 0) {
+              const { data: parsData } = await supabase
+                .from("courses")
+                .select("id, par")
+                .in("id", courseIds)
+              if (!fresh()) return
+              const map: Record<string, number> = {}
+              for (const c of (parsData || []) as { id: string; par: number | null }[]) {
+                if (c.par != null) map[c.id] = c.par
+              }
+              setCoursePars(map)
+            } else {
+              setCoursePars({})
+            }
+          }
 
           if (matches.length > 0) {
             const matchIds = matches.map((m) => m.id)
@@ -893,6 +922,10 @@ export default function GamePage({ params }: GamePageProps) {
               autoEdit={autoEdit}
               onFocusConsumed={handleFocusConsumed}
               context="game"
+              resolveCoursePar={(m) => {
+                const cid = m.course_id ?? game.course_id
+                return cid ? (coursePars[String(cid)] ?? null) : null
+              }}
               // Empty-day CTA deep-links into match-create with this
               // game pre-selected + the tapped day pre-filled.
               defaultGameId={game.id}

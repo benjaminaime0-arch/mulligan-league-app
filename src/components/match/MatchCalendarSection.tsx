@@ -85,6 +85,12 @@ export interface MatchCalendarSectionProps {
       score: number
     } | null
   } | null
+  /**
+   * Course par resolver, forwarded per match to MatchDetailCard for the
+   * "88 (+16)" display. Game page passes a constant (its course); absent
+   * -> plain totals.
+   */
+  resolveCoursePar?: (match: Match) => number | null
 }
 
 // Local-date → `yyyy-mm-dd`. See DatePickerModal's note for the
@@ -113,6 +119,7 @@ export function MatchCalendarSection({
   defaultGameId = null,
   disableCreate = false,
   gameHighlights = null,
+  resolveCoursePar,
 }: MatchCalendarSectionProps) {
   const t = useT()
   const todayIso = useMemo(() => toIso(new Date()), [])
@@ -428,6 +435,7 @@ export function MatchCalendarSection({
             todayIso={todayIso}
             context={context}
             gameHighlights={gameHighlights}
+            resolveCoursePar={resolveCoursePar}
           />
         )}
       </div>
@@ -588,6 +596,7 @@ function DayMatchesCarousel({
   todayIso,
   context,
   gameHighlights,
+  resolveCoursePar,
 }: {
   matches: Match[]
   matchPlayersMap: Map<string | number, MatchPlayer[]>
@@ -606,6 +615,12 @@ function DayMatchesCarousel({
       score: number
     } | null
   } | null
+  /**
+   * Course par resolver, forwarded per match to MatchDetailCard for the
+   * "88 (+16)" display. Game page passes a constant (its course); absent
+   * -> plain totals.
+   */
+  resolveCoursePar?: (match: Match) => number | null
 }) {
   const t = useT()
   const initialIndex = focusMatchId
@@ -678,6 +693,7 @@ function DayMatchesCarousel({
             game={game}
             matchPlayers={matchPlayersMap.get(current.id)}
             currentUserId={currentUserId}
+            coursePar={resolveCoursePar ? resolveCoursePar(current) : null}
             variant={
               current.status === "completed" ||
               (current.match_date != null && current.match_date < todayIso)

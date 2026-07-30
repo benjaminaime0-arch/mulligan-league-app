@@ -627,6 +627,31 @@ export const en: Dict = {
   "profile.courses.title": "Courses played",
   "profile.rounds.count": "{n} rounds",
   "profile.rounds.count.one": "1 round",
+
+  // ── Scorecard (hole-by-hole entry, Phase B) ─────────────────────────────
+  "scorecard.title": "Scorecard",
+  "scorecard.open": "Hole-by-hole card",
+  "scorecard.hole": "Hole {n}",
+  "scorecard.par": "Par {n}",
+  "scorecard.hcp": "HCP {n}",
+  "scorecard.nocoursedata": "No course card — free entry",
+  "scorecard.prev": "Previous hole",
+  "scorecard.next": "Next hole",
+  "scorecard.out": "Out (1–9)",
+  "scorecard.in": "In (10–18)",
+  "scorecard.thru": "thru {n}",
+  "scorecard.nothru": "No holes entered",
+  "scorecard.clear": "Clear this hole",
+  "scorecard.close": "Close",
+  "scorecard.minus": "One stroke less for {name}",
+  "scorecard.plus": "One stroke more for {name}",
+  "scorecard.pending": "Saving…",
+  "scorecard.offline": "Connection lost — {n} to save, retrying…",
+  "scorecard.unsaved": "{n} score(s) not saved yet.",
+  "scorecard.keeptrying": "Keep trying",
+  "scorecard.forceclose": "Leave anyway",
+  "scorecard.loading": "Loading the card…",
+  "scorecard.error": "Could not load the scorecard.",
 }
 
 export const fr: Dict = {
@@ -1235,6 +1260,31 @@ export const fr: Dict = {
   "profile.courses.title": "Parcours joués",
   "profile.rounds.count": "{n} tours",
   "profile.rounds.count.one": "1 tour",
+
+  // ── Scorecard (saisie trou par trou, Phase B) ───────────────────────────
+  "scorecard.title": "Carte de score",
+  "scorecard.open": "Carte trou par trou",
+  "scorecard.hole": "Trou {n}",
+  "scorecard.par": "Par {n}",
+  "scorecard.hcp": "HCP {n}",
+  "scorecard.nocoursedata": "Pas de carte du parcours — saisie libre",
+  "scorecard.prev": "Trou précédent",
+  "scorecard.next": "Trou suivant",
+  "scorecard.out": "Aller (1–9)",
+  "scorecard.in": "Retour (10–18)",
+  "scorecard.thru": "après {n}",
+  "scorecard.nothru": "Aucun trou saisi",
+  "scorecard.clear": "Effacer ce trou",
+  "scorecard.close": "Fermer",
+  "scorecard.minus": "Un coup de moins pour {name}",
+  "scorecard.plus": "Un coup de plus pour {name}",
+  "scorecard.pending": "Enregistrement…",
+  "scorecard.offline": "Connexion perdue — {n} à enregistrer, nouvel essai…",
+  "scorecard.unsaved": "{n} score(s) pas encore enregistré(s).",
+  "scorecard.keeptrying": "Continuer d'essayer",
+  "scorecard.forceclose": "Quitter quand même",
+  "scorecard.loading": "Chargement de la carte…",
+  "scorecard.error": "Impossible de charger la carte de score.",
 }
 
 export const dictionaries: Record<Locale, Dict> = { fr, en }

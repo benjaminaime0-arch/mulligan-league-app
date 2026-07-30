@@ -31,9 +31,11 @@ import type { Game, Match, MatchPlayer } from "./types"
 import {
   compareByTotal,
   formatCopy,
+  formatScoreVsPar,
   gapAhead,
   resolveFormat,
 } from "@/lib/gameFormat"
+import { ScorecardEditor } from "./ScorecardEditor"
 
 export const MAX_MATCH_PLAYERS = 4
 
@@ -43,6 +45,11 @@ interface MatchDetailCardProps {
   matchPlayers?: MatchPlayer[]
   currentUserId?: string | null
   variant: "scheduled" | "past"
+  /**
+   * Par of the course this match is played on, when known (course_id set and
+   * referential carries it). Enables the "88 (+16)" display; null = plain.
+   */
+  coursePar?: number | null
   /** Called after any mutation so the parent re-pulls fresh data. */
   onRefresh: () => Promise<void> | void
   /**
@@ -259,6 +266,7 @@ export function MatchDetailCard({
   matchPlayers,
   currentUserId,
   variant,
+  coursePar = null,
   onRefresh,
   autoEdit = false,
   onAutoEditConsumed,
@@ -267,6 +275,7 @@ export function MatchDetailCard({
 }: MatchDetailCardProps) {
   const t = useT()
   const [editing, setEditing] = useState(false)
+  const [holeEditing, setHoleEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [scoreError, setScoreError] = useState<string | null>(null)
   const [approving, setApproving] = useState(false)
@@ -737,6 +746,17 @@ export function MatchDetailCard({
 
   return (
     <div className="rounded-lg bg-white p-4 text-primary shadow-sm ring-1 ring-primary/5">
+      {holeEditing && (
+        <ScorecardEditor
+          matchId={String(match.id)}
+          onClose={() => {
+            setHoleEditing(false)
+            // Hole writes hit the DB one by one — the card's aggregate view
+            // is stale by definition once the editor closes.
+            void onRefresh()
+          }}
+        />
+      )}
       {/* Header. The `/matches/[id]` standalone page has been retired
           — this card is the only surface. Both contexts carry the
           match-level approval badge top-right so per-player status
@@ -936,7 +956,9 @@ export function MatchDetailCard({
                               : "font-semibold text-primary/80"
                         }`}
                       >
-                        {p.score != null ? `${p.score}${fmtCopy.unit}` : "–"}
+                        {p.score != null
+                          ? formatScoreVsPar(p.score, coursePar, gameFormat)
+                          : "–"}
                       </span>
                       {/* Per-player status pill dropped on both
                           contexts — the match-level approval badge in
@@ -1037,6 +1059,24 @@ export function MatchDetailCard({
                   {hasAnyScore
                     ? t("games.match.editscores")
                     : t("games.match.enterscores")}
+                </button>
+                {/* Hole-by-hole entry (Phase B). The aggregate editor stays —
+                    courses without hole data, or players who only have their
+                    final total, still need it. */}
+                <button
+                  type="button"
+                  onClick={() => setHoleEditing(true)}
+                  aria-label={t("scorecard.open")}
+                  title={t("scorecard.open")}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-white text-primary hover:bg-cream/40"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <line x1="9" y1="3" x2="9" y2="21" />
+                    <line x1="15" y1="3" x2="15" y2="21" />
+                    <line x1="3" y1="9" x2="21" y2="9" />
+                    <line x1="3" y1="15" x2="21" y2="15" />
+                  </svg>
                 </button>
                 {viewerIsPlayer && (
                   <button
