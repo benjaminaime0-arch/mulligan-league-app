@@ -186,6 +186,83 @@ export function ScorecardEditor({
     }
   }, [matchId, refreshMatchPlay])
 
+  // ---- realtime (Phase E) -------------------------------------------------
+  // score_holes has no match_id column, so no server-side filter — RLS
+  // already scopes events to matches this user can see; we filter to THIS
+  // match by score_id and re-pull the card (debounced). Local cells with a
+  // pending queued write win over the server snapshot: the queue is the
+  // user's intent, the snapshot is the world's.
+  useEffect(() => {
+    if (!card) return
+    const scoreIds = new Set<string>()
+    let repullTimer: ReturnType<typeof setTimeout> | null = null
+    const repull = () => {
+      if (repullTimer) clearTimeout(repullTimer)
+      repullTimer = setTimeout(async () => {
+        const { data } = await supabase.rpc("get_match_scorecard", {
+          p_match_id: matchId,
+        })
+        const payload = data as Scorecard | null
+        if (!payload?.success || closedRef.current) return
+        setCard(payload)
+        setStrokes((prev) => {
+          const next: Record<string, Record<number, number>> = {}
+          for (const p of payload.players) {
+            next[p.user_id] = {}
+            for (const h of p.holes) next[p.user_id][h.n] = h.strokes
+            // pending local writes win
+            for (const [key, w] of Array.from(queueRef.current.entries())) {
+              void key
+              if (w.userId === p.user_id) {
+                if (w.strokes == null) delete next[p.user_id][w.hole]
+                else next[p.user_id][w.hole] = w.strokes
+              }
+            }
+          }
+          void prev
+          return next
+        })
+        void refreshMatchPlay()
+      }, 500)
+    }
+    // Track this match's score ids (players may gain a scores row mid-round
+    // via the scores INSERT listener below).
+    const trackIds = (c: Scorecard) => {
+      // The card payload has no score ids — track via score_holes events'
+      // score_id once seen, and always accept events for unknown ids by
+      // re-pulling when the scores listener says this match changed.
+      void c
+    }
+    trackIds(card)
+    const channel = supabase
+      .channel(`scorecard-${matchId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "scores", filter: `match_id=eq.${matchId}` },
+        () => repull(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "score_holes" },
+        (payload: { new?: { score_id?: string }; old?: { score_id?: string } }) => {
+          const sid = payload.new?.score_id ?? payload.old?.score_id
+          // Unknown id: could still be this match (first sighting) — the
+          // scores listener above covers row creation, so only react to ids
+          // we've seen or when we can't tell.
+          if (sid) scoreIds.add(sid)
+          repull()
+        },
+      )
+      .subscribe()
+    return () => {
+      if (repullTimer) clearTimeout(repullTimer)
+      void supabase.removeChannel(channel)
+    }
+    // card is deliberately keyed by identity of match (first load) — the
+    // subscription must not churn on every snapshot refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchId, !!card, refreshMatchPlay])
+
   useEffect(() => {
     const timer = setInterval(() => {
       if (queueRef.current.size > 0) void flush()

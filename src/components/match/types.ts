@@ -44,6 +44,8 @@ export type Match = {
   status?: string | null
   /** user id of the player who created the match (match admin). */
   created_by?: string | null
+  /** Bumped by DB trigger on every score change — powers the LIVE pill. */
+  last_edit_at?: string | null
 }
 
 /**
