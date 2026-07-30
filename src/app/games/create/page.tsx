@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
-import { CourseAutocomplete } from "@/components/CourseAutocomplete"
+import { CourseAutocomplete, type CourseSuggestion } from "@/components/CourseAutocomplete"
 import { track } from "@/lib/analytics"
 import { useT } from "@/lib/i18n"
 
@@ -29,6 +29,10 @@ export default function CreateGamePage() {
 
   const [name, setName] = useState("")
   const [course, setCourse] = useState("")
+  // The verified course row behind the text, when picked from the referential.
+  // Free-typing after a pick clears it (CourseAutocomplete calls onSelect(null)),
+  // so course_id can never point at a course the text no longer describes.
+  const [pickedCourse, setPickedCourse] = useState<CourseSuggestion | null>(null)
   const [players, setPlayers] = useState(4)
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
@@ -78,6 +82,7 @@ export default function CreateGamePage() {
         p_scoring_cards: scoringCards,
         p_total_cards: totalCards,
         p_game_type: format,
+        p_course_id: pickedCourse?.id ?? null,
       })
 
       if (rpcError) throw rpcError
@@ -167,6 +172,7 @@ export default function CreateGamePage() {
               id="course"
               value={course}
               onChange={setCourse}
+              onSelect={setPickedCourse}
               placeholder={t("course.placeholder")}
               disabled={submitting}
             />
