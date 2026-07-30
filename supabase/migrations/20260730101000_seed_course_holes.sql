@@ -54,7 +54,7 @@ UPDATE public.courses SET par = 71 WHERE lower(name) = lower('Golf de l''Isle-Ad
 
 -- Crécy Golf - Vignoly  →  Crécy Golf - Parcours Vignoly (Crécy-la-Chapelle)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, NULL, 379),
     (2, 5, NULL, 469),
@@ -86,7 +86,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Exclusiv Golf du Château de Cél  →  Exclusiv Golf du Château de Cély (Cély-en-Bière)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 5, 10, 409),
     (2, 4, 16, 287),
@@ -118,7 +118,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf Clément Ader  →  Golf Clément Ader (Gretz-Armainvilliers)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 5, 9, 462),
     (2, 3, 17, 138),
@@ -150,7 +150,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf Paris Val dEurope (Disneyl  →  Golf Paris Val d'Europe (Disneyland) (Magny-le-Hongre)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 5, 8, 435),
     (2, 3, 16, 145),
@@ -182,7 +182,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf dOzoir-la-Ferrière  →  Golf d'Ozoir-la-Ferrière (Ozoir-la-Ferrière)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 5, 15, 442),
     (2, 3, 13, 146),
@@ -214,7 +214,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Bois-le-Roi (9T)  →  Golf de Bois-le-Roi (Bois-le-Roi)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 15, 251),
     (2, 3, 9, 152),
@@ -237,7 +237,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Bussy-Guermantes - La G  →  Golf de Bussy-Guermantes - La Gondoire (Bussy-Saint-Georges)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 5, 3, 455),
     (2, 3, 5, 134),
@@ -260,7 +260,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Bussy-Guermantes - La J  →  Golf de Bussy-Guermantes - La Brèche (Bussy-Saint-Georges)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 2, 384),
     (2, 3, 4, 170),
@@ -292,7 +292,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Fontainebleau  →  Golf de Fontainebleau (Fontainebleau)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 17, 295),
     (2, 3, 5, 158),
@@ -324,7 +324,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Meaux-Boutigny  →  Golf de Meaux-Boutigny (Boutigny)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 16, 305),
     (2, 3, 8, 172),
@@ -356,7 +356,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Montereau la Forteresse  →  Golf de Montereau la Forteresse (Thoury-Férottes)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 16, 292),
     (2, 5, 4, 447),
@@ -388,7 +388,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Réveillon (Lésigny 18T)  →  Golf de Réveillon - Parcours 18T (Lésigny)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 16, 234),
     (2, 5, 4, 457),
@@ -420,7 +420,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf AS La Croix des Anges (9T)  →  Golf de La Croix des Anges (Réau)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, NULL, 254),
     (2, 3, NULL, 214),
@@ -443,7 +443,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de la Marsaudière (9T)  →  Golf de la Marsaudière (Chevry-Cossigny)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 15, 121),
     (2, 4, 7, 312),
@@ -466,7 +466,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Torcy (9T)  →  Golf de Torcy (Torcy)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 11, 282),
     (2, 5, 5, 487),
@@ -489,7 +489,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Béthemont Golf & Country Club (  →  Béthemont Golf & Country Club (Poissy)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 7, 324),
     (2, 3, 13, 137),
@@ -521,7 +521,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Exclusiv Golf de Rochefort  →  Exclusiv Golf de Rochefort (Rochefort-en-Yvelines)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 9, 346),
     (2, 5, 11, 457),
@@ -553,7 +553,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf Blue Green Guerville  →  Golf Blue Green de Guerville (Guerville)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 11, 325),
     (2, 4, 1, 368),
@@ -585,7 +585,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf Blue Green Villennes  →  Golf Blue Green de Villennes (Villennes-sur-Seine)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 17, 285),
     (2, 4, 9, 252),
@@ -617,7 +617,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf Isabella (Plaisir)  →  Golf Isabella (Plaisir)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 6, 335),
     (2, 4, 12, 336),
@@ -649,7 +649,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf National - Aigle  →  Golf National - L'Aigle (Guyancourt)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 12, 310),
     (2, 4, 2, 369),
@@ -681,7 +681,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf National - Albatros  →  Golf National - L'Albatros (Guyancourt)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, NULL, 318),
     (2, 3, NULL, 141),
@@ -713,7 +713,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf National - Oiselet  →  Golf National - L'Oiselet (Guyancourt)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, NULL, 136),
     (2, 4, NULL, 250),
@@ -736,7 +736,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Feucherolles  →  Exclusiv Golf de Feucherolles (Feucherolles)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 18, 325),
     (2, 4, 12, 346),
@@ -768,7 +768,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Fourqueux - BlancBleu  →  Golf Country Club de Fourqueux - Blanc/Bleu (Fourqueux)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 5, 331),
     (2, 4, 7, 304),
@@ -800,7 +800,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Joyenval - Marly  →  Golf de Joyenval - Marly (Chambourcy)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 17, 297),
     (2, 5, 9, 456),
@@ -832,7 +832,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Joyenval - Retz  →  Golf de Joyenval - Retz (Chambourcy)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 15, 326),
     (2, 3, 9, 134),
@@ -864,7 +864,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Maisons-Laffitte  →  Golf de Maisons-Laffitte (Maisons-Laffitte)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 17, 100),
     (2, 4, 3, 327),
@@ -887,7 +887,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Saint-Germain - Le Gran  →  Golf de Saint-Germain - Le Grand Parcours (Saint-Germain-en-Laye)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 3, 381),
     (2, 5, 15, 438),
@@ -919,7 +919,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Saint-Marc (Jouy-en-Jos  →  Golf de Saint-Marc (Jouy-en-Josas)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 16, 268),
     (2, 4, 10, 339),
@@ -951,7 +951,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Saint-Nom-la-Bretêche -  →  Golf de Saint-Nom-la-Bretêche - Bleu (Saint-Nom-la-Bretêche)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 3, 393),
     (2, 4, 11, 307),
@@ -983,7 +983,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Saint-Nom-la-Bretêche 2  →  Golf de Saint-Nom-la-Bretêche - Rouge (Saint-Nom-la-Bretêche)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 15, 321),
     (2, 4, 11, 364),
@@ -1015,7 +1015,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Saint-Quentin-en-Yvelin  →  Golf de Saint-Quentin-en-Yvelines - Bleu (Trappes)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 4, 360),
     (2, 3, 14, 172),
@@ -1047,7 +1047,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Saint-Quentin-en-Yvel 2  →  Golf de Saint-Quentin-en-Yvelines - Rouge (Trappes)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 5, 12, 425),
     (2, 4, 4, 322),
@@ -1079,7 +1079,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Villacoublay  →  Golf de Villacoublay (Région Aérienne) (Vélizy-Villacoublay)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 6, 303),
     (2, 5, 18, 432),
@@ -1111,7 +1111,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de la Boulie - La Forêt  →  Golf de la Boulie - La Forêt (Versailles)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, NULL, 360),
     (2, 3, NULL, 117),
@@ -1143,7 +1143,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf des Boucles de Seine  →  Golf des Boucles de Seine (Moisson)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 6, 304),
     (2, 4, 7, 295),
@@ -1175,7 +1175,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf des Yvelines (La Queue-lez  →  Golf des Yvelines (La Queue-lez-Yvelines)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 17, 334),
     (2, 4, 9, 317),
@@ -1207,7 +1207,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf du Château de la Chouette  →  Golf du Château de la Chouette (Gaillon-sur-Montcient)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, NULL, 375),
     (2, 4, NULL, 343),
@@ -1239,7 +1239,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf du Prieuré - Est  →  Golf du Prieuré - Est (Sailly)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 16, 294),
     (2, 4, 2, 318),
@@ -1271,7 +1271,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf du Prieuré - Ouest  →  Golf du Prieuré - Ouest (Sailly)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 17, 161),
     (2, 4, 3, 358),
@@ -1303,7 +1303,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- La Vaucouleurs - La Rivière  →  La Vaucouleurs - La Rivière (Civry-la-Forêt)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 15, 292),
     (2, 5, 7, 465),
@@ -1335,7 +1335,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- La Vaucouleurs - Les Vallons  →  La Vaucouleurs - Les Vallons (Civry-la-Forêt)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 15, 278),
     (2, 3, 13, 147),
@@ -1367,7 +1367,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Daily Golf de Buc (9T)  →  Golf de Buc-Toussus (Dailybuc) (Buc)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 7, 125),
     (2, 3, 11, 105),
@@ -1390,7 +1390,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Tremblay-Mauldre Château Bertin  →  Golf du Tremblay-sur-Mauldre - Château (Le Tremblay-sur-Mauldre)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 9, 321),
     (2, 5, 5, 436),
@@ -1413,7 +1413,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Tremblay-Mauldre Parc Irlandais  →  Golf du Tremblay-sur-Mauldre - Le Parc (Le Tremblay-sur-Mauldre)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 8, 58),
     (2, 3, 1, 90),
@@ -1436,7 +1436,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de l'Île Fleurie (9T)  →  Île Fleurie Golf Club (Chatou)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 5, 155),
     (2, 3, 13, 165),
@@ -1459,7 +1459,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de la Boulie - La Vallée  →  Golf de la Boulie - La Vallée (Versailles)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 5, 349),
     (2, 4, 1, 390),
@@ -1491,7 +1491,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Blue Green Golf de Villeray  →  Blue Green Golf de Villeray (Saint-Pierre-du-Perray)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 16, 130),
     (2, 4, 12, 315),
@@ -1523,7 +1523,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Exclusiv Golf de Coudray - Les   →  Exclusiv Golf de Coudray - Les Marronniers (Le Coudray-Montceaux)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 7, 379),
     (2, 4, 5, 349),
@@ -1555,7 +1555,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf dEtiolles - Les Cerfs  →  Golf d'Etiolles - Les Cerfs (Etiolles)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 5, 8, 443),
     (2, 4, 12, 336),
@@ -1587,7 +1587,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Courson Stade Français   →  Golf de Courson Stade Français - Lilas/Orange (Courson-Monteloup)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 8, 330),
     (2, 4, 16, 315),
@@ -1619,7 +1619,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Courson Stade Françai 2  →  Golf de Courson Stade Français - Vert/Noir (Courson-Monteloup)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 7, 391),
     (2, 3, 17, 142),
@@ -1651,7 +1651,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Forges-les-Bains  →  Golf de Forges-les-Bains (Forges-les-Bains)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 2, 352),
     (2, 3, 14, 160),
@@ -1683,7 +1683,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Marivaux (Janvry)  →  Golf de Marivaux (Janvry)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 3, 317),
     (2, 4, 7, 286),
@@ -1715,7 +1715,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Mennecy Chevannes (18T)  →  Golf de Mennecy Chevannes - 18T (Chevannes)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, NULL, 363),
     (2, 4, NULL, 375),
@@ -1747,7 +1747,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Saint-Aubin - Le Mesnil  →  Golf de Saint-Aubin - Le Mesnil (Saint-Aubin)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 5, NULL, 467),
     (2, 4, NULL, 265),
@@ -1779,7 +1779,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Saint-Germain-lès-Corbe  →  Golf de Saint-Germain-lès-Corbeil (Saint-Germain-lès-Corbeil)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, NULL, 264),
     (2, 4, NULL, 325),
@@ -1811,7 +1811,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Sénart - Les Cygnes  →  Golf de Sénart - Les Cygnes (Saint-Pierre-du-Perray)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 5, 365),
     (2, 5, 13, 459),
@@ -1843,7 +1843,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Val Grand (Bondoufle)  →  Golf de Val Grand (Bondoufle)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 5, 8, 443),
     (2, 4, 10, 336),
@@ -1875,7 +1875,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- DailyGolf Verrières (9T)  →  Golf de Verrières-le-Buisson (Verrières-le-Buisson)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 3, 240),
     (2, 3, 1, 145),
@@ -1898,7 +1898,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Coudray - La Guiche (9T)  →  Exclusiv Golf de Coudray - La Guiche (Le Coudray-Montceaux)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 5, 103),
     (2, 3, 7, 82),
@@ -1921,7 +1921,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Gif-Chevry - Chevry II (9T)  →  Golf de Gif-Chevry (Gif-sur-Yvette)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 15, 296),
     (2, 4, 11, 328),
@@ -1944,7 +1944,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Greenparc P&P L'Arbalète (9T)  →  Golf de Sénart - L'Arbalète (Saint-Pierre-du-Perray)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 7, 75),
     (2, 3, 3, 67),
@@ -1967,7 +1967,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Morangis La Galande (9T)  →  Golf de Morangis La Galande (Morangis)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, 'blanc'
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, 'blanc'
 FROM (VALUES
     (1, 3, 9, 81),
     (2, 3, 6, 89),
@@ -1990,7 +1990,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Rueil-Malmaison  →  Golf de Rueil-Malmaison (Rueil-Malmaison)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 15, 119),
     (2, 4, 5, 185),
@@ -2013,7 +2013,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Saint-Cloud - Parcours   →  Golf de Saint-Cloud - Parcours Jaune (Garches)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 3, 325),
     (2, 3, 9, 135),
@@ -2045,7 +2045,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Saint-Cloud - Parcour 2  →  Golf de Saint-Cloud - Parcours Vert (Garches)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 5, 353),
     (2, 4, 7, 331),
@@ -2077,7 +2077,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf du Haras de Jardy (Vaucres  →  Golf du Haras de Jardy (Vaucresson)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 6, 112),
     (2, 3, 5, 90),
@@ -2100,7 +2100,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf du Stade Français Haras Lu  →  Golf du Stade Français Haras Lupin (Vaucresson)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 9, 97),
     (2, 4, 6, 338),
@@ -2123,7 +2123,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Paris Golf & Country Club (Sain  →  Paris Golf & Country Club - 9T (Saint-Cloud)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 9, 324),
     (2, 3, 3, 163),
@@ -2146,7 +2146,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Rosny-sous-Bois  →  Golf de Rosny-sous-Bois (Rosny-sous-Bois)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 5, 7, 384),
     (2, 3, 17, 105),
@@ -2169,7 +2169,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf départemental de la Poudre  →  Golf départemental de la Poudrerie (Sevran)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 15, 87),
     (2, 3, 17, 70),
@@ -2192,7 +2192,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf dOrmesson  →  Golf d'Ormesson (Ormesson-sur-Marne)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 5, 9, 360),
     (2, 4, 3, 340),
@@ -2224,7 +2224,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf du Parc du Tremblay (Champ  →  Golf du Parc du Tremblay (Champigny-sur-Marne)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 3, 146),
     (2, 3, 9, 79),
@@ -2247,7 +2247,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Garden Golf Cergy-Pontoise (Vau  →  Garden Golf Cergy-Pontoise (Vauréal)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 17, 226),
     (2, 3, 16, 112),
@@ -2279,7 +2279,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Garden Golf Gadancourt  →  Garden Golf Gadancourt (Gadancourt)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 3, 324),
     (2, 4, 11, 300),
@@ -2311,7 +2311,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf Blue Green Bellefontaine -  →  Golf Blue Green Bellefontaine - Le Plessis 9 (Bellefontaine)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 15, 252),
     (2, 4, 9, 296),
@@ -2334,7 +2334,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf Club dAbleiges - Les Étang  →  Golf Club d'Ableiges - Les Étangs (Ableiges)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 4, 347),
     (2, 4, 6, 301),
@@ -2366,7 +2366,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf Hôtel Mont Griffon - Les L  →  Golf Hôtel de Mont Griffon - Les Lacs (Luzarches)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 16, 294),
     (2, 4, 6, 299),
@@ -2398,7 +2398,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf International de Roissy  →  Golf International de Roissy (Roissy-en-France)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, 'noir'
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, 'noir'
 FROM (VALUES
     (1, 4, 16, 339),
     (2, 5, 9, 505),
@@ -2430,7 +2430,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Gonesse  →  Golf de Gonesse (Gonesse)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 7, 308),
     (2, 4, 5, 310),
@@ -2453,7 +2453,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Maudétour-en-Vexin  →  Golf de Maudétour-en-Vexin (Maudétour-en-Vexin)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 2, 365),
     (2, 4, 8, 317),
@@ -2485,7 +2485,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Montmorency - Les Châta  →  Golf de Montmorency - Les Châtaigniers (Domont)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 15, 295),
     (2, 3, 5, 155),
@@ -2517,7 +2517,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Saint-Ouen-lAumône  →  Golf de Saint-Ouen-l'Aumône (Saint-Ouen-l'Aumône)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 5, 75),
     (2, 3, 3, 102),
@@ -2540,7 +2540,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Seraincourt  →  Golf de Seraincourt (Seraincourt)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 3, 257),
     (2, 3, 15, 116),
@@ -2572,7 +2572,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de Villarceaux - Grand Par  →  Golf de Villarceaux - Grand Parcours (Chaussy)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, 7, 294),
     (2, 4, 3, 361),
@@ -2604,7 +2604,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Golf de lIsle-Adam  →  Golf de l'Isle-Adam (L'Isle-Adam)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 4, NULL, 300),
     (2, 4, NULL, 317),
@@ -2636,7 +2636,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Paris International Golf Club (  →  Paris International Golf Club (Baillet-en-France)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, 'blanc'
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, 'blanc'
 FROM (VALUES
     (1, 4, 15, 338),
     (2, 3, 17, 140),
@@ -2668,7 +2668,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Mont Griffon - L'Arbalétrier  →  Golf Hôtel de Mont Griffon - L'Arbalétrier (Luzarches)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 3, 4, 105),
     (2, 3, 7, 88),
@@ -2691,7 +2691,7 @@ ON CONFLICT (course_id, hole_number) DO UPDATE
 
 -- Mont Griffon - La Forêt (9T)  →  Golf Hôtel de Mont Griffon - La Forêt (Luzarches)
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, NULL
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, NULL
 FROM (VALUES
     (1, 5, 1, 382),
     (2, 3, 17, 131),

@@ -363,9 +363,11 @@ def emit_migration(
         )
         tee_note = "NULL" if card.tee == "jaune" else sql_quote(card.tee)
         parts.append(
+            # Casts are load-bearing: a VALUES column that is entirely NULL
+            # (e.g. an hcp-nulled card) is typed text by default → 42804.
             f"""-- {card.sheet}  →  {seed.name} ({seed.city})
 INSERT INTO public.course_holes (course_id, hole_number, par, hcp_index, dist_yellow_m, tee_note)
-SELECT c.id, v.hole_number, v.par, v.hcp_index, v.dist_m, {tee_note}
+SELECT c.id, v.hole_number::smallint, v.par::smallint, v.hcp_index::smallint, v.dist_m::smallint, {tee_note}
 FROM (VALUES
     {rows}
 ) AS v(hole_number, par, hcp_index, dist_m)
