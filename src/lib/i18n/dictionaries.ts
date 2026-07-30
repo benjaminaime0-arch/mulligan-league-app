@@ -662,6 +662,24 @@ export const en: Dict = {
   "games.basis.stableford_net": "Net Stableford",
   "games.basis.stableford_net.hint": "Points, hole by hole",
   "scores.netgross": "Net {net} · Gross {gross}",
+
+  // ── Match play & Ryder (Phase D) ────────────────────────────────────────
+  "games.format.matchplay": "Match Play",
+  "games.create.format.matchplay.hint": "Hole-by-hole duel (net). Requires a course with a full scorecard.",
+  "games.create.error.matchplaycourse": "Match play needs a course with a hole-by-hole card — pick one from the list.",
+  "games.create.teammode": "Ryder mode (2 teams)",
+  "games.create.teammode.hint": "Members split into two teams",
+  "match.create.error.matchplay2": "A singles match-play round is exactly 2 players.",
+  "scorecard.matchplay.level": "All square",
+  "scorecard.matchplay.leads": "{name} — {state}",
+  "scorecard.matchplay.final": "Match over",
+  "scorecard.matchplay.thru": "thru {n}",
+  "games.team.default1": "Team 1",
+  "games.team.default2": "Team 2",
+  "games.team.matchescounted": "{n} match(es) counted",
+  "games.team.assign.open": "Assign teams",
+  "games.team.assign.close": "Close assignment",
+  "games.team.autobalance": "Auto-balance the rest",
 }
 
 export const fr: Dict = {
@@ -1305,6 +1323,24 @@ export const fr: Dict = {
   "games.basis.stableford_net": "Stableford net",
   "games.basis.stableford_net.hint": "Points, trou par trou",
   "scores.netgross": "Net {net} · Brut {gross}",
+
+  // ── Match play & Ryder (Phase D) ────────────────────────────────────────
+  "games.format.matchplay": "Match play",
+  "games.create.format.matchplay.hint": "Duel trou par trou (en net). Nécessite un parcours avec carte complète.",
+  "games.create.error.matchplaycourse": "Le match play nécessite un parcours avec carte trou par trou — choisissez-le dans la liste.",
+  "games.create.teammode": "Mode Ryder (2 équipes)",
+  "games.create.teammode.hint": "Les membres sont répartis en deux équipes",
+  "match.create.error.matchplay2": "Une sortie match play en simple, c'est exactement 2 joueurs.",
+  "scorecard.matchplay.level": "Égalité",
+  "scorecard.matchplay.leads": "{name} — {state}",
+  "scorecard.matchplay.final": "Match terminé",
+  "scorecard.matchplay.thru": "après {n}",
+  "games.team.default1": "Équipe 1",
+  "games.team.default2": "Équipe 2",
+  "games.team.matchescounted": "{n} match(s) comptabilisé(s)",
+  "games.team.assign.open": "Attribuer les équipes",
+  "games.team.assign.close": "Fermer l'attribution",
+  "games.team.autobalance": "Répartir le reste",
 }
 
 export const dictionaries: Record<Locale, Dict> = { fr, en }

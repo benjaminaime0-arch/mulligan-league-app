@@ -85,4 +85,8 @@ export type Game = {
    * resolveBasis/effectiveFormat, never read raw.
    */
   scoring_basis?: string | null
+  /** Ryder mode (Phase D): match-play game scored as two teams. */
+  team_mode?: boolean | null
+  team1_name?: string | null
+  team2_name?: string | null
 }

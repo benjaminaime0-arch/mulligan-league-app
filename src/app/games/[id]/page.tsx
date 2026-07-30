@@ -22,6 +22,7 @@ import { GameInviteCode } from "./components/GameInviteCode"
 import { DraftGuide } from "./components/DraftGuide"
 import { GameActivityCard } from "./components/GameActivityCard"
 import { BadgesCard, type BadgeRow } from "./components/BadgesCard"
+import { TeamScoreHeader } from "./components/TeamScoreHeader"
 import {
   effectiveFormat,
   formatCopy,
@@ -889,6 +890,22 @@ export default function GamePage({ params }: GamePageProps) {
               the get_game_activity_feed RPC. */}
           {isMember && <GameActivityCard gameId={gameId} />}
 
+          {/* Ryder scoreboard (Phase D): the team race header, with the
+              admin's team-assignment panel folded inside. */}
+          {game.team_mode && (
+            <TeamScoreHeader
+              gameId={gameId}
+              isAdmin={game.admin_id === user.id}
+              members={members.map((m) => ({
+                user_id: m.user_id,
+                name:
+                  m.profiles?.username || m.profiles?.first_name || "Player",
+                team: m.team ?? null,
+              }))}
+              onChanged={loadData}
+            />
+          )}
+
           {/* Format info (Stroke Play · Best 3 of 5 cards) moved to the
               page header, so the Leaderboard card doesn't duplicate it. */}
           <LeaderboardTable
@@ -896,6 +913,7 @@ export default function GamePage({ params }: GamePageProps) {
             currentUserId={user.id}
             scoringCardsCount={game.scoring_cards_count ?? null}
             gameFormat={effectiveFormat(game)}
+            matchPlay={game.format === "match_play"}
           />
 
           {/* Honors — compact achievements strip. Hidden entirely for

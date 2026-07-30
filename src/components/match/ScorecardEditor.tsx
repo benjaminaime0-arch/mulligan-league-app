@@ -61,6 +61,22 @@ type Scorecard = {
 
 type PendingWrite = { userId: string; hole: number; strokes: number | null }
 
+type MatchPlayState = {
+  available: boolean
+  team_mode?: boolean
+  side_a?: string[]
+  side_b?: string[]
+  a_won?: number
+  b_won?: number
+  halved?: number
+  thru?: number
+  remaining?: number
+  leader?: number
+  decided?: boolean
+  final?: boolean
+  state?: string | null
+}
+
 const RETRY_MS = 4000
 
 export function ScorecardEditor({
@@ -81,12 +97,22 @@ export function ScorecardEditor({
   const [queueSize, setQueueSize] = useState(0)
   const [flushFailing, setFlushFailing] = useState(false)
   const [confirmLeave, setConfirmLeave] = useState(false)
+  // Match-play running state (Phase D): fetched alongside the card and
+  // refreshed lazily after writes settle. Null = not a match-play round.
+  const [mpState, setMpState] = useState<MatchPlayState | null>(null)
 
   // Write queue lives in refs: it must survive re-renders untouched and be
   // visible from timer/online callbacks without stale closures.
   const queueRef = useRef<Map<string, PendingWrite>>(new Map())
   const flushingRef = useRef(false)
   const closedRef = useRef(false)
+
+  // ---- match play ---------------------------------------------------------
+  const refreshMatchPlay = useCallback(async () => {
+    const { data } = await supabase.rpc("match_play_state", { p_match_id: matchId })
+    const st = data as MatchPlayState | null
+    setMpState(st && st.available ? st : null)
+  }, [matchId])
 
   // ---- load ---------------------------------------------------------------
   useEffect(() => {
@@ -115,11 +141,12 @@ export function ScorecardEditor({
         first++
       setHole(first)
       track("scorecard_opened", { match_id: matchId, holes: total })
+      void refreshMatchPlay()
     })()
     return () => {
       cancelled = true
     }
-  }, [matchId])
+  }, [matchId, refreshMatchPlay])
 
   // ---- queue --------------------------------------------------------------
   const flush = useCallback(async () => {
@@ -155,8 +182,9 @@ export function ScorecardEditor({
     } finally {
       flushingRef.current = false
       setQueueSize(queueRef.current.size)
+      if (queueRef.current.size === 0) void refreshMatchPlay()
     }
-  }, [matchId])
+  }, [matchId, refreshMatchPlay])
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -419,6 +447,25 @@ export function ScorecardEditor({
         })}
       </div>
 
+      {/* Match-play running state (Phase D) */}
+      {mpState && (
+        <div className="mt-3 rounded-xl border border-primary/15 bg-cream px-3 py-2 text-center">
+          <p className="text-sm font-bold text-primary">
+            {mpState.state == null || mpState.leader === 0
+              ? t("scorecard.matchplay.level")
+              : t("scorecard.matchplay.leads", {
+                  name: sideName(mpState.leader === 1 ? mpState.side_a : mpState.side_b, card),
+                  state: mpState.state,
+                })}
+          </p>
+          <p className="text-xs text-primary/50">
+            {mpState.final
+              ? t("scorecard.matchplay.final")
+              : t("scorecard.matchplay.thru", { n: mpState.thru ?? 0 })}
+          </p>
+        </div>
+      )}
+
       {/* Sync status */}
       <div className="mt-3 min-h-[1.25rem] text-center text-xs">
         {flushFailing && queueSize > 0 ? (
@@ -500,4 +547,11 @@ function Overlay({
       </div>
     </div>
   )
+}
+
+/** First display name of a side (singles: the player; Ryder: "Nom +1"). */
+function sideName(ids: string[] | undefined, card: Scorecard | null): string {
+  if (!ids || ids.length === 0 || !card) return "?"
+  const first = card.players.find((p) => p.user_id === ids[0])?.display_name ?? "?"
+  return ids.length > 1 ? `${first} +${ids.length - 1}` : first
 }
