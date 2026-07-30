@@ -64,8 +64,8 @@ BEGIN
     json_build_object('sub', v_karl, 'role', 'authenticated')::text, true);
   PERFORM join_game_by_code((SELECT invite_code FROM games WHERE id = v_game));
 
-  INSERT INTO matches (game_id, course_id, match_date, created_by, status)
-  VALUES (v_game, v_course, current_date, v_jack, 'scheduled') RETURNING id INTO v_match;
+  INSERT INTO matches (game_id, course_name, course_id, match_date, created_by, status)
+  VALUES (v_game, 'TD MP Course', v_course, current_date, v_jack, 'scheduled') RETURNING id INTO v_match;
   -- join order fixes the sides: Jack = side A, Karl = side B
   INSERT INTO match_players (match_id, user_id, joined_at) VALUES (v_match, v_jack, now());
   INSERT INTO match_players (match_id, user_id, joined_at) VALUES (v_match, v_karl, now() + interval '1 second');
@@ -137,8 +137,8 @@ BEGIN
   -- Match 1: four-ball, all 4 players. Team snapshot comes from the trigger.
   PERFORM set_config('request.jwt.claims',
     json_build_object('sub', v_jack, 'role', 'authenticated')::text, true);
-  INSERT INTO matches (game_id, course_id, match_date, created_by, status)
-  VALUES (v_game, v_course, current_date, v_jack, 'scheduled') RETURNING id INTO v_match;
+  INSERT INTO matches (game_id, course_name, course_id, match_date, created_by, status)
+  VALUES (v_game, 'TD MP Course', v_course, current_date, v_jack, 'scheduled') RETURNING id INTO v_match;
   INSERT INTO match_players (match_id, user_id) VALUES
     (v_match, v_jack), (v_match, v_karl), (v_match, v_lisa), (v_match, v_mona);
   IF (SELECT count(*) FROM match_players WHERE match_id = v_match AND team IS NOT NULL) <> 4 THEN
@@ -160,8 +160,8 @@ BEGIN
   PERFORM set_config('mulligan.system_update', '', true);
 
   -- Match 2: singles pair inside the Ryder game — Jack beats Lisa.
-  INSERT INTO matches (game_id, course_id, match_date, created_by, status)
-  VALUES (v_game, v_course, current_date + 1, v_jack, 'scheduled') RETURNING id INTO v_match;
+  INSERT INTO matches (game_id, course_name, course_id, match_date, created_by, status)
+  VALUES (v_game, 'TD MP Course', v_course, current_date + 1, v_jack, 'scheduled') RETURNING id INTO v_match;
   INSERT INTO match_players (match_id, user_id) VALUES (v_match, v_jack), (v_match, v_lisa);
   FOR i IN 1..9 LOOP
     PERFORM upsert_score_hole(v_match, v_jack, i, 3);
