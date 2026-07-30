@@ -111,8 +111,8 @@ BEGIN
     json_build_object('sub', v_iris, 'role', 'authenticated')::text, true);
   PERFORM join_game_by_code((SELECT invite_code FROM games WHERE id = v_game));
 
-  INSERT INTO matches (game_id, match_date, created_by, status)
-  VALUES (v_game, current_date, v_hugo, 'scheduled') RETURNING id INTO v_match;
+  INSERT INTO matches (game_id, course_name, match_date, created_by, status)
+  VALUES (v_game, 'Anywhere', current_date, v_hugo, 'scheduled') RETURNING id INTO v_match;
   INSERT INTO match_players (match_id, user_id) VALUES (v_match, v_hugo), (v_match, v_iris);
 
   -- 18-hole aggregate for Hugo (cap), 9-hole for Iris (halving).
@@ -162,8 +162,8 @@ BEGIN
     json_build_object('sub', v_iris, 'role', 'authenticated')::text, true);
   PERFORM join_game_by_code((SELECT invite_code FROM games WHERE id = v_game));
 
-  INSERT INTO matches (game_id, match_date, created_by, status)
-  VALUES (v_game, current_date, v_hugo, 'scheduled') RETURNING id INTO v_match;
+  INSERT INTO matches (game_id, course_name, match_date, created_by, status)
+  VALUES (v_game, 'Anywhere', current_date, v_hugo, 'scheduled') RETURNING id INTO v_match;
   INSERT INTO match_players (match_id, user_id) VALUES (v_match, v_hugo), (v_match, v_iris);
 
   PERFORM set_config('request.jwt.claims',
@@ -221,8 +221,8 @@ BEGIN
     json_build_object('sub', v_iris, 'role', 'authenticated')::text, true);
   PERFORM join_game_by_code((SELECT invite_code FROM games WHERE id = v_game));
 
-  INSERT INTO matches (game_id, course_id, match_date, created_by, status)
-  VALUES (v_game, v_course, current_date, v_hugo, 'scheduled') RETURNING id INTO v_match;
+  INSERT INTO matches (game_id, course_name, course_id, match_date, created_by, status)
+  VALUES (v_game, 'T5 Test Course', v_course, current_date, v_hugo, 'scheduled') RETURNING id INTO v_match;
   INSERT INTO match_players (match_id, user_id) VALUES (v_match, v_hugo), (v_match, v_iris);
 
   -- Hugo: hole-by-hole 4s. net 3 vs par 4 = birdie = 3 pts × 9 = 27.
