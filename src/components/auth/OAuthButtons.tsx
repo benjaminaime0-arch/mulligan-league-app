@@ -13,13 +13,21 @@ import { track } from "@/lib/analytics"
  * handled by Supabase itself when "Link accounts with the same email" is
  * enabled on the project (Auth → Providers).
  *
- * The buttons render whenever the app is built; if a provider isn't
- * configured in Supabase yet the SDK returns a clear error, which we surface
- * inline rather than failing silently.
+ * Apple is opt-in via NEXT_PUBLIC_ENABLE_APPLE_SIGNIN. Sign in with Apple
+ * needs a paid Apple Developer Program membership, a Services ID and a .p8
+ * key whose JWT secret expires every 6 months — until that exists, showing
+ * the button would put a guaranteed dead end in the primary signup flow.
+ * A provider we can't actually complete is worse than one we don't offer,
+ * so it stays hidden rather than erroring on click. Flip the flag to "true"
+ * once Apple is configured in Supabase.
+ *
+ * NOTE: NEXT_PUBLIC_* is inlined at build time, so changing this on Vercel
+ * requires a redeploy — it is not read at runtime.
  *
  * PWA/iOS note: signInWithOAuth performs a full-page redirect (not a popup),
  * which is what works inside an installed PWA and iOS Safari.
  */
+const APPLE_ENABLED = process.env.NEXT_PUBLIC_ENABLE_APPLE_SIGNIN === "true"
 export function OAuthButtons({ redirectTo }: { redirectTo?: string | null }) {
   const { t } = useI18n()
   const [loading, setLoading] = useState<"google" | "apple" | null>(null)
@@ -68,15 +76,17 @@ export function OAuthButtons({ redirectTo }: { redirectTo?: string | null }) {
         {loading === "google" ? t("auth.redirecting") : t("auth.google")}
       </button>
 
-      <button
-        type="button"
-        onClick={() => signIn("apple")}
-        disabled={loading !== null}
-        className="flex w-full items-center justify-center gap-3 rounded-lg border border-primary/20 bg-black px-4 py-3 font-medium text-white transition-all hover:bg-black/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <AppleMark />
-        {loading === "apple" ? t("auth.redirecting") : t("auth.apple")}
-      </button>
+      {APPLE_ENABLED && (
+        <button
+          type="button"
+          onClick={() => signIn("apple")}
+          disabled={loading !== null}
+          className="flex w-full items-center justify-center gap-3 rounded-lg border border-primary/20 bg-black px-4 py-3 font-medium text-white transition-all hover:bg-black/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <AppleMark />
+          {loading === "apple" ? t("auth.redirecting") : t("auth.apple")}
+        </button>
+      )}
 
       <div className="flex items-center gap-3 pt-1">
         <span className="h-px flex-1 bg-primary/10" />
