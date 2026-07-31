@@ -8,7 +8,11 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { useAuth } from "@/hooks/useAuth"
+// useAuthContext, NOT useAuth: the hook is a route GUARD that bounces
+// logged-out visitors to "/" — fatal on a public SEO page (Googlebot runs
+// JS and would index the auth shell). The context reads state without
+// redirecting; logged-out simply renders nothing here.
+import { useAuthContext } from "@/components/AuthProvider"
 import { useT } from "@/lib/i18n"
 import { vsPar } from "@/lib/gameFormat"
 
@@ -31,7 +35,7 @@ export function MyCourseStats({
   courseHoles: number | null
 }) {
   const t = useT()
-  const { user } = useAuth()
+  const { user } = useAuthContext()
   const [stats, setStats] = useState<Stats | null>(null)
 
   useEffect(() => {
