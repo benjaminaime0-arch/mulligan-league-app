@@ -9,6 +9,8 @@ import { useI18n, useT } from "@/lib/i18n"
 import { Avatar } from "@/components/Avatar"
 import { RecordsCard, type RecordsData } from "@/components/profile/RecordsCard"
 import { CoursesCard, type CoursePlay } from "@/components/profile/CoursesCard"
+import { FaceOffCard } from "@/components/profile/FaceOffCard"
+import { RatingChip } from "@/components/profile/RatingChip"
 import { ScoreTrendCard } from "@/components/profile/ScoreTrendCard"
 import { loadUserGames, type EnrichedGame } from "@/lib/userGames"
 
@@ -195,10 +197,19 @@ export default function PlayerProfilePage() {
                 : t("profile.stat.games", { n: gameCount })}
             </span>
           </div>
+          {/* Indice Mulligan (Phase G) — appears once a match is rated. */}
+          <div className="mt-2">
+            <RatingChip userId={profile.id} />
+          </div>
         </section>
 
         {/* 2. Score trajectory */}
         <ScoreTrendCard handicap={profile.handicap} userId={profile.id} ownerName={displayName} />
+
+        {/* 2b. Face à face — the viewer's record against this player (Phase G). */}
+        {user && (
+          <FaceOffCard viewerId={user.id} otherId={profile.id} otherName={displayName} />
+        )}
 
         {/* 3. Records */}
         <RecordsCard records={records} />

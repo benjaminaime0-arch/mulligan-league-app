@@ -37,6 +37,7 @@ import {
   resolveFormat,
 } from "@/lib/gameFormat"
 import { ScorecardEditor } from "./ScorecardEditor"
+import { useHeadToHeadLine } from "./useHeadToHeadLine"
 
 export const MAX_MATCH_PLAYERS = 4
 
@@ -369,6 +370,18 @@ export function MatchDetailCard({
     hasAnyScore &&
     !!match.last_edit_at &&
     Date.now() - new Date(match.last_edit_at).getTime() < 3 * 60 * 60 * 1000
+
+  // 1v1 rivalry one-liner (Phase G): "Vous menez 4–2" on two-player matches
+  // the viewer plays in. Lazy + cached per pair inside the hook.
+  const h2hLine = useHeadToHeadLine({
+    enabled:
+      players.length === 2 &&
+      !!currentUserId &&
+      players.some((p) => p.user_id === currentUserId),
+    viewerId: currentUserId ?? null,
+    otherId: players.find((p) => p.user_id && p.user_id !== currentUserId)?.user_id ?? null,
+    otherName: players.find((p) => p.user_id && p.user_id !== currentUserId)?.name ?? "",
+  })
 
   const canEnterScores =
     viewerIsPlayer &&
@@ -806,6 +819,11 @@ export function MatchDetailCard({
           />
         )}
       </div>
+
+      {/* 1v1 rivalry line (Phase G) */}
+      {h2hLine && !editing && (
+        <p className="mt-2 text-xs font-medium text-primary/60">{h2hLine}</p>
+      )}
 
       {/* Editor OR roster */}
       <div className="mt-3">
