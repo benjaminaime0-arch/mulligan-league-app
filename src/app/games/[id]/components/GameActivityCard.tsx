@@ -15,6 +15,11 @@ import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Avatar } from "@/components/Avatar"
+import { useT } from "@/lib/i18n"
+
+/** Translator signature — copy helpers below take it as an argument since
+ *  they run outside React and can't call the hook themselves. */
+type TFn = ReturnType<typeof useT>
 
 interface ActivityEvent {
   id: string
@@ -41,6 +46,7 @@ export function GameActivityCard({ gameId, refreshKey }: GameActivityCardProps) 
   const [events, setEvents] = useState<ActivityEvent[] | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const router = useRouter()
+  const t = useT()
 
   useEffect(() => {
     let cancelled = false
@@ -99,9 +105,9 @@ export function GameActivityCard({ gameId, refreshKey }: GameActivityCardProps) 
               type="button"
               onClick={() => setModalOpen(true)}
               className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary/70"
-              aria-label="See all activity"
+              aria-label={t("games.activity.seeall")}
             >
-              Activity feed
+              {t("games.activity.title")}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="12"
@@ -119,7 +125,9 @@ export function GameActivityCard({ gameId, refreshKey }: GameActivityCardProps) 
               </svg>
             </button>
           ) : (
-            <h2 className="text-sm font-semibold text-primary">Activity feed</h2>
+            <h2 className="text-sm font-semibold text-primary">
+              {t("games.activity.title")}
+            </h2>
           )}
         </div>
 
@@ -138,7 +146,7 @@ export function GameActivityCard({ gameId, refreshKey }: GameActivityCardProps) 
           </div>
         ) : events.length === 0 ? (
           <p className="py-2 text-center text-xs text-primary/50">
-            No recent activity. Schedule a match or post a score to get things rolling.
+            {t("games.activity.empty")}
           </p>
         ) : (
           <ul className="flex flex-col gap-1">
@@ -173,6 +181,8 @@ function ActivityRow({
   event: ActivityEvent
   onNavigate: (href: string) => void
 }) {
+  const t = useT()
+
   /* ── Announcement rows ──────────────────────────────
    * Two special events don't follow the "{actor} verbed X" shape —
    * they read as standalone banners:
@@ -207,17 +217,18 @@ function ActivityRow({
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm text-primary">
-              Congrats{" "}
-              <span className="font-bold">{event.actor_name}</span> for the win
+              {t("games.activity.winner.pre")}{" "}
+              <span className="font-bold">{event.actor_name}</span>{" "}
+              {t("games.activity.winner.post")}
             </p>
             {total != null && (
               <p className="mt-0.5 truncate text-[11px] text-amber-700/80">
-                Final total · {total}
+                {t("games.activity.finaltotal", { total })}
               </p>
             )}
           </div>
           <span className="shrink-0 text-[10px] tabular-nums text-primary/40">
-            {timeAgo(event.created_at)}
+            {timeAgo(event.created_at, t)}
           </span>
         </div>
       </li>
@@ -236,10 +247,10 @@ function ActivityRow({
             </svg>
           </div>
           <p className="min-w-0 flex-1 truncate text-sm font-semibold text-primary">
-            All rounds completed
+            {t("games.activity.allrounds")}
           </p>
           <span className="shrink-0 text-[10px] tabular-nums text-primary/40">
-            {timeAgo(event.created_at)}
+            {timeAgo(event.created_at, t)}
           </span>
         </div>
       </li>
@@ -247,7 +258,7 @@ function ActivityRow({
   }
 
   /* ── Default "{actor} verbed X" row ─────────────── */
-  const msg = formatMessage(event)
+  const msg = formatMessage(event, t)
   const href = eventHref(event)
 
   const body = (
@@ -264,7 +275,7 @@ function ActivityRow({
         </p>
       </div>
       <span className="shrink-0 text-[10px] tabular-nums text-primary/40">
-        {timeAgo(event.created_at)}
+        {timeAgo(event.created_at, t)}
       </span>
     </div>
   )
@@ -302,6 +313,8 @@ function ActivityFeedModal({
   onClose: () => void
   onNavigate: (href: string) => void
 }) {
+  const t = useT()
+
   // Lock body scroll + close on Esc while open.
   useEffect(() => {
     const prev = document.body.style.overflow
@@ -321,7 +334,7 @@ function ActivityFeedModal({
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"
       role="dialog"
       aria-modal="true"
-      aria-label="Game activity"
+      aria-label={t("games.activity.modal.aria")}
       onClick={onClose}
     >
       <div
@@ -329,12 +342,14 @@ function ActivityFeedModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-primary/10 px-5 py-4">
-          <h3 className="text-sm font-semibold text-primary">Activity feed</h3>
+          <h3 className="text-sm font-semibold text-primary">
+            {t("games.activity.title")}
+          </h3>
           <button
             type="button"
             onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-white/60 text-primary/60 hover:bg-cream/50 hover:text-primary"
-            aria-label="Close"
+            aria-label={t("common.close")}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -354,11 +369,11 @@ function ActivityFeedModal({
 
 /* ── Copy helpers ──────────────────────────────────────── */
 
-function formatMessage(event: ActivityEvent): string {
+function formatMessage(event: ActivityEvent, t: TFn): string {
   const meta = event.metadata || {}
   switch (event.event_type) {
     case "player_joined_game":
-      return "joined the game"
+      return t("games.activity.joined")
     case "match_created": {
       const date = meta.match_date
         ? new Date(String(meta.match_date)).toLocaleDateString("en-US", {
@@ -368,13 +383,13 @@ function formatMessage(event: ActivityEvent): string {
           })
         : null
       return date
-        ? `scheduled a match for ${date}`
-        : "scheduled a new match"
+        ? t("games.activity.matchscheduled", { date })
+        : t("games.activity.matchscheduled.nodate")
     }
     case "score_approved":
       return meta.score != null
-        ? `submitted a ${meta.score}`
-        : "posted a score"
+        ? t("games.activity.scored", { score: meta.score })
+        : t("games.activity.posted")
     default:
       return event.event_type.replace(/_/g, " ")
   }
@@ -390,17 +405,17 @@ function eventHref(event: ActivityEvent): string | null {
   return null
 }
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: TFn): string {
   const now = Date.now()
   const then = new Date(iso).getTime()
   const diffSec = Math.floor((now - then) / 1000)
-  if (diffSec < 60) return "just now"
+  if (diffSec < 60) return t("common.time.justnow")
   const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return `${diffMin}m`
+  if (diffMin < 60) return t("common.time.minutes.short", { n: diffMin })
   const diffHr = Math.floor(diffMin / 60)
-  if (diffHr < 24) return `${diffHr}h`
+  if (diffHr < 24) return t("common.time.hours.short", { n: diffHr })
   const diffDay = Math.floor(diffHr / 24)
-  if (diffDay < 7) return `${diffDay}d`
+  if (diffDay < 7) return t("common.time.days.short", { n: diffDay })
   return new Date(iso).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",

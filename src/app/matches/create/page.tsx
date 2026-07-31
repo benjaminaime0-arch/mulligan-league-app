@@ -1,11 +1,12 @@
 "use client"
 
-import { Suspense, useEffect, useMemo, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { track } from "@/lib/analytics"
+import { useT } from "@/lib/i18n"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 
 type Game = {
@@ -44,6 +45,7 @@ type GamePeriod = {
 }
 
 function CreateMatchContent() {
+  const t = useT()
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedGameId = searchParams.get("game")
@@ -169,7 +171,7 @@ function CreateMatchContent() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load game members.")
+          setError(err instanceof Error ? err.message : t("match.create.error.members"))
         }
       } finally {
         if (!cancelled) setMembersLoading(false)
@@ -178,6 +180,10 @@ function CreateMatchContent() {
 
     loadGameData()
     return () => { cancelled = true }
+    // `t` is deliberately not a dependency. It changes identity when the
+    // locale does, and re-running this effect would refetch the whole game
+    // on every language toggle just to restate a one-shot error message.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGameId, user])
 
   const isPlayerSelected = (userId: string) => selectedPlayerIds.includes(userId)
@@ -194,14 +200,23 @@ function CreateMatchContent() {
     })
   }
 
-  const memberDisplayName = (member: MemberWithProfile) => {
-    const profile = member.profiles
-    return profile?.username || [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") || "Player"
-  }
+  // Memoised on `t` so the list re-sorts when the locale changes — the
+  // fallback label is translated, so it can change a member's sort position.
+  const memberDisplayName = useCallback(
+    (member: MemberWithProfile) => {
+      const profile = member.profiles
+      return (
+        profile?.username ||
+        [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
+        t("common.player")
+      )
+    },
+    [t],
+  )
 
   const sortedMembers = useMemo(
     () => [...members].sort((a, b) => memberDisplayName(a).localeCompare(memberDisplayName(b))),
-    [members],
+    [members, memberDisplayName],
   )
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -210,23 +225,23 @@ function CreateMatchContent() {
     setError(null)
 
     if (!selectedGameId || !selectedGame) {
-      setError("Please select a game.")
+      setError(t("match.create.error.nogame"))
       return
     }
     if (!date) {
-      setError("Please select a match date.")
+      setError(t("match.create.error.nodate"))
       return
     }
     if (!activePeriod) {
-      setError("No active period for this game. Start the game first.")
+      setError(t("match.create.error.noperiod"))
       return
     }
     if (selectedPlayerIds.length < 2) {
-      setError("Select at least 2 players for this match.")
+      setError(t("match.create.error.minplayers"))
       return
     }
     if (selectedPlayerIds.length > MAX_MATCH_PLAYERS) {
-      setError(`A match can have at most ${MAX_MATCH_PLAYERS} players.`)
+      setError(t("match.create.error.maxplayers", { max: MAX_MATCH_PLAYERS }))
       return
     }
 
@@ -264,18 +279,18 @@ function CreateMatchContent() {
       track("match_created", {})
       router.push(`/matches/${matchId}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create match. Please try again.")
+      setError(err instanceof Error ? err.message : t("match.create.error.failed"))
     } finally {
       setSubmitting(false)
     }
   }
 
   if (authLoading) {
-    return <LoadingSpinner message="Checking your session…" />
+    return <LoadingSpinner message={t("auth.checking")} />
   }
   if (!user) return null
   if (gamesLoading) {
-    return <LoadingSpinner message="Loading your games…" />
+    return <LoadingSpinner message={t("games.loading")} />
   }
 
   // No games — show empty state
@@ -283,22 +298,22 @@ function CreateMatchContent() {
     return (
       <main className="min-h-screen px-4 py-8">
         <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-6 text-center">
-          <h1 className="text-2xl font-bold text-primary">Create Match</h1>
+          <h1 className="text-2xl font-bold text-primary">{t("match.create.title")}</h1>
           <p className="text-sm text-primary/70">
-            You need to be part of a game before creating a match.
+            {t("match.create.needgame")}
           </p>
           <div className="flex gap-3">
             <Link
               href="/games/create"
               className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream hover:bg-primary/90"
             >
-              Create a Game
+              {t("games.create.full")}
             </Link>
             <Link
               href="/games/join"
               className="rounded-lg border border-primary/20 bg-white px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
             >
-              Join a Game
+              {t("games.join.full")}
             </Link>
           </div>
         </div>
@@ -310,9 +325,9 @@ function CreateMatchContent() {
     <main className="min-h-screen px-4 py-6">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
         <header>
-          <h1 className="text-2xl font-bold text-primary">Create Match</h1>
+          <h1 className="text-2xl font-bold text-primary">{t("match.create.title")}</h1>
           <p className="mt-1 text-sm text-primary/70">
-            Schedule a match within one of your games.
+            {t("match.create.subtitle")}
           </p>
         </header>
 
@@ -329,7 +344,7 @@ function CreateMatchContent() {
           {/* Game Selection */}
           <div>
             <label htmlFor="game" className="mb-1 block text-sm font-medium text-primary">
-              Select your game
+              {t("match.create.game")}
             </label>
             <select
               id="game"
@@ -338,7 +353,7 @@ function CreateMatchContent() {
               className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               disabled={submitting}
             >
-              <option value="">Choose a game…</option>
+              <option value="">{t("match.create.game.placeholder")}</option>
               {userGames.map((game) => (
                 <option key={game.id} value={game.id}>
                   {game.name}
@@ -351,7 +366,7 @@ function CreateMatchContent() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="date" className="mb-1 block text-sm font-medium text-primary">
-                Date
+                {t("common.date")}
               </label>
               <input
                 id="date"
@@ -364,7 +379,7 @@ function CreateMatchContent() {
             </div>
             <div>
               <label htmlFor="time" className="mb-1 block text-sm font-medium text-primary">
-                Time (optional)
+                {t("common.time")} {t("common.optional")}
               </label>
               <input
                 id="time"
@@ -382,15 +397,15 @@ function CreateMatchContent() {
           {selectedGameId && (
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-medium text-primary">Players</p>
-                <p className="text-xs text-primary/50">{selectedPlayerIds.length}/{MAX_MATCH_PLAYERS} selected</p>
+                <p className="text-sm font-medium text-primary">{t("invite.players")}</p>
+                <p className="text-xs text-primary/50">{t("match.create.selected", { n: selectedPlayerIds.length, max: MAX_MATCH_PLAYERS })}</p>
               </div>
               {membersLoading ? (
-                <p className="py-3 text-center text-sm text-primary/50">Loading members…</p>
+                <p className="py-3 text-center text-sm text-primary/50">{t("match.create.members.loading")}</p>
               ) : (
                 <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-primary/15 bg-cream px-3 py-2">
                   {sortedMembers.length === 0 ? (
-                    <p className="py-2 text-sm text-primary/70">No game members yet.</p>
+                    <p className="py-2 text-sm text-primary/70">{t("match.create.members.empty")}</p>
                   ) : (
                     sortedMembers.map((member) => {
                       const checked = isPlayerSelected(member.user_id)
@@ -425,7 +440,7 @@ function CreateMatchContent() {
             disabled={submitting || !selectedGameId}
             className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? "Creating match…" : "Create Match"}
+            {submitting ? t("match.create.submitting") : t("match.create.title")}
           </button>
         </form>
       </div>

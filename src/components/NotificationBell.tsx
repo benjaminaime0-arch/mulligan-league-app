@@ -5,8 +5,10 @@ import { useRouter, usePathname } from "next/navigation"
 import { useNotifications, type Notification } from "@/hooks/useNotifications"
 import { JoinRequestActionModal } from "@/components/JoinRequestActionModal"
 import { formatRelativeTime, getNotificationIcon } from "@/lib/notificationDisplay"
+import { useT } from "@/lib/i18n"
 
 export function NotificationBell() {
+  const t = useT()
   const router = useRouter()
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -88,7 +90,11 @@ export function NotificationBell() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/80 text-primary/70 shadow-sm ring-1 ring-primary/10 transition-colors hover:bg-white hover:text-primary active:scale-95"
-        aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : "Notifications"}
+        aria-label={
+          unreadCount > 0
+            ? t("nav.notifications.unread", { n: unreadCount })
+            : t("nav.notifications")
+        }
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -116,7 +122,7 @@ export function NotificationBell() {
         <div className="animate-slide-up absolute right-0 top-11 z-50 w-[340px] max-w-[calc(100vw-24px)] rounded-2xl border border-primary/10 bg-white shadow-xl">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-primary/5 px-4 py-3">
-            <h3 className="text-sm font-semibold text-primary">Notifications</h3>
+            <h3 className="text-sm font-semibold text-primary">{t("nav.notifications")}</h3>
             {/* No "Mark all read" button — opening the panel does it
                 automatically (see useEffect on `open` above). */}
           </div>
@@ -146,7 +152,7 @@ export function NotificationBell() {
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
-                <p className="text-xs font-medium text-primary/60">You&apos;re all caught up</p>
+                <p className="text-xs font-medium text-primary/60">{t("home.caughtup")}</p>
               </div>
             ) : (
               <div className="divide-y divide-primary/5">
@@ -172,7 +178,7 @@ export function NotificationBell() {
                 }}
                 className="text-xs font-medium text-primary/50 hover:text-primary"
               >
-                View all notifications
+                {t("nav.notifications.all")}
               </button>
             </div>
           )}
@@ -198,6 +204,7 @@ function NotificationRow({
   notification: Notification
   onTap: (n: Notification) => void
 }) {
+  const t = useT()
   const isUnread = !notification.read_at
   const icon = getNotificationIcon(notification.type)
   const timeLabel = formatRelativeTime(notification.created_at)
@@ -243,7 +250,9 @@ function NotificationRow({
         )}
         <p className="mt-0.5 text-[10px] text-primary/30">{timeLabel}</p>
         {isJoinRequest && isUnread && (
-          <p className="mt-1 text-[11px] font-medium text-emerald-600">Tap to approve or reject</p>
+          <p className="mt-1 text-[11px] font-medium text-emerald-600">
+            {t("nav.notifications.tap")}
+          </p>
         )}
       </div>
     </button>

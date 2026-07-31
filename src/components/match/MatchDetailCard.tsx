@@ -25,6 +25,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { track } from "@/lib/analytics"
+import { useT } from "@/lib/i18n"
 import { Avatar } from "@/components/Avatar"
 import type { Game, Match, MatchPlayer } from "./types"
 import {
@@ -99,20 +100,21 @@ function MatchApprovalBadge({
   approvedCount: number
   total: number
 }) {
+  const t = useT()
   if (total === 0) return null
   const allApproved = approvedCount >= total
   if (allApproved) {
     return (
       <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        Completed
+        {t("games.match.completed")}
       </span>
     )
   }
   return (
     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
       <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-      Approved {approvedCount}/{total}
+      {t("games.match.approvedcount", { n: approvedCount, total })}
     </span>
   )
 }
@@ -136,6 +138,7 @@ function ScoreEditor({
   onSave: (edits: Record<string, { score: string; holes: 9 | 18 }>) => void
   gameFormat?: import("@/components/match/types").GameFormat
 }) {
+  const t = useT()
   const [edits, setEdits] = useState(initial)
   // Input validation range widens for stableford (0 is a legal total
   // — means every hole was a blob) and tightens on the top end.
@@ -155,8 +158,8 @@ function ScoreEditor({
     <div className="flex flex-col gap-3">
       <p className="text-xs text-primary/60">
         {gameFormat === "stableford"
-          ? "Enter your Stableford points total. Saving resets other players' approvals — they'll need to re-approve."
-          : "Saving resets other players' approvals — they'll need to re-approve."}
+          ? t("games.match.editor.hint.stableford")
+          : t("games.match.editor.hint")}
       </p>
 
       <div className="flex flex-col gap-2">
@@ -188,8 +191,8 @@ function ScoreEditor({
                 placeholder={inputPlaceholder}
                 aria-label={
                   gameFormat === "stableford"
-                    ? `${p.name} Stableford points`
-                    : `${p.name} strokes`
+                    ? t("games.match.aria.points", { name: p.name })
+                    : t("games.match.aria.strokes", { name: p.name })
                 }
                 className="w-16 rounded-md border border-primary/20 bg-white px-2 py-1 text-center text-sm tabular-nums text-primary focus:border-primary focus:outline-none"
               />
@@ -233,7 +236,7 @@ function ScoreEditor({
           disabled={saving}
           className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-cream hover:bg-primary/90 disabled:opacity-60"
         >
-          {saving ? "Saving\u2026" : "Save All Scores"}
+          {saving ? t("games.match.saving") : t("games.match.saveall")}
         </button>
         <button
           type="button"
@@ -241,7 +244,7 @@ function ScoreEditor({
           disabled={saving}
           className="rounded-lg border border-primary/20 bg-white px-3 py-2 text-sm font-medium text-primary hover:bg-primary/5 disabled:opacity-60"
         >
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
     </div>
@@ -262,6 +265,7 @@ export function MatchDetailCard({
   context = "profile",
   gameHighlights,
 }: MatchDetailCardProps) {
+  const t = useT()
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [scoreError, setScoreError] = useState<string | null>(null)
@@ -312,7 +316,7 @@ export function MatchDetailCard({
         month: "short",
         day: "numeric",
       })
-    : "Date TBA"
+    : t("games.match.datetba")
   const timeLabel = match.match_time ? match.match_time.slice(0, 5) : null
   const courseLabel = match.course_name || game.course_name
 
@@ -454,7 +458,7 @@ export function MatchDetailCard({
             id: r.id,
             requester_id: r.requester_id,
             name:
-              p?.username || p?.first_name || "Player",
+              p?.username || p?.first_name || t("games.match.player"),
             avatar_url: p?.avatar_url ?? null,
           }
         }),
@@ -463,7 +467,7 @@ export function MatchDetailCard({
     return () => {
       cancelled = true
     }
-  }, [viewerIsCreator, match.id, matchPlayers])
+  }, [viewerIsCreator, match.id, matchPlayers, t])
   // ^ matchPlayers in deps so that after parent onRefresh() the
   //   list re-pulls (new player row → one fewer pending request).
 
@@ -489,7 +493,7 @@ export function MatchDetailCard({
         }))
       for (const e of entries) {
         if (Number.isNaN(e.score) || e.score < 1 || e.score > 200) {
-          setScoreError("Scores must be whole numbers between 1 and 200.")
+          setScoreError(t("games.match.error.range"))
           setSaving(false)
           return
         }
@@ -522,14 +526,16 @@ export function MatchDetailCard({
       if (rpcError) throw rpcError
       const result = data as { success: boolean; error?: string }
       if (!result.success) {
-        setScoreError(result.error || "Failed to save scores.")
+        setScoreError(result.error || t("games.match.error.save"))
         return
       }
       track("score_entered", { players: entries.length })
       setEditing(false)
       await onRefresh()
     } catch (err) {
-      setScoreError(err instanceof Error ? err.message : "Failed to save scores.")
+      setScoreError(
+        err instanceof Error ? err.message : t("games.match.error.save"),
+      )
     } finally {
       setSaving(false)
     }
@@ -546,13 +552,15 @@ export function MatchDetailCard({
       if (rpcError) throw rpcError
       const result = data as { success: boolean; error?: string }
       if (!result.success) {
-        setActionError(result.error || "Could not approve scores.")
+        setActionError(result.error || t("games.match.error.approve"))
         return
       }
       track("score_confirmed", {})
       await onRefresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to approve.")
+      setActionError(
+        err instanceof Error ? err.message : t("games.match.error.approvefail"),
+      )
     } finally {
       setApproving(false)
     }
@@ -561,10 +569,13 @@ export function MatchDetailCard({
   const handleInvite = async () => {
     // Same URL + message shape the full match page uses.
     const joinUrl = `${window.location.origin}/matches/${match.id}/join`
-    const courseName = courseLabel || "the course"
+    const courseName = courseLabel || t("games.match.share.course")
     const message = game.name
-      ? `Join my match at ${courseName} in "${game.name}" on Mulligan!\n${joinUrl}`
-      : `Join my match at ${courseName} on Mulligan!\n${joinUrl}`
+      ? `${t("games.match.invite.msg.game", {
+          course: courseName,
+          game: game.name,
+        })}\n${joinUrl}`
+      : `${t("games.match.invite.msg", { course: courseName })}\n${joinUrl}`
     try {
       if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({ text: message, url: joinUrl })
@@ -608,14 +619,14 @@ export function MatchDetailCard({
           setJoinRequestState("sent")
           return
         }
-        setJoinRequestError(result.error || "Failed to send request.")
+        setJoinRequestError(result.error || t("games.match.error.request"))
         setJoinRequestState("idle")
         return
       }
       setJoinRequestState("sent")
     } catch (err) {
       setJoinRequestError(
-        err instanceof Error ? err.message : "Failed to send request.",
+        err instanceof Error ? err.message : t("games.match.error.request"),
       )
       setJoinRequestState("idle")
     }
@@ -632,7 +643,7 @@ export function MatchDetailCard({
       if (rpcError) throw rpcError
       const result = data as { success: boolean; error?: string }
       if (!result.success) {
-        setActionError(result.error || "Failed to approve request.")
+        setActionError(result.error || t("games.match.error.reqapprove"))
         return
       }
       // Optimistic: drop from the local list so the UI updates before
@@ -640,7 +651,9 @@ export function MatchDetailCard({
       setPendingRequests((prev) => prev.filter((r) => r.id !== requestId))
       await onRefresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to approve request.")
+      setActionError(
+        err instanceof Error ? err.message : t("games.match.error.reqapprove"),
+      )
     } finally {
       setRequestActionId(null)
     }
@@ -657,13 +670,15 @@ export function MatchDetailCard({
       if (rpcError) throw rpcError
       const result = data as { success: boolean; error?: string }
       if (!result.success) {
-        setActionError(result.error || "Failed to reject request.")
+        setActionError(result.error || t("games.match.error.reqreject"))
         return
       }
       setPendingRequests((prev) => prev.filter((r) => r.id !== requestId))
       // No onRefresh needed — rejecting doesn't change match state.
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to reject request.")
+      setActionError(
+        err instanceof Error ? err.message : t("games.match.error.reqreject"),
+      )
     } finally {
       setRequestActionId(null)
     }
@@ -674,9 +689,7 @@ export function MatchDetailCard({
     // Admin-with-others scenario is still punted to the full match
     // page — the transfer-admin modal isn't inlined yet.
     if (viewerIsCreator && players.length > 1) {
-      setActionError(
-        "You're the match admin. Open the full match to transfer admin before leaving.",
-      )
+      setActionError(t("games.match.error.adminleave"))
       setShowConfirm(null)
       return
     }
@@ -691,7 +704,9 @@ export function MatchDetailCard({
       if (delError) throw delError
       await onRefresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to leave match.")
+      setActionError(
+        err instanceof Error ? err.message : t("games.match.error.leave"),
+      )
     } finally {
       setLeaving(false)
       setShowConfirm(null)
@@ -709,7 +724,9 @@ export function MatchDetailCard({
       if (delError) throw delError
       await onRefresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to delete match.")
+      setActionError(
+        err instanceof Error ? err.message : t("games.match.error.delete"),
+      )
     } finally {
       setDeleting(false)
       setShowConfirm(null)
@@ -737,7 +754,7 @@ export function MatchDetailCard({
         ) : (
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">
-              {courseLabel || "Course TBA"}
+              {courseLabel || t("games.card.nocourse")}
             </p>
             <p className="mt-0.5 truncate text-[11px] text-primary/60">
               {dateLabel}
@@ -779,7 +796,7 @@ export function MatchDetailCard({
           <div className="flex flex-col gap-1.5">
             {sorted.length === 0 ? (
               <p className="py-2 text-center text-xs text-primary/40">
-                No players yet.
+                {t("games.match.noplayers")}
               </p>
             ) : (
               sorted.map((p, i) => {
@@ -807,9 +824,9 @@ export function MatchDetailCard({
                 // repeating it per row was noise.
                 const winnerRecap = isWinner
                   ? margin != null && margin > 0
-                    ? `+${margin} ahead`
+                    ? t("games.match.ahead", { n: margin })
                     : margin === 0
-                      ? "countback win"
+                      ? t("games.match.countback")
                       : null
                   : null
                 const rowClass = `flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors ${
@@ -826,8 +843,8 @@ export function MatchDetailCard({
                       {p.isBestScore && !isWinner && (
                         <span
                           className="absolute -right-0.5 -top-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-emerald-500 text-white"
-                          aria-label="Counts toward leaderboard"
-                          title="Counts toward leaderboard"
+                          aria-label={t("games.match.counts")}
+                          title={t("games.match.counts")}
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -849,7 +866,7 @@ export function MatchDetailCard({
                       <span className="truncate">{p.name}</span>
                       {isMe && (
                         <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary/60">
-                          you
+                          {t("games.match.you")}
                         </span>
                       )}
                       {winnerRecap && (
@@ -873,8 +890,8 @@ export function MatchDetailCard({
                         p.score === gameHighlights.lowestRound.score && (
                           <span
                             className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-300 to-red-500 text-white shadow-[0_1px_3px_rgba(239,68,68,0.35)] ring-[1.5px] ring-white"
-                            aria-label="Lowest round in the game"
-                            title="Lowest round in the game"
+                            aria-label={t("games.match.lowest")}
+                            title={t("games.match.lowest")}
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -891,8 +908,8 @@ export function MatchDetailCard({
                       {isWinner && (
                         <span
                           className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 shadow-[0_1px_3px_rgba(180,83,9,0.35)] ring-[1.5px] ring-white"
-                          aria-label="Match winner"
-                          title="Match winner"
+                          aria-label={t("games.match.winner")}
+                          title={t("games.match.winner")}
                         >
                           {/* Modern gold medal — solid amber disc with a
                               filled 5-point star. Sits just left of the
@@ -980,7 +997,7 @@ export function MatchDetailCard({
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
-          {approving ? "Approving\u2026" : "Approve Scores"}
+          {approving ? t("games.match.approving") : t("games.match.approve")}
         </button>
       )}
 
@@ -1017,14 +1034,16 @@ export function MatchDetailCard({
                     <path d="M12 20h9" />
                     <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                   </svg>
-                  {hasAnyScore ? "Edit scores" : "Enter scores"}
+                  {hasAnyScore
+                    ? t("games.match.editscores")
+                    : t("games.match.enterscores")}
                 </button>
                 {viewerIsPlayer && (
                   <button
                     type="button"
                     onClick={() => setShowConfirm("leave")}
-                    aria-label="Leave this match"
-                    title="Leave this match"
+                    aria-label={t("games.match.leave")}
+                    title={t("games.match.leave")}
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1071,8 +1090,11 @@ export function MatchDetailCard({
                         <line x1="22" y1="11" x2="16" y2="11" />
                       </svg>
                       {inviteCopied
-                        ? "Link copied!"
-                        : `Invite (${players.length}/${MAX_MATCH_PLAYERS})`}
+                        ? t("games.match.linkcopied")
+                        : t("games.match.invite", {
+                            n: players.length,
+                            max: MAX_MATCH_PLAYERS,
+                          })}
                     </button>
                   ) : canShareRound ? (
                     <button
@@ -1084,10 +1106,10 @@ export function MatchDetailCard({
                         <path d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
                       </svg>
                       {shareCopied
-                        ? "Link copied!"
+                        ? t("games.match.linkcopied")
                         : compactShare
-                          ? "Share card"
-                          : "Share score card"}
+                          ? t("games.match.sharecard.short")
+                          : t("games.match.sharecard")}
                     </button>
                   ) : (
                     <div className="flex-1" />
@@ -1096,8 +1118,8 @@ export function MatchDetailCard({
                     <button
                       type="button"
                       onClick={() => setShowConfirm("leave")}
-                      aria-label="Leave this match"
-                      title="Leave this match"
+                      aria-label={t("games.match.leave")}
+                      title={t("games.match.leave")}
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1111,8 +1133,8 @@ export function MatchDetailCard({
                     <button
                       type="button"
                       onClick={() => setShowConfirm("delete")}
-                      aria-label="Delete this match"
-                      title="Delete this match"
+                      aria-label={t("games.match.delete")}
+                      title={t("games.match.delete")}
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1137,8 +1159,9 @@ export function MatchDetailCard({
       {!editing && viewerIsCreator && pendingRequests.length > 0 && (
         <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-amber-700">
-            {pendingRequests.length} pending request
-            {pendingRequests.length === 1 ? "" : "s"}
+            {pendingRequests.length === 1
+              ? t("games.match.pending.one")
+              : t("games.match.pending", { n: pendingRequests.length })}
           </p>
           <div className="flex flex-col gap-2">
             {pendingRequests.map((r) => (
@@ -1160,7 +1183,9 @@ export function MatchDetailCard({
                   disabled={requestActionId === r.id}
                   className="rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
                 >
-                  {requestActionId === r.id ? "\u2026" : "Approve"}
+                  {requestActionId === r.id
+                    ? "\u2026"
+                    : t("games.match.request.approve")}
                 </button>
                 <button
                   type="button"
@@ -1168,7 +1193,7 @@ export function MatchDetailCard({
                   disabled={requestActionId === r.id}
                   className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
                 >
-                  Reject
+                  {t("games.match.request.reject")}
                 </button>
               </div>
             ))}
@@ -1196,8 +1221,11 @@ export function MatchDetailCard({
             <line x1="22" y1="11" x2="16" y2="11" />
           </svg>
           {joinRequestState === "sending"
-            ? "Sending\u2026"
-            : `Request to join (${players.length}/${MAX_MATCH_PLAYERS})`}
+            ? t("games.match.sending")
+            : t("games.match.requestjoin", {
+                n: players.length,
+                max: MAX_MATCH_PLAYERS,
+              })}
         </button>
       )}
       {!editing && joinRequestState === "sent" && !viewerIsPlayer && (
@@ -1206,7 +1234,7 @@ export function MatchDetailCard({
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>
-          Request pending — waiting for match admin
+          {t("games.match.requestpending")}
         </div>
       )}
       {!editing && joinRequestError && (
@@ -1220,41 +1248,41 @@ export function MatchDetailCard({
           have real affordance. */}
       {!editing && showConfirm === "leave" && (
         <div className="mt-2 flex items-center gap-2 rounded-md bg-red-50 p-2 text-[11px] text-red-700">
-          <span className="flex-1">Leave this match?</span>
+          <span className="flex-1">{t("games.match.leave.confirm")}</span>
           <button
             type="button"
             onClick={handleLeave}
             disabled={leaving}
             className="rounded-md bg-red-600 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-60"
           >
-            {leaving ? "Leaving\u2026" : "Yes, leave"}
+            {leaving ? t("games.match.leaving") : t("games.match.leave.yes")}
           </button>
           <button
             type="button"
             onClick={() => setShowConfirm(null)}
             className="rounded-md border border-red-200 bg-white px-2 py-1 text-[11px] font-medium text-red-600"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
       )}
       {!editing && showConfirm === "delete" && (
         <div className="mt-2 flex items-center gap-2 rounded-md bg-red-50 p-2 text-[11px] text-red-700">
-          <span className="flex-1">Delete match + all scores?</span>
+          <span className="flex-1">{t("games.match.delete.confirm")}</span>
           <button
             type="button"
             onClick={handleDelete}
             disabled={deleting}
             className="rounded-md bg-red-600 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-60"
           >
-            {deleting ? "Deleting\u2026" : "Yes, delete"}
+            {deleting ? t("games.match.deleting") : t("games.match.delete.yes")}
           </button>
           <button
             type="button"
             onClick={() => setShowConfirm(null)}
             className="rounded-md border border-red-200 bg-white px-2 py-1 text-[11px] font-medium text-red-600"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
       )}
@@ -1298,6 +1326,7 @@ function WaitingOnFooter({
   match: Match
   currentUserId?: string | null
 }) {
+  const t = useT()
   const todayIso = useLocalTodayIso()
   if (players.length === 0) return null
 
@@ -1339,7 +1368,10 @@ function WaitingOnFooter({
   const extra = names.length - displayed.length
   const nameStr =
     extra > 0 ? `${displayed.join(", ")} +${extra}` : displayed.join(", ")
-  const verb = which.bucket === "submit" ? "to submit" : "to approve"
+  const verb =
+    which.bucket === "submit"
+      ? t("games.match.waiting.submit")
+      : t("games.match.waiting.approve")
 
   return (
     <p className="mt-2 flex items-center gap-1.5 text-[11px] text-amber-700">
@@ -1347,7 +1379,8 @@ function WaitingOnFooter({
         <circle cx="12" cy="12" r="10" />
         <polyline points="12 6 12 12 16 14" />
       </svg>
-      Waiting on <span className="font-semibold">{nameStr}</span> {verb}
+      {t("games.match.waiting")}{" "}
+      <span className="font-semibold">{nameStr}</span> {verb}
     </p>
   )
 }

@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 
+import { useI18n } from "@/lib/i18n"
+
 export interface CoursePlay {
   course_name: string
   times_played: number
@@ -18,6 +20,7 @@ const INITIAL_VISIBLE = 3
 
 export function CoursesCard({ courses, loading = false }: CoursesCardProps) {
   const [expanded, setExpanded] = useState(false)
+  const { t, locale } = useI18n()
 
   const totalCourses = courses?.length ?? 0
   const totalRounds = (courses ?? []).reduce((sum, c) => sum + Number(c.times_played), 0)
@@ -28,11 +31,16 @@ export function CoursesCard({ courses, loading = false }: CoursesCardProps) {
   return (
     <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-primary">Courses played</h2>
+        <h2 className="text-sm font-semibold text-primary">{t("profile.courses.title")}</h2>
         {totalCourses > 0 && (
           <span className="text-[11px] text-primary/50">
-            {totalCourses} course{totalCourses === 1 ? "" : "s"} · {totalRounds} round
-            {totalRounds === 1 ? "" : "s"}
+            {totalCourses === 1
+              ? t("profile.courses.count.one")
+              : t("profile.courses.count", { n: totalCourses })}{" "}
+            ·{" "}
+            {totalRounds === 1
+              ? t("profile.rounds.count.one")
+              : t("profile.rounds.count", { n: totalRounds })}
           </span>
         )}
       </div>
@@ -61,9 +69,9 @@ export function CoursesCard({ courses, loading = false }: CoursesCardProps) {
               <circle cx="12" cy="10" r="3" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-primary/70">No courses yet</p>
+          <p className="text-sm font-medium text-primary/70">{t("profile.courses.empty")}</p>
           <p className="mt-0.5 text-xs text-primary/40">
-            Play a match and the course will appear here.
+            {t("profile.courses.empty.sub")}
           </p>
         </div>
       ) : (
@@ -83,15 +91,22 @@ export function CoursesCard({ courses, loading = false }: CoursesCardProps) {
                       {course.course_name}
                     </p>
                     <p className="mt-0.5 truncate text-[11px] text-primary/50">
-                      {course.times_played} round
-                      {Number(course.times_played) === 1 ? "" : "s"}
-                      {course.last_played_date ? ` · last ${formatDate(course.last_played_date)}` : ""}
+                      {Number(course.times_played) === 1
+                        ? t("profile.rounds.count.one")
+                        : t("profile.rounds.count", { n: course.times_played })}
+                      {course.last_played_date
+                        ? ` · ${t("profile.courses.last", {
+                            date: formatDate(course.last_played_date, locale),
+                          })}`
+                        : ""}
                     </p>
                   </div>
                 </div>
                 {course.best_score != null && (
                   <div className="shrink-0 text-right">
-                    <p className="text-[10px] uppercase tracking-wide text-primary/40">Best</p>
+                    <p className="text-[10px] uppercase tracking-wide text-primary/40">
+                      {t("games.standings.col.best")}
+                    </p>
                     <p className="text-sm font-bold tabular-nums text-primary">
                       {course.best_score}
                     </p>
@@ -107,7 +122,9 @@ export function CoursesCard({ courses, loading = false }: CoursesCardProps) {
               onClick={() => setExpanded((v) => !v)}
               className="mt-2 w-full rounded-lg border border-primary/15 bg-white py-2 text-xs font-medium text-primary/70 hover:bg-primary/5"
             >
-              {expanded ? "Show less" : `Show ${totalCourses - INITIAL_VISIBLE} more`}
+              {expanded
+                ? t("common.showless")
+                : t("common.showmore", { n: totalCourses - INITIAL_VISIBLE })}
             </button>
           )}
         </>
@@ -116,8 +133,9 @@ export function CoursesCard({ courses, loading = false }: CoursesCardProps) {
   )
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
+// Module scope: the active locale is handed in by the component.
+function formatDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
   })

@@ -25,6 +25,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
+import { useT } from "@/lib/i18n"
 import { MatchDetailCard } from "./MatchDetailCard"
 import { DatePickerModal } from "./DatePickerModal"
 import type { Game, Match, MatchPlayer } from "./types"
@@ -86,8 +87,6 @@ export interface MatchCalendarSectionProps {
   } | null
 }
 
-const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"]
-
 // Local-date → `yyyy-mm-dd`. See DatePickerModal's note for the
 // same-reason rationale: `toISOString()` is UTC-based and shifts by
 // the viewer's offset, which is wrong when comparing with server
@@ -115,7 +114,17 @@ export function MatchCalendarSection({
   disableCreate = false,
   gameHighlights = null,
 }: MatchCalendarSectionProps) {
+  const t = useT()
   const todayIso = useMemo(() => toIso(new Date()), [])
+
+  // Weekday initials for the strip header, indexed by `Date.getDay()`
+  // (0 = Sunday). Localized as one comma-joined string so the seven
+  // letters stay together in the dictionary; the literal fallback keeps
+  // the strip readable if that entry ever goes missing.
+  const weekdayLetters = useMemo(() => {
+    const parts = t("common.weekdays.letters").split(",")
+    return parts.length === 7 ? parts : ["S", "M", "T", "W", "T", "F", "S"]
+  }, [t])
 
   // Build the list of calendar days (iso strings) for the strip.
   // Balanced around today so the strip reveals equal past+future on
@@ -247,11 +256,13 @@ export function MatchCalendarSection({
           className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary/70"
           aria-label={
             context === "game"
-              ? "Game calendar — see all matches"
-              : "My calendar — see all matches"
+              ? t("match.calendar.game.aria")
+              : t("match.calendar.mine.aria")
           }
         >
-          {context === "game" ? "Game calendar" : "My calendar"}
+          {context === "game"
+            ? t("match.calendar.game")
+            : t("nav.menu.calendar")}
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary/40" aria-hidden="true">
             <polyline points="9 6 15 12 9 18" />
           </svg>
@@ -267,7 +278,7 @@ export function MatchCalendarSection({
           <div className="flex gap-2">
             {days.map((iso) => {
               const d = new Date(iso)
-              const letter = WEEKDAY_LETTERS[d.getDay()]
+              const letter = weekdayLetters[d.getDay()]
               const num = d.getDate()
               const isToday = iso === todayIso
               const isSelected = iso === selectedDate
@@ -328,7 +339,7 @@ export function MatchCalendarSection({
                     type="button"
                     onClick={() => setSelectedDate(iso)}
                     className={`relative ${circleClass} focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}
-                    aria-label={`${d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}${dayStatus !== "empty" ? ` — ${dayStatusLabel(dayStatus)}` : ""}`}
+                    aria-label={`${d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}${dayStatus !== "empty" ? ` — ${dayStatusLabel(dayStatus, t)}` : ""}`}
                     aria-pressed={isSelected}
                   >
                     {num}
@@ -366,7 +377,7 @@ export function MatchCalendarSection({
             type="button"
             onClick={() => setDatePickerOpen(true)}
             className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/20 bg-white text-primary/60 transition-colors hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            aria-label="Jump to a specific date"
+            aria-label={t("match.calendar.jump")}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -476,18 +487,23 @@ function computeDayStatus(
   return "future"
 }
 
-function dayStatusLabel(status: DayStatus): string {
+// `t` is passed in rather than looked up here: this is a plain helper,
+// not a component, so it can't call the hook itself.
+function dayStatusLabel(
+  status: DayStatus,
+  t: (key: string) => string,
+): string {
   switch (status) {
     case "today":
-      return "match today"
+      return t("match.calendar.status.today")
     case "future":
-      return "match scheduled"
+      return t("match.calendar.status.scheduled")
     case "joinable":
-      return "open match — tap to view"
+      return t("match.calendar.status.open")
     case "completed":
-      return "completed"
+      return t("games.match.completed")
     case "awaiting":
-      return "awaiting scores"
+      return t("match.calendar.status.awaiting")
     default:
       return ""
   }
@@ -591,6 +607,7 @@ function DayMatchesCarousel({
     } | null
   } | null
 }) {
+  const t = useT()
   const initialIndex = focusMatchId
     ? Math.max(
         0,
@@ -684,7 +701,7 @@ function DayMatchesCarousel({
             type="button"
             onClick={() => setIndex((i) => Math.max(0, i - 1))}
             className="absolute left-1 top-5 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-primary shadow ring-1 ring-primary/10 backdrop-blur hover:bg-white"
-            aria-label="Previous match on this day"
+            aria-label={t("match.calendar.prev")}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
@@ -698,7 +715,7 @@ function DayMatchesCarousel({
               setIndex((i) => Math.min(matches.length - 1, i + 1))
             }
             className="absolute right-1 top-5 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-primary shadow ring-1 ring-primary/10 backdrop-blur hover:bg-white"
-            aria-label="Next match on this day"
+            aria-label={t("match.calendar.next")}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="9 6 15 12 9 18" />
@@ -719,7 +736,10 @@ function DayMatchesCarousel({
                   ? "w-5 bg-primary"
                   : "w-1.5 bg-primary/20 hover:bg-primary/40"
               }`}
-              aria-label={`Go to match ${i + 1} of ${matches.length}`}
+              aria-label={t("match.calendar.goto", {
+                n: i + 1,
+                total: matches.length,
+              })}
             />
           ))}
         </div>
@@ -739,6 +759,7 @@ function EmptyTile({
   defaultGameId: string | number | null
   disableCreate?: boolean
 }) {
+  const t = useT()
   const d = new Date(iso)
   const isToday = iso === todayIso
   const isPast = iso < todayIso
@@ -755,7 +776,9 @@ function EmptyTile({
   if (isPast || disableCreate) {
     return (
       <div className="flex items-center justify-center rounded-lg border border-dashed border-primary/15 bg-cream/20 px-4 py-4 text-center">
-        <p className="text-xs text-primary/50">No match on {dayLabel}</p>
+        <p className="text-xs text-primary/50">
+          {t("match.calendar.nomatch", { date: dayLabel })}
+        </p>
       </div>
     )
   }
@@ -770,7 +793,9 @@ function EmptyTile({
     <Link
       href={href}
       className="group flex items-center justify-center gap-3 rounded-lg border border-dashed border-primary/20 bg-cream/20 px-4 py-5 text-center transition-colors hover:border-primary/40 hover:bg-cream/40"
-      aria-label={`Create a match for ${isToday ? "today" : dayLabel}`}
+      aria-label={t("match.calendar.create.aria", {
+        date: isToday ? t("common.today") : dayLabel,
+      })}
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-cream shadow-sm transition-transform group-hover:scale-105">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -780,10 +805,12 @@ function EmptyTile({
       </span>
       <span className="flex flex-col text-left">
         <span className="text-sm font-semibold text-primary">
-          Create match
+          {t("match.create.title")}
         </span>
         <span className="text-[11px] text-primary/60">
-          {isToday ? "today" : `on ${dayLabel}`}
+          {isToday
+            ? t("common.today")
+            : t("match.calendar.onday", { date: dayLabel })}
         </span>
       </span>
     </Link>

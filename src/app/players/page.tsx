@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
+import { useT } from "@/lib/i18n"
 import { PlayerSearchBar, type PlayerResult } from "@/components/PlayerSearchBar"
 import { Avatar } from "@/components/Avatar"
 
@@ -20,12 +21,14 @@ type RecentPlayer = {
 
 export default function PlayersPage() {
   const router = useRouter()
+  const t = useT()
   const { user, loading: authLoading } = useAuth()
   const [recentPlayers, setRecentPlayers] = useState<RecentPlayer[]>([])
   const [loadingRecent, setLoadingRecent] = useState(true)
   // Whether the first fetch has resolved (success OR error). The empty
   // state must never render before this flips true, and a failed fetch
   // must surface an error rather than the misleading "join a game" copy.
+  // Holds an i18n key (not a message) so the copy follows the active locale.
   const [recentError, setRecentError] = useState<string | null>(null)
 
   // Load players from the user's games (people they play with)
@@ -45,7 +48,7 @@ export default function PlayersPage() {
 
       if (cancelled) return
       if (membershipError) {
-        setRecentError("Couldn’t load your games. Pull to refresh.")
+        setRecentError("players.error.games")
         setLoadingRecent(false)
         return
       }
@@ -65,7 +68,7 @@ export default function PlayersPage() {
 
       if (cancelled) return
       if (fellowsError) {
-        setRecentError("Couldn’t load players from your games. Pull to refresh.")
+        setRecentError("players.error.list")
         setLoadingRecent(false)
         return
       }
@@ -106,9 +109,9 @@ export default function PlayersPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-6 pt-6 md:pt-8">
-      <h1 className="mb-1 text-xl font-bold text-primary">Players</h1>
+      <h1 className="mb-1 text-xl font-bold text-primary">{t("nav.players")}</h1>
       <p className="mb-5 text-sm text-primary/60">
-        Find golfers and see their profiles.
+        {t("players.subtitle")}
       </p>
 
       <PlayerSearchBar onSelect={handleSelect} autoFocus />
@@ -116,7 +119,7 @@ export default function PlayersPage() {
       {/* Fellow game members */}
       <section className="mt-8">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-primary/50">
-          From your games
+          {t("players.fromgames")}
         </h2>
 
         {loadingRecent ? (
@@ -125,11 +128,11 @@ export default function PlayersPage() {
           </div>
         ) : recentError ? (
           <p className="rounded-xl border border-dashed border-red-200 px-4 py-8 text-center text-sm text-red-600">
-            {recentError}
+            {t(recentError)}
           </p>
         ) : recentPlayers.length === 0 ? (
           <p className="rounded-xl border border-dashed border-primary/15 px-4 py-8 text-center text-sm text-primary/40">
-            Join a game to see other players here.
+            {t("players.empty")}
           </p>
         ) : (
           <ul className="divide-y divide-primary/5">
@@ -142,18 +145,18 @@ export default function PlayersPage() {
                 >
                   <Avatar
                     src={player.avatar_url}
-                    alt={player.username || "Player"}
+                    alt={player.username || t("players.unnamed")}
                     size={40}
-                    fallback={player.username || "Player"}
+                    fallback={player.username || t("players.unnamed")}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-primary">
-                      {player.username || "Player"}
+                      {player.username || t("players.unnamed")}
                     </p>
                     <p className="truncate text-xs text-primary/50">
-                      {[player.club, player.town, player.handicap != null ? `Hcp ${player.handicap}` : null]
+                      {[player.club, player.town, player.handicap != null ? t("players.hcp", { n: player.handicap }) : null]
                         .filter(Boolean)
-                        .join(" · ") || "No details yet"}
+                        .join(" · ") || t("players.nodetails")}
                     </p>
                   </div>
                   <svg className="h-4 w-4 shrink-0 text-primary/30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

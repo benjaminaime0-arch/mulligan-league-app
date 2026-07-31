@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { CourseAutocomplete } from "@/components/CourseAutocomplete"
 import { track } from "@/lib/analytics"
+import { useT } from "@/lib/i18n"
 
 // Only stroke play and Stableford have real calculation support in
 // the leaderboard + badges engines today (see `get_leaderboard` and
@@ -14,14 +15,17 @@ import { track } from "@/lib/analytics"
 // out. In the meantime, picking one of those silently falls back to
 // stroke-play math on the backend (see `sync_game_format` trigger)
 // — which is misleading, so they're simply unavailable.
-const FORMATS: { value: string; label: string }[] = [
-  { value: "stroke_play", label: "Stroke Play" },
-  { value: "stableford", label: "Stableford" },
+// Labels are dictionary keys, not literals: this array lives at module scope,
+// where the `useT` hook can't be called. The component resolves them at render.
+const FORMATS: { value: string; labelKey: string }[] = [
+  { value: "stroke_play", labelKey: "games.format.strokeplay" },
+  { value: "stableford", labelKey: "games.format.stableford" },
 ]
 
 export default function CreateGamePage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const t = useT()
 
   const [name, setName] = useState("")
   const [course, setCourse] = useState("")
@@ -51,15 +55,15 @@ export default function CreateGamePage() {
     setCopied(false)
 
     if (!name.trim() || !course.trim()) {
-      setError("Please fill in game name and golf course.")
+      setError(t("games.create.error.required"))
       return
     }
     if (!startDate || !endDate) {
-      setError("Please select both start and end dates.")
+      setError(t("games.create.error.dates"))
       return
     }
     if (new Date(endDate) <= new Date(startDate)) {
-      setError("End date must be after start date.")
+      setError(t("games.create.error.dateorder"))
       return
     }
 
@@ -83,7 +87,7 @@ export default function CreateGamePage() {
         | null
 
       if (!result || !result.success || !result.game_id || !result.invite_code) {
-        setError(result?.error || "Unable to create game. Please try again.")
+        setError(result?.error || t("games.create.error.failed"))
         return
       }
 
@@ -91,7 +95,7 @@ export default function CreateGamePage() {
       setGameId(result.game_id)
       setInviteCode(result.invite_code)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.")
+      setError(err instanceof Error ? err.message : t("common.error.generic"))
     } finally {
       setSubmitting(false)
     }
@@ -112,7 +116,7 @@ export default function CreateGamePage() {
   if (authLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-primary/70">Checking your session…</p>
+        <p className="text-primary/70">{t("common.session.checking")}</p>
       </main>
     )
   }
@@ -123,9 +127,9 @@ export default function CreateGamePage() {
     <main className="min-h-screen px-4 py-8">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-8">
         <header>
-          <h1 className="text-2xl font-bold text-primary">Create a Game</h1>
+          <h1 className="text-2xl font-bold text-primary">{t("nav.new.game")}</h1>
           <p className="mt-2 text-sm text-primary/70">
-            Get your crew organized. You&apos;ll get an invite code to share once the game is set up.
+            {t("games.create.subtitle")}
           </p>
         </header>
 
@@ -139,7 +143,7 @@ export default function CreateGamePage() {
           {/* Game Name */}
           <div>
             <label htmlFor="name" className="mb-1 block text-sm font-medium text-primary">
-              Game name
+              {t("games.create.name")}
             </label>
             <input
               id="name"
@@ -147,7 +151,7 @@ export default function CreateGamePage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full rounded-lg border border-primary/20 bg-cream px-4 py-2.5 text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="Saturday Skins"
+              placeholder={t("games.create.name.placeholder")}
               disabled={submitting}
             />
           </div>
@@ -155,7 +159,7 @@ export default function CreateGamePage() {
           {/* Golf Course */}
           <div>
             <label htmlFor="course" className="mb-1 block text-sm font-medium text-primary">
-              Golf course
+              {t("course.label")}
             </label>
             {/* Type-ahead over the 129-course Île-de-France base (T1.6).
                 Free text still allowed — see CourseAutocomplete. */}
@@ -163,7 +167,7 @@ export default function CreateGamePage() {
               id="course"
               value={course}
               onChange={setCourse}
-              placeholder="Golf National, Saint-Nom-la-Bretêche…"
+              placeholder={t("course.placeholder")}
               disabled={submitting}
             />
           </div>
@@ -171,7 +175,7 @@ export default function CreateGamePage() {
           {/* Number of Players */}
           <div>
             <label htmlFor="players" className="mb-1 block text-sm font-medium text-primary">
-              Number of players
+              {t("games.create.players")}
             </label>
             <select
               id="players"
@@ -182,7 +186,7 @@ export default function CreateGamePage() {
             >
               {[2, 3, 4, 5, 6, 7, 8].map((n) => (
                 <option key={n} value={n}>
-                  {n} players
+                  {t("games.players.count", { n })}
                 </option>
               ))}
             </select>
@@ -190,11 +194,11 @@ export default function CreateGamePage() {
 
           {/* Game Duration */}
           <div>
-            <p className="mb-1 text-sm font-medium text-primary">Game duration</p>
+            <p className="mb-1 text-sm font-medium text-primary">{t("games.create.duration")}</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="startDate" className="mb-1 block text-xs text-primary/60">
-                  Start date
+                  {t("games.create.start")}
                 </label>
                 <input
                   id="startDate"
@@ -207,7 +211,7 @@ export default function CreateGamePage() {
               </div>
               <div>
                 <label htmlFor="endDate" className="mb-1 block text-xs text-primary/60">
-                  End date
+                  {t("games.create.end")}
                 </label>
                 <input
                   id="endDate"
@@ -219,7 +223,7 @@ export default function CreateGamePage() {
                   disabled={submitting}
                 />
                 {startDate && endDate && new Date(endDate) <= new Date(startDate) && (
-                  <p className="mt-1 text-xs text-red-600">End date must be after start date.</p>
+                  <p className="mt-1 text-xs text-red-600">{t("games.create.error.dateorder")}</p>
                 )}
               </div>
             </div>
@@ -228,7 +232,7 @@ export default function CreateGamePage() {
           {/* Total cards possible */}
           <div>
             <label htmlFor="totalCards" className="mb-1 block text-sm font-medium text-primary">
-              Total cards possible
+              {t("games.create.totalcards")}
             </label>
             <select
               id="totalCards"
@@ -244,14 +248,14 @@ export default function CreateGamePage() {
               ))}
             </select>
             <p className="mt-1 text-xs text-primary/50">
-              Total matches a player can play during the game
+              {t("games.create.totalcards.hint")}
             </p>
           </div>
 
           {/* Scoring cards counted */}
           <div>
             <label htmlFor="scoringCards" className="mb-1 block text-sm font-medium text-primary">
-              Total cards counted
+              {t("games.create.scoringcards")}
             </label>
             <select
               id="scoringCards"
@@ -269,14 +273,14 @@ export default function CreateGamePage() {
                 ))}
             </select>
             <p className="mt-1 text-xs text-primary/50">
-              Best scores counted in the leaderboard
+              {t("games.create.scoringcards.hint")}
             </p>
           </div>
 
           {/* Game format */}
           <div>
             <label htmlFor="format" className="mb-1 block text-sm font-medium text-primary">
-              Game format
+              {t("games.create.format")}
             </label>
             <select
               id="format"
@@ -287,14 +291,14 @@ export default function CreateGamePage() {
             >
               {FORMATS.map((f) => (
                 <option key={f.value} value={f.value}>
-                  {f.label}
+                  {t(f.labelKey)}
                 </option>
               ))}
             </select>
             <p className="mt-1 text-xs text-primary/50">
               {format === "stableford"
-                ? "Stableford — enter your points total per round. Highest wins."
-                : "Stroke play — enter your total strokes per round. Lowest wins."}
+                ? t("games.create.format.stableford.hint")
+                : t("games.create.format.strokeplay.hint")}
             </p>
           </div>
 
@@ -303,15 +307,15 @@ export default function CreateGamePage() {
             disabled={submitting}
             className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? "Creating game…" : "Create Game"}
+            {submitting ? t("games.create.submitting") : t("games.create.full")}
           </button>
         </form>
 
         {inviteCode && gameId && (
           <section className="space-y-4 rounded-xl border border-primary/20 bg-primary px-5 py-6 text-cream shadow-sm">
-            <h2 className="text-lg font-semibold">Invite your players</h2>
+            <h2 className="text-lg font-semibold">{t("invite.share.title")}</h2>
             <p className="text-sm text-cream/80">
-              Share this invite code with your friends so they can join your game.
+              {t("invite.share.sub")}
             </p>
             <div className="flex flex-col items-center gap-4 rounded-lg bg-cream/10 p-4">
               <div className="text-3xl font-mono tracking-[0.4em]">
@@ -322,7 +326,7 @@ export default function CreateGamePage() {
                   type="button"
                   onClick={async () => {
                     if (!inviteCode) return
-                    const message = `Join my golf game "${name}" on Mulligan! Code: ${inviteCode}`
+                    const message = t("invite.share.message", { name, code: inviteCode })
                     if (typeof navigator !== "undefined" && navigator.share) {
                       try {
                         await navigator.share({ text: message })
@@ -335,21 +339,21 @@ export default function CreateGamePage() {
                   }}
                   className="flex-1 rounded-lg bg-cream px-4 py-2.5 text-sm font-medium text-primary transition-all hover:bg-cream/90 active:scale-[0.98]"
                 >
-                  Share Invite
+                  {t("invite.share.cta")}
                 </button>
                 <button
                   type="button"
                   onClick={handleCopy}
                   className="flex-1 rounded-lg border border-cream/50 px-4 py-2.5 text-sm font-medium text-cream transition-all hover:bg-cream/10 active:scale-[0.98]"
                 >
-                  {copied ? "Copied!" : "Copy Code"}
+                  {copied ? t("common.copied") : t("invite.share.copy")}
                 </button>
                 <button
                   type="button"
                   onClick={() => router.push(`/games/${gameId}`)}
                   className="flex-1 rounded-lg border border-cream/70 px-4 py-2.5 text-sm font-medium text-cream transition-all hover:bg-cream/10 active:scale-[0.98]"
                 >
-                  Go to Game
+                  {t("games.goto")}
                 </button>
               </div>
             </div>

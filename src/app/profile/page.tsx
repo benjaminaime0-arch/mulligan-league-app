@@ -6,6 +6,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
+import { useT } from "@/lib/i18n"
 // fetchMatchPlayers + MatchPlayer types used to feed the old
 // MatchCarousel/PastMatchCarousel components — those were replaced by
 // MatchCalendarSection (fetches full rosters inline) and removed.
@@ -65,6 +66,7 @@ type GameData = {
 export default function ProfilePage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const t = useT()
 
   const [profile, setProfile] = useState<Profile | null>(null)
   const [memberships, setMemberships] = useState<GameMember[]>([])
@@ -272,7 +274,7 @@ export default function ProfilePage() {
         name:
           r.profiles?.username ||
           r.profiles?.first_name ||
-          "Player",
+          t("common.player"),
         avatar_url: r.profiles?.avatar_url ?? null,
         user_id: r.user_id,
         score: entry?.score ?? null,
@@ -283,7 +285,7 @@ export default function ProfilePage() {
       map.set(r.match_id, arr)
     }
     setCalendarPlayersMap(map)
-  }, [])
+  }, [t])
 
   // Profile editing
   const [editing, setEditing] = useState(false)
@@ -403,14 +405,16 @@ export default function ProfilePage() {
         if (scoresCountRes.error) throw scoresCountRes.error
         setMatchesPlayed(scoresCountRes.count || 0)
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load profile.")
+        setError(
+          err instanceof Error ? err.message : t("profile.error.load"),
+        )
       } finally {
         setLoading(false)
       }
     }
 
     init()
-  }, [authLoading, user, loadCalendar, loadLeaderboards])
+  }, [authLoading, user, loadCalendar, loadLeaderboards, t])
 
   /**
    * Composite refresh for the calendar section. Inline MatchDetailCard
@@ -498,7 +502,7 @@ export default function ProfilePage() {
       await supabase.auth.signOut()
       router.push("/")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to log out.")
+      setError(err instanceof Error ? err.message : t("profile.error.logout"))
     } finally {
       setLogoutLoading(false)
     }
@@ -525,19 +529,19 @@ export default function ProfilePage() {
       const handicapNum = editHandicap.trim() ? parseInt(editHandicap.trim(), 10) : null
 
       if (!username) {
-        setError("Username is required.")
+        setError(t("profile.username.required"))
         setSaving(false)
         return
       }
 
       if (username.length < 3) {
-        setError("Username must be at least 3 characters.")
+        setError(t("profile.username.min"))
         setSaving(false)
         return
       }
 
       if (!/^[a-zA-Z0-9]+$/.test(username)) {
-        setError("Username can only contain letters and numbers.")
+        setError(t("profile.username.alnum"))
         setSaving(false)
         return
       }
@@ -546,7 +550,7 @@ export default function ProfilePage() {
         handicapNum != null &&
         (Number.isNaN(handicapNum) || handicapNum < 0 || handicapNum > 54)
       ) {
-        setError("Handicap must be an integer between 0 and 54.")
+        setError(t("profile.handicap.range"))
         setSaving(false)
         return
       }
@@ -564,9 +568,9 @@ export default function ProfilePage() {
 
       if (updateError) {
         if (updateError.message?.includes("profiles_username_unique") || updateError.code === "23505") {
-          throw new Error("This username is already taken. Please choose another.")
+          throw new Error(t("onboarding.username.taken"))
         }
-        throw new Error(updateError.message || "Database update failed.")
+        throw new Error(updateError.message || t("profile.error.update"))
       }
 
       const { data: refreshed } = await supabase
@@ -577,7 +581,7 @@ export default function ProfilePage() {
       setProfile((refreshed || null) as Profile | null)
       setEditing(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save profile.")
+      setError(err instanceof Error ? err.message : t("profile.error.save"))
     } finally {
       setSaving(false)
     }
@@ -588,11 +592,11 @@ export default function ProfilePage() {
     const file = e.target.files[0]
 
     if (!file.type.startsWith("image/")) {
-      setError("Please select an image file.")
+      setError(t("profile.avatar.type"))
       return
     }
     if (file.size > 10 * 1024 * 1024) {
-      setError("Image must be under 10 MB.")
+      setError(t("profile.avatar.size"))
       return
     }
 
@@ -632,15 +636,15 @@ export default function ProfilePage() {
 
       setProfile((prev) => prev ? { ...prev, avatar_url: avatarUrl } : prev)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload avatar.")
+      setError(err instanceof Error ? err.message : t("profile.error.avatar"))
     } finally {
       setUploadingAvatar(false)
     }
   }
 
-  if (authLoading) return <LoadingSpinner message="Checking your session..." />
+  if (authLoading) return <LoadingSpinner message={t("auth.checking")} />
   if (!user) return null
-  if (loading) return <LoadingSpinner message="Loading profile..." />
+  if (loading) return <LoadingSpinner message={t("profile.loading")} />
 
   const displayName =
     profile?.username ||
@@ -648,7 +652,7 @@ export default function ProfilePage() {
     (user.user_metadata?.full_name as string) ||
     [user.user_metadata?.first_name, user.user_metadata?.last_name].filter(Boolean).join(" ") ||
     user.email ||
-    "Player"
+    t("common.player")
 
   return (
     <main className="min-h-screen px-4 pb-6 pt-4">
@@ -664,44 +668,44 @@ export default function ProfilePage() {
           {editing ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Edit Profile</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">{t("profile.edit.title")}</p>
               </div>
               <div>
-                <label htmlFor="edit-username" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Username</label>
+                <label htmlFor="edit-username" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">{t("onboarding.username")}</label>
                 <input id="edit-username" type="text" value={editUsername} onChange={(e) => setEditUsername(e.target.value.replace(/[^a-zA-Z0-9]/g, ""))} disabled={saving}
-                  className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="e.g. BenGolf" maxLength={30} />
-                <p className="mt-1 text-[10px] text-primary/40">Letters and numbers only</p>
+                  className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder={t("profile.username.placeholder")} maxLength={30} />
+                <p className="mt-1 text-[10px] text-primary/40">{t("profile.username.hint")}</p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="edit-first" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">First Name</label>
+                  <label htmlFor="edit-first" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">{t("profile.firstname")}</label>
                   <input id="edit-first" type="text" value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} disabled={saving}
-                    className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="First name" />
+                    className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder={t("profile.firstname.placeholder")} />
                 </div>
                 <div>
-                  <label htmlFor="edit-last" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Last Name</label>
+                  <label htmlFor="edit-last" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">{t("profile.lastname")}</label>
                   <input id="edit-last" type="text" value={editLastName} onChange={(e) => setEditLastName(e.target.value)} disabled={saving}
-                    className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="Last name" />
+                    className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder={t("profile.lastname.placeholder")} />
                 </div>
               </div>
               <div>
-                <label htmlFor="edit-town" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Town</label>
+                <label htmlFor="edit-town" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">{t("onboarding.town")}</label>
                 <input id="edit-town" type="text" value={editTown} onChange={(e) => setEditTown(e.target.value)} disabled={saving}
-                  className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="e.g. Paris" />
+                  className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder={t("profile.town.placeholder")} />
               </div>
               <div>
-                <label htmlFor="edit-handicap" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">Handicap</label>
+                <label htmlFor="edit-handicap" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">{t("profile.handicap")}</label>
                 <input id="edit-handicap" type="number" step="1" min="0" max="54" value={editHandicap} onChange={(e) => setEditHandicap(e.target.value)} disabled={saving}
-                  className="w-32 rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder="e.g. 12" />
+                  className="w-32 rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder={t("profile.handicap.placeholder")} />
               </div>
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={handleSaveProfile} disabled={saving}
                   className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-cream hover:bg-primary/90 disabled:opacity-60">
-                  {saving ? "Saving\u2026" : "Save"}
+                  {saving ? t("profile.saving") : t("common.save")}
                 </button>
                 <button type="button" onClick={() => { setEditing(false); setError(null) }} disabled={saving}
                   className="rounded-lg border border-primary/20 bg-white px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5">
-                  Cancel
+                  {t("common.cancel")}
                 </button>
               </div>
             </div>
@@ -752,7 +756,7 @@ export default function ProfilePage() {
                   onClick={startEditing}
                   className="shrink-0 text-xs font-medium text-primary underline-offset-4 hover:underline"
                 >
-                  Edit
+                  {t("common.edit")}
                 </button>
               </div>
 
@@ -763,21 +767,25 @@ export default function ProfilePage() {
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                     <circle cx="12" cy="10" r="3" />
                   </svg>
-                  {profile?.town || "No town"}
+                  {profile?.town || t("profile.notown")}
                 </span>
                 <span className="text-primary/30">·</span>
                 <span>
-                  HCP <strong className="text-primary/80 tabular-nums">{profile?.handicap != null ? profile.handicap : "\u2013"}</strong>
+                  {t("profile.hcp")} <strong className="text-primary/80 tabular-nums">{profile?.handicap != null ? profile.handicap : "\u2013"}</strong>
+                </span>
+                <span className="text-primary/30">·</span>
+                {/* The count lives INSIDE the translated string, not beside
+                    it — plural rules and word order differ per language. */}
+                <span className="tabular-nums">
+                  {matchesPlayed === 1
+                    ? t("profile.stat.matches.one")
+                    : t("profile.stat.matches", { n: matchesPlayed })}
                 </span>
                 <span className="text-primary/30">·</span>
                 <span className="tabular-nums">
-                  {matchesPlayed}{" "}
-                  {matchesPlayed === 1 ? "match" : "matches"}
-                </span>
-                <span className="text-primary/30">·</span>
-                <span className="tabular-nums">
-                  {memberships.length}{" "}
-                  {memberships.length === 1 ? "game" : "games"}
+                  {memberships.length === 1
+                    ? t("profile.stat.games.one")
+                    : t("profile.stat.games", { n: memberships.length })}
                 </span>
               </div>
             </>
@@ -839,15 +847,15 @@ export default function ProfilePage() {
             disabled={logoutLoading}
             className="text-xs text-red-400 underline-offset-4 hover:text-red-600 hover:underline disabled:opacity-60"
           >
-            {logoutLoading ? "Logging out\u2026" : "Log Out"}
+            {logoutLoading ? t("profile.loggingout") : t("nav.menu.logout")}
           </button>
         </div>
 
         <ConfirmModal
           open={showLogoutConfirm}
-          title="Log out?"
-          message="Are you sure you want to log out of your account?"
-          confirmLabel="Log Out"
+          title={t("profile.logout.title")}
+          message={t("profile.logout.confirm")}
+          confirmLabel={t("nav.menu.logout")}
           loading={logoutLoading}
           destructive
           onConfirm={handleLogout}
@@ -891,15 +899,16 @@ function MyGamesLeaderboards({
   currentUserId: string
 }) {
   const [idx, setIdx] = useState(0)
+  const t = useT()
 
   if (games.length === 0) {
     return (
       <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-primary">My Games</h2>
-        <p className="mb-3 text-sm text-primary/70">No games joined yet.</p>
+        <h2 className="mb-3 text-sm font-semibold text-primary">{t("profile.mygames")}</h2>
+        <p className="mb-3 text-sm text-primary/70">{t("profile.games.empty")}</p>
         <div className="flex gap-2">
-          <Link href="/games/create" className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-cream hover:bg-primary/90">Create Game</Link>
-          <Link href="/games/join" className="rounded-lg border border-primary/20 bg-cream px-3 py-2 text-xs font-medium text-primary hover:bg-primary/5">Join Game</Link>
+          <Link href="/games/create" className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-cream hover:bg-primary/90">{t("games.create.full")}</Link>
+          <Link href="/games/join" className="rounded-lg border border-primary/20 bg-cream px-3 py-2 text-xs font-medium text-primary hover:bg-primary/5">{t("games.join.full")}</Link>
         </div>
       </section>
     )
@@ -925,7 +934,7 @@ function MyGamesLeaderboards({
               setIdx((i) => (i - 1 + games.length) % games.length)
             }
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-            aria-label="Previous game"
+            aria-label={t("profile.game.prev")}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
@@ -938,7 +947,7 @@ function MyGamesLeaderboards({
         >
           <h2 className="truncate text-lg font-bold text-primary">{game.name}</h2>
           <p className="truncate text-xs uppercase tracking-[0.2em] text-primary/50">
-            {game.course_name || "Course TBA"}
+            {game.course_name || t("games.card.nocourse")}
           </p>
         </Link>
         {games.length > 1 ? (
@@ -946,7 +955,7 @@ function MyGamesLeaderboards({
             type="button"
             onClick={() => setIdx((i) => (i + 1) % games.length)}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
-            aria-label="Next game"
+            aria-label={t("profile.game.next")}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
           </button>
@@ -963,7 +972,7 @@ function MyGamesLeaderboards({
               type="button"
               onClick={() => setIdx(i)}
               className={`h-1.5 rounded-full transition-all ${i === safeIdx ? "w-5 bg-primary" : "w-1.5 bg-primary/20 hover:bg-primary/40"}`}
-              aria-label={`View ${l.name}`}
+              aria-label={t("profile.game.view", { name: l.name })}
             />
           ))}
         </div>

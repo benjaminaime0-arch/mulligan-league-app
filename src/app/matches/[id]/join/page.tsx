@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
+import { useT } from "@/lib/i18n"
 import { Logo } from "@/components/Logo"
 import Link from "next/link"
 
@@ -30,6 +31,7 @@ interface JoinMatchPageProps {
 
 export default function JoinMatchPage({ params }: JoinMatchPageProps) {
   const router = useRouter()
+  const t = useT()
   const matchId = params.id
   const { user, loading: authLoading } = useAuth()
 
@@ -67,7 +69,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
           .single()
 
         if (matchError || !matchData) {
-          setError("Match not found.")
+          setError(t("invite.match.notfound"))
           return
         }
 
@@ -91,13 +93,13 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
 
         // Check if match is full
         if (players.length >= MAX_MATCH_PLAYERS) {
-          setError("This match is already full.")
+          setError(t("invite.match.full"))
           return
         }
 
         // Check if match is still scheduled
         if (m.status && m.status !== "scheduled") {
-          setError("This match is no longer accepting players.")
+          setError(t("invite.match.closed"))
           return
         }
 
@@ -137,7 +139,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
             const maxPlayers = m.games?.max_players
 
             if (maxPlayers && memberCount >= maxPlayers) {
-              setError("The game for this match is full. You cannot join.")
+              setError(t("invite.match.gamefull"))
               return
             }
 
@@ -145,14 +147,14 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
           }
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong.")
+        setError(err instanceof Error ? err.message : t("common.error.generic"))
       } finally {
         setLoading(false)
       }
     }
 
     loadMatch()
-  }, [authLoading, user, matchId, router])
+  }, [authLoading, user, matchId, router, t])
 
   const handleJoin = async () => {
     if (!user || !match) return
@@ -177,20 +179,20 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
           setAlreadyRequested(true)
           return
         }
-        setError(result.error || "Failed to send request.")
+        setError(result.error || t("invite.match.requestfailed"))
         return
       }
 
       setSuccess(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send request. Please try again.")
+      setError(err instanceof Error ? err.message : t("invite.match.requestfailed.retry"))
     } finally {
       setJoining(false)
     }
   }
 
   const formatDate = (iso?: string | null) => {
-    if (!iso) return "Date TBA"
+    if (!iso) return t("invite.match.date.tba")
     const d = new Date(iso)
     return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
   }
@@ -208,7 +210,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
   if (authLoading || loading) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-primary/70">Loading match details…</p>
+        <p className="text-primary/70">{t("invite.match.loading")}</p>
       </main>
     )
   }
@@ -218,7 +220,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
     return (
       <main className="min-h-screen px-4 py-8">
         <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6">
-          <Link href="/" aria-label="Home">
+          <Link href="/" aria-label={t("nav.home")}>
             <Logo size={100} priority />
           </Link>
           <div className="w-full rounded-2xl border border-primary/15 bg-white p-8 text-center shadow-sm">
@@ -227,16 +229,16 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h2 className="text-lg font-bold text-primary">Request already sent</h2>
+            <h2 className="text-lg font-bold text-primary">{t("invite.match.requested.title")}</h2>
             <p className="mt-2 text-sm text-primary/60">
-              You&apos;ve already requested to join this match. The admin will review your request.
+              {t("invite.match.requested.body")}
             </p>
             <button
               type="button"
               onClick={() => router.push("/dashboard")}
               className="mt-6 w-full rounded-lg border border-primary/30 bg-white px-4 py-3 text-sm font-medium text-primary transition-all hover:bg-primary/5 active:scale-[0.98]"
             >
-              Back to Home
+              {t("common.backhome")}
             </button>
           </div>
         </div>
@@ -249,7 +251,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
     return (
       <main className="min-h-screen px-4 py-8">
         <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6">
-          <Link href="/" aria-label="Home">
+          <Link href="/" aria-label={t("nav.home")}>
             <Logo size={100} priority />
           </Link>
           <div className="w-full rounded-2xl border border-primary/15 bg-white p-8 text-center shadow-sm">
@@ -258,16 +260,16 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
             </div>
-            <h2 className="text-lg font-bold text-primary">You&apos;re already in this match</h2>
+            <h2 className="text-lg font-bold text-primary">{t("invite.match.already.title")}</h2>
             <p className="mt-2 text-sm text-primary/60">
-              {match?.course_name || "Course TBA"} · {formatDate(match?.match_date)}
+              {match?.course_name || t("invite.match.course.tba")} · {formatDate(match?.match_date)}
             </p>
             <button
               type="button"
               onClick={() => router.push(`/matches/${matchId}`)}
               className="mt-6 w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98]"
             >
-              Go to Match
+              {t("invite.match.goto")}
             </button>
           </div>
         </div>
@@ -280,7 +282,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
     return (
       <main className="min-h-screen px-4 py-8">
         <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6">
-          <Link href="/" aria-label="Home">
+          <Link href="/" aria-label={t("nav.home")}>
             <Logo size={100} priority />
           </Link>
           <div className="w-full rounded-2xl border border-primary/15 bg-white p-8 text-center shadow-sm">
@@ -289,19 +291,19 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-primary">Request sent!</h2>
+            <h2 className="text-xl font-bold text-primary">{t("invite.match.sent.title")}</h2>
             <p className="mt-2 text-sm text-primary/60">
-              {match?.course_name || "Course TBA"} · {formatDate(match?.match_date)}
+              {match?.course_name || t("invite.match.course.tba")} · {formatDate(match?.match_date)}
             </p>
             <p className="mt-1 text-sm text-primary/50">
-              The match admin will be notified. You&apos;ll get a notification once they approve.
+              {t("invite.match.sent.body")}
             </p>
             <button
               type="button"
               onClick={() => router.push("/dashboard")}
               className="mt-6 w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98]"
             >
-              Back to Home
+              {t("common.backhome")}
             </button>
           </div>
         </div>
@@ -314,7 +316,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
     return (
       <main className="min-h-screen px-4 py-8">
         <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6">
-          <Link href="/" aria-label="Home">
+          <Link href="/" aria-label={t("nav.home")}>
             <Logo size={100} priority />
           </Link>
           <div className="w-full rounded-2xl border border-primary/15 bg-white p-8 text-center shadow-sm">
@@ -324,7 +326,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
               onClick={() => router.push("/dashboard")}
               className="mt-6 w-full rounded-lg border border-primary/30 bg-white px-4 py-3 text-sm font-medium text-primary transition-all hover:bg-primary/5 active:scale-[0.98]"
             >
-              Back to Home
+              {t("common.backhome")}
             </button>
           </div>
         </div>
@@ -336,13 +338,13 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
   return (
     <main className="min-h-screen px-4 py-8">
       <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6">
-        <Link href="/" aria-label="Home">
+        <Link href="/" aria-label={t("nav.home")}>
           <Logo size={100} priority />
         </Link>
 
         <div className="w-full rounded-2xl border border-primary/15 bg-white p-6 shadow-sm">
           <h1 className="text-center text-xl font-bold text-primary">
-            You&apos;ve been invited!
+            {t("invite.match.invited")}
           </h1>
 
           <div className="mt-4 space-y-3 rounded-xl bg-cream/60 p-4">
@@ -366,21 +368,21 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
               <svg className="h-4 w-4 shrink-0 text-primary/50" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
               </svg>
-              {playerCount}/{MAX_MATCH_PLAYERS} players
+              {t("invite.match.players", { n: playerCount, max: MAX_MATCH_PLAYERS })}
             </div>
             {match?.games?.name && (
               <div className="flex items-center gap-3 text-sm text-primary">
                 <svg className="h-4 w-4 shrink-0 text-primary/50" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m3.044 0a6.726 6.726 0 002.748-1.35m-.044 0h.002a6.003 6.003 0 005.392-4.972 50.901 50.901 0 00-2.916-.52M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228" />
                 </svg>
-                Game: {match.games.name}
+                {t("invite.match.game", { name: match.games.name })}
               </div>
             )}
           </div>
 
           {needsGameJoin && match?.games?.name && (
             <div className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              You&apos;ll also need to join the game &ldquo;{match.games.name}&rdquo; — the admin will be notified.
+              {t("invite.match.needgame", { name: match.games.name })}
             </div>
           )}
 
@@ -398,17 +400,17 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
               className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {joining
-                ? "Sending request…"
+                ? t("invite.match.sending")
                 : needsGameJoin
-                ? "Request to Join Game & Match"
-                : "Request to Join"}
+                ? t("invite.match.request.both")
+                : t("invite.match.request")}
             </button>
             <button
               type="button"
               onClick={() => router.push("/dashboard")}
               className="w-full rounded-lg border border-primary/30 bg-white px-4 py-3 text-sm font-medium text-primary transition-all hover:bg-primary/5 active:scale-[0.98]"
             >
-              No thanks
+              {t("invite.match.decline")}
             </button>
           </div>
         </div>
