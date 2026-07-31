@@ -15,6 +15,8 @@ type Game = {
   name: string
   course_name?: string | null
   course_id?: string | null
+  format?: string | null
+  team_mode?: boolean | null
   // `status` surfaces so we can filter out completed games from the
   // create-match picker — you can't schedule new rounds in a game
   // whose season is already wrapped.
@@ -117,7 +119,7 @@ function CreateMatchContent() {
       // accept new matches.
       const { data: memberships, error: memErr } = await supabase
         .from("game_members")
-        .select("id, game_id, user_id, games(id, name, course_name, course_id, status)")
+        .select("id, game_id, user_id, games(id, name, course_name, course_id, status, format, team_mode)")
         .eq("user_id", user.id)
 
       if (!memErr && memberships) {
@@ -257,6 +259,15 @@ function CreateMatchContent() {
     }
     if (selectedPlayerIds.length < 2) {
       setError(t("match.create.error.minplayers"))
+      return
+    }
+    // Singles match play is strictly 1v1; Ryder rounds allow 2-4 (pairs).
+    if (
+      selectedGame.format === "match_play" &&
+      !selectedGame.team_mode &&
+      selectedPlayerIds.length !== 2
+    ) {
+      setError(t("match.create.error.matchplay2"))
       return
     }
     if (selectedPlayerIds.length > MAX_MATCH_PLAYERS) {

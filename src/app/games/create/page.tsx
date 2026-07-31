@@ -8,18 +8,20 @@ import { CourseAutocomplete, type CourseSuggestion } from "@/components/CourseAu
 import { track } from "@/lib/analytics"
 import { useT } from "@/lib/i18n"
 
-// Only stroke play and Stableford have real calculation support in
-// the leaderboard + badges engines today (see `get_leaderboard` and
-// `get_game_badges`). Match play / Ryder / Foursome / etc. will
-// reappear here once per-hole scoring + opponent pairings are built
-// out. In the meantime, picking one of those silently falls back to
-// stroke-play math on the backend (see `sync_game_format` trigger)
-// — which is misleading, so they're simply unavailable.
+// Stroke play, Stableford and (since Phase D) Match Play all have real
+// calculation support in the leaderboard engine. Match play compares
+// hole-by-hole nets, so it additionally requires a course whose scorecard
+// exists in the referential — create_game enforces that server-side and
+// this page translates the refusal. Foursome pairs ride on Ryder mode
+// (one shared card per pair, entered under either partner's name).
 // Labels are dictionary keys, not literals: this array lives at module scope,
 // where the `useT` hook can't be called. The component resolves them at render.
 const FORMATS: { value: string; labelKey: string }[] = [
   { value: "stroke_play", labelKey: "games.format.strokeplay" },
   { value: "stableford", labelKey: "games.format.stableford" },
+  // Phase D: match play is live — but only on a course whose hole-by-hole
+  // card exists in the referential (server enforces; client explains).
+  { value: "match_play", labelKey: "games.format.matchplay" },
 ]
 
 export default function CreateGamePage() {
@@ -40,6 +42,7 @@ export default function CreateGamePage() {
   const [totalCards, setTotalCards] = useState(1)
   const [format, setFormat] = useState("stroke_play")
   const [basis, setBasis] = useState<"gross" | "net" | "stableford_net">("gross")
+  const [teamMode, setTeamMode] = useState(false)
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -86,6 +89,7 @@ export default function CreateGamePage() {
         p_course_id: pickedCourse?.id ?? null,
         // Basis is a stroke-play concept; a Stableford game is always gross.
         p_scoring_basis: format === "stroke_play" ? basis : "gross",
+        p_team_mode: format === "match_play" ? teamMode : false,
       })
 
       if (rpcError) throw rpcError
@@ -95,7 +99,11 @@ export default function CreateGamePage() {
         | null
 
       if (!result || !result.success || !result.game_id || !result.invite_code) {
-        setError(result?.error || t("games.create.error.failed"))
+        setError(
+          result?.error === "match_play_needs_course_holes"
+            ? t("games.create.error.matchplaycourse")
+            : result?.error || t("games.create.error.failed"),
+        )
         return
       }
 
@@ -307,9 +315,28 @@ export default function CreateGamePage() {
             <p className="mt-1 text-xs text-primary/50">
               {format === "stableford"
                 ? t("games.create.format.stableford.hint")
-                : t("games.create.format.strokeplay.hint")}
+                : format === "match_play"
+                  ? t("games.create.format.matchplay.hint")
+                  : t("games.create.format.strokeplay.hint")}
             </p>
           </div>
+
+          {/* Ryder mode (Phase D) — team container over match-play rounds. */}
+          {format === "match_play" && (
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-primary/15 bg-cream px-3 py-2 text-sm text-primary">
+              <input
+                type="checkbox"
+                checked={teamMode}
+                onChange={(e) => setTeamMode(e.target.checked)}
+                disabled={submitting}
+                className="accent-primary"
+              />
+              <span className="font-medium">{t("games.create.teammode")}</span>
+              <span className="ml-auto text-xs text-primary/50">
+                {t("games.create.teammode.hint")}
+              </span>
+            </label>
+          )}
 
           {/* Scoring basis (Phase C) — stroke play only: a Stableford game
               already is points, so the picker would be nonsense there. */}

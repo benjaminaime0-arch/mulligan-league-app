@@ -27,6 +27,12 @@ interface LeaderboardTableProps {
    * play if omitted.
    */
   gameFormat?: GameFormat
+  /**
+   * Match-play games (Phase D): total_score arrives as 2×wins + 1×halves
+   * (halves kept integral for the bigint pipe) and best_score carries holes
+   * won. Render V/half points and the right column titles.
+   */
+  matchPlay?: boolean
 }
 
 export function LeaderboardTable({
@@ -35,6 +41,7 @@ export function LeaderboardTable({
   currentUserId,
   scoringCardsCount,
   gameFormat = "stroke_play",
+  matchPlay = false,
 }: LeaderboardTableProps) {
   const t = useT()
   const copy = formatCopy(gameFormat)
@@ -306,14 +313,22 @@ export function LeaderboardTable({
                         isLeader ? "text-lg font-extrabold" : "text-base font-bold"
                       }`}
                     >
-                      {row.total_score != null ? `${row.total_score}${copy.unit}` : "–"}
+                      {row.total_score != null
+                        ? matchPlay
+                          ? formatHalfPoints(row.total_score)
+                          : `${row.total_score}${copy.unit}`
+                        : "–"}
                     </td>
 
                     {/* Best — secondary. Same unit flip so stableford
                         shows "18 pts" instead of a bare 18 that reads
                         like a stroke score. */}
                     <td className="py-3 pr-3 text-right text-xs tabular-nums text-primary/60">
-                      {row.best_score != null ? `${row.best_score}${copy.unit}` : "–"}
+                      {row.best_score != null
+                        ? matchPlay
+                          ? String(row.best_score)
+                          : `${row.best_score}${copy.unit}`
+                        : "–"}
                     </td>
 
                     {/* Counted — secondary. Rendered as "counted / played"
@@ -359,4 +374,15 @@ function getMedal(position: number): { content: string | null; className: string
     content: null,
     className: "text-primary/60",
   }
+}
+
+/**
+ * Match points arrive doubled (2 = win, 1 = half) so the DB pipe stays
+ * integral; display 3 → "1,5 pts". French decimal comma on purpose —
+ * the whole surface is FR-first.
+ */
+function formatHalfPoints(doubled: number | null | undefined): string {
+  if (doubled == null) return "–"
+  const whole = Math.floor(doubled / 2)
+  return doubled % 2 === 0 ? `${whole} pts` : `${whole},5 pts`
 }
