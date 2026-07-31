@@ -811,6 +811,15 @@ export default function GamePage({ params }: GamePageProps) {
             />
           )}
           {game.status === "completed" && <PeriodCompleted />}
+          {game.status === "completed" && (
+            <Link
+              href={`/games/${gameId}/recap`}
+              className="mt-3 flex items-center justify-between rounded-xl bg-primary px-4 py-3 text-cream"
+            >
+              <span className="text-sm font-semibold">{t("recap.banner")}</span>
+              <span aria-hidden="true">→</span>
+            </Link>
+          )}
         </header>
 
         {/* Draft guide for admins */}
