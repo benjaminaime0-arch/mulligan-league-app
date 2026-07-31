@@ -53,6 +53,15 @@ export const en: Dict = {
   // ── auth / landing ────────────────────────────────────────
   "auth.tagline": "Your weekend golf crew, organized.",
   "auth.subtitle": "Games, scores, bragging rights, all in one place.",
+  // Landing hero. "League" here is marketing voice, not the product entity —
+  // the League→Game rename applies to games/matches/standings in the app.
+  "auth.hero.line1": "Your Game.",
+  "auth.hero.line2": "Your League.",
+  // Badge labels use the fixed product vocabulary (Game / Match / Round /
+  // Card / Standings) — "leaderboard" is the pre-rename term.
+  "auth.badge.standings": "Live standings",
+  "auth.badge.net": "Net scoring",
+  "auth.badge.private": "Private games",
   "auth.login": "Log In",
   "auth.signup": "Sign Up",
   "auth.google": "Continue with Google",
@@ -758,6 +767,11 @@ export const fr: Dict = {
   // ── auth / landing ────────────────────────────────────────
   "auth.tagline": "Votre partie de golf entre amis, organisée.",
   "auth.subtitle": "Parties, scores et fierté — au même endroit.",
+  "auth.hero.line1": "Votre partie.",
+  "auth.hero.line2": "Votre ligue.",
+  "auth.badge.standings": "Classement en direct",
+  "auth.badge.net": "Score net",
+  "auth.badge.private": "Parties privées",
   "auth.login": "Connexion",
   "auth.signup": "Inscription",
   "auth.google": "Continuer avec Google",
