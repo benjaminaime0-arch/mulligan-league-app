@@ -6,6 +6,7 @@ import { useNotifications, type Notification } from "@/hooks/useNotifications"
 import { useAuth } from "@/hooks/useAuth"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 import { JoinRequestActionModal } from "@/components/JoinRequestActionModal"
+import { useI18n, useT } from "@/lib/i18n"
 import {
   formatRelativeTime,
   getNotificationIcon,
@@ -14,6 +15,7 @@ import {
 export default function NotificationsPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const { t, locale } = useI18n()
   const {
     notifications,
     unreadCount,
@@ -28,9 +30,9 @@ export default function NotificationsPage() {
 
   const [actionNotif, setActionNotif] = useState<Notification | null>(null)
 
-  if (authLoading) return <LoadingSpinner message="Checking your session..." />
+  if (authLoading) return <LoadingSpinner message={t("auth.checking")} />
   if (!user) return null
-  if (loading) return <LoadingSpinner message="Loading notifications..." />
+  if (loading) return <LoadingSpinner message={t("nav.notifications.loading")} />
 
   const handleTap = async (notif: Notification) => {
     if (!notif.read_at) markAsRead(notif.id)
@@ -53,7 +55,7 @@ export default function NotificationsPage() {
   }
 
   // Group by date
-  const grouped = groupByDate(notifications)
+  const grouped = groupByDate(notifications, t, locale)
 
   return (
     <main className="min-h-screen px-4 pb-6 pt-4">
@@ -61,10 +63,12 @@ export default function NotificationsPage() {
         {/* Header */}
         <header className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-primary">Notifications</h1>
+            <h1 className="text-xl font-bold text-primary">
+              {t("nav.notifications")}
+            </h1>
             {unreadCount > 0 && (
               <p className="mt-0.5 text-sm text-primary/60">
-                {unreadCount} unread
+                {t("nav.notifications.unreadcount", { n: unreadCount })}
               </p>
             )}
           </div>
@@ -74,7 +78,7 @@ export default function NotificationsPage() {
               onClick={markAllAsRead}
               className="rounded-lg border border-primary/20 bg-white px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/5"
             >
-              Mark all read
+              {t("nav.notifications.markall")}
             </button>
           )}
         </header>
@@ -100,11 +104,10 @@ export default function NotificationsPage() {
               </svg>
             </div>
             <p className="text-sm font-medium text-primary/70">
-              No notifications yet
+              {t("nav.notifications.empty")}
             </p>
             <p className="mt-1 text-xs text-primary/40">
-              You&apos;ll see updates here when scores are submitted, players join your
-              games, and more.
+              {t("nav.notifications.empty.sub")}
             </p>
           </section>
         )}
@@ -136,7 +139,9 @@ export default function NotificationsPage() {
               disabled={loadingMore}
               className="rounded-lg border border-primary/20 bg-white px-4 py-2 text-xs font-medium text-primary hover:bg-primary/5 disabled:opacity-60"
             >
-              {loadingMore ? "Loading\u2026" : "Load older notifications"}
+              {loadingMore
+                ? t("common.loading")
+                : t("nav.notifications.loadolder")}
             </button>
           </div>
         )}
@@ -161,6 +166,7 @@ function NotificationRow({
   notification: Notification
   onTap: (n: Notification) => void
 }) {
+  const t = useT()
   const isUnread = !notification.read_at
   const icon = getNotificationIcon(notification.type, "h-4 w-4 text-primary/60")
   const timeLabel = formatRelativeTime(notification.created_at)
@@ -208,7 +214,7 @@ function NotificationRow({
         <p className="mt-1 text-[10px] text-primary/35">{timeLabel}</p>
         {isJoinRequest && isUnread && (
           <p className="mt-1 text-[11px] font-medium text-emerald-600">
-            Tap to approve or reject
+            {t("nav.notifications.tap")}
           </p>
         )}
       </div>
@@ -220,6 +226,8 @@ function NotificationRow({
 
 function groupByDate(
   notifications: Notification[],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  locale = "fr",
 ): Array<{ label: string; items: Notification[] }> {
   const groups = new Map<string, Notification[]>()
 
@@ -234,11 +242,11 @@ function groupByDate(
 
     let label: string
     if (isToday) {
-      label = "Today"
+      label = t("common.today")
     } else if (isYesterday) {
-      label = "Yesterday"
+      label = t("common.yesterday")
     } else {
-      label = date.toLocaleDateString("en-US", {
+      label = date.toLocaleDateString(locale, {
         weekday: "long",
         month: "short",
         day: "numeric",

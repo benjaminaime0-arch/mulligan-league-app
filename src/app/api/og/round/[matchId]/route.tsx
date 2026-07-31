@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og"
+import { vsPar } from "@/lib/gameFormat"
 import { createClient } from "@supabase/supabase-js"
 
 /**
@@ -41,6 +42,8 @@ type RenderPlayer = {
   name: string
   initial: string
   score: number | null
+  /** "+16" / "E" / "−2" when the course par is known (Phase B). */
+  rel: string | null
   isWinner: boolean
 }
 
@@ -65,7 +68,7 @@ export async function GET(
   const [matchRes, playersRes, scoresRes] = await Promise.all([
     supabase
       .from("matches")
-      .select("id, course_name, match_date, game_id")
+      .select("id, course_name, match_date, game_id, course_id")
       .eq("id", matchId)
       .maybeSingle(),
     supabase
@@ -92,18 +95,31 @@ export async function GET(
     course_name: string | null
     match_date: string | null
     game_id: string | null
+    course_id: string | null
   }
 
-  let game: { name: string; course_name: string | null } | null = null
+  let game: { name: string; course_name: string | null; course_id: string | null } | null = null
   if (match.game_id) {
     const { data: gameData } = await supabase
       .from("games")
-      .select("name, course_name")
+      .select("name, course_name, course_id")
       .eq("id", match.game_id)
       .maybeSingle()
     if (gameData) {
-      game = gameData as { name: string; course_name: string | null }
+      game = gameData as { name: string; course_name: string | null; course_id: string | null }
     }
+  }
+
+  // Course par for the "88 (+16)" suffix (Phase B) — verified courses only.
+  let coursePar: number | null = null
+  const courseId = match.course_id ?? game?.course_id ?? null
+  if (courseId) {
+    const { data: courseData } = await supabase
+      .from("courses")
+      .select("par")
+      .eq("id", courseId)
+      .maybeSingle()
+    coursePar = (courseData as { par: number | null } | null)?.par ?? null
   }
 
   const players = (playersRes.data || []) as PlayerRow[]
@@ -130,6 +146,7 @@ export async function GET(
       name,
       initial: name.charAt(0).toUpperCase(),
       score,
+      rel: vsPar(score, coursePar),
       isWinner: score != null && score === winnerScore,
     }
   })
@@ -354,16 +371,30 @@ function PlayerRowView({
         </div>
       </div>
 
-      {/* Right: score */}
+      {/* Right: score (+ vs-par when the course is verified) */}
       <div
         style={{
           display: "flex",
+          alignItems: "baseline",
           fontSize: 68,
           fontWeight: 800,
           color: highlight ? PRIMARY : "rgba(15,61,46,0.55)",
         }}
       >
         {player.score ?? "\u2013"}
+        {player.rel != null && (
+          <div
+            style={{
+              display: "flex",
+              fontSize: 30,
+              fontWeight: 600,
+              marginLeft: 10,
+              opacity: 0.65,
+            }}
+          >
+            ({player.rel})
+          </div>
+        )}
       </div>
     </div>
   )

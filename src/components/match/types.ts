@@ -24,6 +24,11 @@ export type MatchPlayer = {
    * server-side once every player's approved_at is non-null.
    */
   approved_at?: string | null
+  /**
+   * Handicap snapshot frozen when this player's first score row appeared
+   * (Phase C). Drives the net display; never re-read from the live profile.
+   */
+  playing_handicap?: number | null
   isBestScore?: boolean
 }
 
@@ -32,11 +37,15 @@ export type Match = {
   game_id: string | number
   period_id?: string | number | null
   course_name?: string | null
+  /** Verified course reference (Phase A); NULL for free-text courses. */
+  course_id?: string | null
   match_date?: string | null
   match_time?: string | null
   status?: string | null
   /** user id of the player who created the match (match admin). */
   created_by?: string | null
+  /** Bumped by DB trigger on every score change — powers the LIVE pill. */
+  last_edit_at?: string | null
 }
 
 /**
@@ -56,6 +65,8 @@ export type Game = {
   id: string | number
   name: string
   course_name?: string | null
+  /** Verified course reference (Phase A); NULL for free-text courses. */
+  course_id?: string | null
   invite_code?: string | null
   max_players?: number | null
   admin_id?: string | null
@@ -70,4 +81,14 @@ export type Game = {
    * existing rows, so treat missing/unknown values as stroke play.
    */
   format?: GameFormat | string | null
+  /**
+   * What the leaderboard aggregates (Phase C): gross (default) | net |
+   * stableford_net. Only meaningful for stroke_play games — resolve via
+   * resolveBasis/effectiveFormat, never read raw.
+   */
+  scoring_basis?: string | null
+  /** Ryder mode (Phase D): match-play game scored as two teams. */
+  team_mode?: boolean | null
+  team1_name?: string | null
+  team2_name?: string | null
 }

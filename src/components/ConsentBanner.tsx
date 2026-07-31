@@ -62,11 +62,14 @@ export function ConsentBanner({ measurementId }: { measurementId?: string }) {
       )}
 
       {state === null && (
+        // bg-white/95, not /98: Tailwind's opacity scale runs in steps of 5, so
+        // /98 generates no rule at all — the banner rendered fully transparent
+        // over a backdrop-blur, smearing the login form behind the consent text.
         <div
           role="dialog"
           aria-live="polite"
           aria-label={t("consent.title")}
-          className="fixed inset-x-0 bottom-0 z-[60] border-t border-primary/10 bg-white/98 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur md:bottom-4 md:left-auto md:right-4 md:max-w-sm md:rounded-2xl md:border"
+          className="fixed inset-x-0 bottom-0 z-[60] border-t border-primary/10 bg-white/95 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur md:bottom-4 md:left-auto md:right-4 md:max-w-sm md:rounded-2xl md:border"
         >
           <p className="text-sm font-semibold text-primary">{t("consent.title")}</p>
           <p className="mt-1 text-xs leading-relaxed text-primary/60">

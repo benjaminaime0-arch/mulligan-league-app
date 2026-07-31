@@ -4,6 +4,7 @@ import { useState } from "react"
 import { supabase } from "@/lib/supabase"
 import type { Notification } from "@/hooks/useNotifications"
 import { formatRelativeTime } from "@/lib/notificationDisplay"
+import { useT } from "@/lib/i18n"
 
 interface JoinRequestActionModalProps {
   /** Pass the notification whose `data.request_id` should be actioned. */
@@ -29,6 +30,7 @@ export function JoinRequestActionModal({
   onClose,
   onResolved,
 }: JoinRequestActionModalProps) {
+  const t = useT()
   const [loading, setLoading] = useState(false)
   const [outcome, setOutcome] = useState<Outcome>(null)
   const [error, setError] = useState<string | null>(null)
@@ -36,12 +38,17 @@ export function JoinRequestActionModal({
   if (!notif) return null
 
   const requestId = notif.data?.request_id as string | undefined
-  const requesterName = (notif.data?.requester_name as string) || "The player"
+  const requesterName =
+    (notif.data?.requester_name as string) || t("games.request.player")
 
   const act = async (kind: "approve" | "reject") => {
     if (!requestId) return
     setLoading(true)
     setError(null)
+    const failMessage =
+      kind === "approve"
+        ? t("games.match.error.reqapprove")
+        : t("games.match.error.reqreject")
     try {
       const rpcName = kind === "approve" ? "approve_join_request" : "reject_join_request"
       const { data, error: rpcError } = await supabase.rpc(rpcName, {
@@ -50,13 +57,13 @@ export function JoinRequestActionModal({
       if (rpcError) throw rpcError
       const result = data as { success: boolean; error?: string } | null
       if (!result?.success) {
-        setError(result?.error || `Failed to ${kind}`)
+        setError(result?.error || failMessage)
         return
       }
       setOutcome(kind === "approve" ? "approved" : "rejected")
       onResolved?.()
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to ${kind}`)
+      setError(err instanceof Error ? err.message : failMessage)
     } finally {
       setLoading(false)
     }
@@ -84,15 +91,15 @@ export function JoinRequestActionModal({
         {outcome === "approved" ? (
           <SuccessState
             tone="emerald"
-            title="Approved!"
-            body={`${requesterName} has been added.`}
+            title={t("games.request.approved.title")}
+            body={t("games.request.approved.body", { name: requesterName })}
             onClose={handleClose}
           />
         ) : outcome === "rejected" ? (
           <SuccessState
             tone="red"
-            title="Request declined"
-            body={`${requesterName} has been notified.`}
+            title={t("games.request.rejected.title")}
+            body={t("games.request.rejected.body", { name: requesterName })}
             onClose={handleClose}
           />
         ) : error ? (
@@ -121,6 +128,7 @@ function DefaultState({
   onApprove: () => void
   onReject: () => void
 }) {
+  const t = useT()
   return (
     <>
       <h2 className="text-lg font-bold text-primary">{notif.title}</h2>
@@ -137,7 +145,7 @@ function DefaultState({
           disabled={loading}
           className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-60"
         >
-          {loading ? "Working\u2026" : "Approve"}
+          {loading ? t("common.working") : t("games.match.request.approve")}
         </button>
         <button
           type="button"
@@ -145,7 +153,7 @@ function DefaultState({
           disabled={loading}
           className="flex-1 rounded-lg border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 transition-all hover:bg-red-50 active:scale-[0.98] disabled:opacity-60"
         >
-          Reject
+          {t("games.match.request.reject")}
         </button>
       </div>
     </>
@@ -163,6 +171,7 @@ function SuccessState({
   body: string
   onClose: () => void
 }) {
+  const t = useT()
   const bg = tone === "emerald" ? "bg-emerald-100" : "bg-red-100"
   const color = tone === "emerald" ? "text-emerald-600" : "text-red-600"
   const path =
@@ -184,23 +193,24 @@ function SuccessState({
         onClick={onClose}
         className="mt-5 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream hover:bg-primary/90"
       >
-        Done
+        {t("common.done")}
       </button>
     </>
   )
 }
 
 function ErrorState({ message, onClose }: { message: string; onClose: () => void }) {
+  const t = useT()
   return (
     <>
-      <h2 className="text-lg font-bold text-primary">Something went wrong</h2>
+      <h2 className="text-lg font-bold text-primary">{t("common.error.generic")}</h2>
       <p className="mt-1 text-sm text-red-600">{message}</p>
       <button
         type="button"
         onClick={onClose}
         className="mt-5 w-full rounded-lg border border-primary/20 bg-white px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
       >
-        Close
+        {t("common.close")}
       </button>
     </>
   )

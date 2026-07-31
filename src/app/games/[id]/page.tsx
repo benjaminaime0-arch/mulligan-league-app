@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
+import { useT } from "@/lib/i18n"
 import { ConfirmModal } from "@/components/ConfirmModal"
 import type {
   Game,
@@ -21,7 +22,9 @@ import { GameInviteCode } from "./components/GameInviteCode"
 import { DraftGuide } from "./components/DraftGuide"
 import { GameActivityCard } from "./components/GameActivityCard"
 import { BadgesCard, type BadgeRow } from "./components/BadgesCard"
+import { TeamScoreHeader } from "./components/TeamScoreHeader"
 import {
+  effectiveFormat,
   formatCopy,
   isBetter,
   resolveFormat,
@@ -31,6 +34,9 @@ import { todayLocalIso } from "@/lib/date"
 interface GamePageProps {
   params: { id: string }
 }
+
+/** Translator signature, mirrored from the i18n runtime. */
+type Translate = (key: string, vars?: Record<string, string | number>) => string
 
 /**
  * Builds the "Stroke play · Best 3 of 5 cards" tagline shown below
@@ -43,32 +49,41 @@ interface GamePageProps {
  * Falls back to `game_type` when `format` is missing (legacy
  * rows), and omits the format segment entirely when neither is set.
  */
-function formatSubtitle(game: {
-  game_type?: string | null
-  scoring_cards_count?: number | null
-  total_cards_count?: number | null
-  format?: string | null
-}): string | null {
+function formatSubtitle(
+  game: {
+    game_type?: string | null
+    scoring_cards_count?: number | null
+    total_cards_count?: number | null
+    format?: string | null
+  },
+  t: Translate,
+): string | null {
   const parts: string[] = []
   const fmt = game.format || game.game_type
   if (fmt) {
+    // Known formats get a translated label; anything else (legacy
+    // `game_type` values) falls back to the raw prettified string.
     parts.push(
-      fmt
-        .replace(/_/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase()),
+      fmt === "stroke_play" || fmt === "stableford"
+        ? t(`games.format.${fmt}`)
+        : fmt.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
     )
   }
   if (game.scoring_cards_count != null) {
     parts.push(
-      `Best ${game.scoring_cards_count}${
-        game.total_cards_count ? ` of ${game.total_cards_count}` : ""
-      } cards`,
+      game.total_cards_count
+        ? t("games.bestof.total", {
+            n: game.scoring_cards_count,
+            total: game.total_cards_count,
+          })
+        : t("games.bestof", { n: game.scoring_cards_count }),
     )
   }
   return parts.length > 0 ? parts.join(" · ") : null
 }
 
 function StatusChip({ status }: { status: string | null | undefined }) {
+  const t = useT()
   const s = (status || "").toLowerCase()
 
   // Active and completed are both hidden here — active is the
@@ -82,7 +97,7 @@ function StatusChip({ status }: { status: string | null | undefined }) {
   // Draft / any other non-active non-completed state
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-      Draft
+      {t("games.status.draft")}
     </span>
   )
 }
@@ -92,6 +107,7 @@ export default function GamePage({ params }: GamePageProps) {
   const searchParams = useSearchParams()
   const gameId = params.id
   const { user, loading: authLoading } = useAuth()
+  const t = useT()
 
   // Reads once on mount — subsequent changes are not re-applied so
   // the user's tab taps aren't fought. The retired /matches/[id]
@@ -129,6 +145,8 @@ export default function GamePage({ params }: GamePageProps) {
   const [badges, setBadges] = useState<BadgeRow[]>([])
 
   const [periodMatches, setPeriodMatches] = useState<Match[]>([])
+  // course id → par, covering the game's course + any per-match courses.
+  const [coursePars, setCoursePars] = useState<Record<string, number>>({})
   const [matchPlayersMap, setMatchPlayersMap] = useState<Map<string | number, MatchPlayer[]>>(new Map())
   // Set of match ids where the current user has ANY score row (pending
   // / approved / rejected). Separate from matchPlayersMap because the
@@ -208,7 +226,9 @@ export default function GamePage({ params }: GamePageProps) {
         ])
 
         if (gameRes.error) throw gameRes.error
-        if (!gameRes.data) throw new Error("Game not found.")
+        // Message is an i18n key — the error banner runs it through
+        // `t()`, which passes raw Postgrest messages straight through.
+        if (!gameRes.data) throw new Error("games.error.notfound")
 
         // A newer run superseded this one while awaiting — drop its results.
         if (!fresh()) return
@@ -267,13 +287,40 @@ export default function GamePage({ params }: GamePageProps) {
           const matches = (matchesData || []) as Match[]
           setPeriodMatches(matches)
 
+          // Course pars for the "88 (+16)" display (Phase B). One batched
+          // read over every distinct course this game's rounds touch —
+          // usually a single row (the game's home course).
+          {
+            const courseIds = Array.from(
+              new Set(
+                [gameRes.data?.course_id, ...matches.map((m) => m.course_id)].filter(
+                  (x): x is string => !!x,
+                ),
+              ),
+            )
+            if (courseIds.length > 0) {
+              const { data: parsData } = await supabase
+                .from("courses")
+                .select("id, par")
+                .in("id", courseIds)
+              if (!fresh()) return
+              const map: Record<string, number> = {}
+              for (const c of (parsData || []) as { id: string; par: number | null }[]) {
+                if (c.par != null) map[c.id] = c.par
+              }
+              setCoursePars(map)
+            } else {
+              setCoursePars({})
+            }
+          }
+
           if (matches.length > 0) {
             const matchIds = matches.map((m) => m.id)
             const [mpRes, scoresRes, mySubmissionsRes] = await Promise.all([
               supabase
                 .from("match_players")
                 .select(
-                  "match_id, user_id, approved_at, profiles(username, first_name, avatar_url)",
+                  "match_id, user_id, approved_at, playing_handicap, profiles(username, first_name, avatar_url)",
                 )
                 .in("match_id", matchIds),
               // All scores (any status) for period matches. We used to
@@ -356,6 +403,7 @@ export default function GamePage({ params }: GamePageProps) {
                 match_id: string | number
                 user_id: string
                 approved_at: string | null
+                playing_handicap: number | null
                 profiles: { username?: string | null; first_name?: string | null; avatar_url?: string | null } | null
               }>) {
                 const existing = map.get(row.match_id) || []
@@ -371,6 +419,7 @@ export default function GamePage({ params }: GamePageProps) {
                   holes: entry?.holes ?? null,
                   status: entry?.status ?? null,
                   approved_at: row.approved_at,
+                  playing_handicap: row.playing_handicap,
                   isBestScore:
                     entry?.status === "approved" && bestMatchIds.has(key)
                       ? true
@@ -412,7 +461,7 @@ export default function GamePage({ params }: GamePageProps) {
                 "message" in err &&
                 typeof (err as { message?: unknown }).message === "string"
               ? (err as { message: string }).message
-              : "Failed to load game."
+              : "games.error.load"
         setError(msg)
       } finally {
         // Only the latest run owns the loading flag.
@@ -566,12 +615,12 @@ export default function GamePage({ params }: GamePageProps) {
       if (rpcError) throw rpcError
       const result = data as { success: boolean; error?: string }
       if (!result.success) {
-        setJoinRequestError(result.error || "Failed to send request.")
+        setJoinRequestError(result.error || t("games.join.failed"))
         return
       }
       setJoinRequestSent(true)
     } catch (err) {
-      setJoinRequestError(err instanceof Error ? err.message : "Failed to send request.")
+      setJoinRequestError(err instanceof Error ? err.message : t("games.join.failed"))
     } finally {
       setRequestingJoin(false)
     }
@@ -594,7 +643,7 @@ export default function GamePage({ params }: GamePageProps) {
       if (rpcError) throw rpcError
       window.location.reload()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start game.")
+      setError(err instanceof Error ? err.message : "games.error.start")
     } finally {
       setStartingGame(false)
     }
@@ -613,7 +662,7 @@ export default function GamePage({ params }: GamePageProps) {
       if (deleteError) throw deleteError
       router.push("/games")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete game.")
+      setError(err instanceof Error ? err.message : "games.error.delete")
     } finally {
       setDeletingGame(false)
     }
@@ -633,7 +682,7 @@ export default function GamePage({ params }: GamePageProps) {
       if (leaveError) throw leaveError
       router.push("/games")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to leave game.")
+      setError(err instanceof Error ? err.message : "games.error.leave")
     } finally {
       setLeavingGame(false)
     }
@@ -644,7 +693,7 @@ export default function GamePage({ params }: GamePageProps) {
   if (authLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-primary/70">Checking your session…</p>
+        <p className="text-primary/70">{t("common.session.checking")}</p>
       </main>
     )
   }
@@ -657,7 +706,7 @@ export default function GamePage({ params }: GamePageProps) {
   if (loading && !game) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-primary/70">Loading game…</p>
+        <p className="text-primary/70">{t("games.detail.loading")}</p>
       </main>
     )
   }
@@ -667,14 +716,14 @@ export default function GamePage({ params }: GamePageProps) {
       <main className="flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-md rounded-xl border border-red-200 bg-white p-6 text-center shadow-sm">
           <p className="text-sm text-red-700">
-            {error || "We couldn\u2019t find this game."}
+            {error ? t(error) : t("games.error.notfound")}
           </p>
           <button
             type="button"
             onClick={() => router.push("/games")}
             className="mt-4 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream"
           >
-            Back to games
+            {t("games.back")}
           </button>
         </div>
       </main>
@@ -697,7 +746,7 @@ export default function GamePage({ params }: GamePageProps) {
                 type="button"
                 onClick={() => router.push(`/games/${prevGame.id}`)}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary hover:bg-primary/5"
-                aria-label={`Previous: ${prevGame.name}`}
+                aria-label={t("games.nav.prev", { name: prevGame.name })}
                 title={prevGame.name}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
@@ -718,7 +767,7 @@ export default function GamePage({ params }: GamePageProps) {
                 type="button"
                 onClick={() => router.push(`/games/${nextGame.id}`)}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-primary hover:bg-primary/5"
-                aria-label={`Next: ${nextGame.name}`}
+                aria-label={t("games.nav.next", { name: nextGame.name })}
                 title={nextGame.name}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>
@@ -729,16 +778,16 @@ export default function GamePage({ params }: GamePageProps) {
           </div>
 
           {/* Format line: sits right under the title — e.g. "Stroke Play · Best 3 of 5 cards" */}
-          {formatSubtitle(game) && (
+          {formatSubtitle(game, t) && (
             <p className="mt-1 text-center text-[10px] font-semibold uppercase tracking-[0.15em] text-primary/50">
-              {formatSubtitle(game)}
+              {formatSubtitle(game, t)}
             </p>
           )}
 
           {/* Meta line: course + dates */}
           <div className="mt-1.5 flex items-center justify-center gap-1.5 text-xs text-primary/70">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-            <span>{game.course_name || "Course TBA"}</span>
+            <span>{game.course_name || t("games.card.nocourse")}</span>
             {game.start_date && game.end_date && (
               <>
                 <span className="text-primary/30">·</span>
@@ -762,6 +811,15 @@ export default function GamePage({ params }: GamePageProps) {
             />
           )}
           {game.status === "completed" && <PeriodCompleted />}
+          {game.status === "completed" && (
+            <Link
+              href={`/games/${gameId}/recap`}
+              className="mt-3 flex items-center justify-between rounded-xl bg-primary px-4 py-3 text-cream"
+            >
+              <span className="text-sm font-semibold">{t("recap.banner")}</span>
+              <span aria-hidden="true">→</span>
+            </Link>
+          )}
         </header>
 
         {/* Draft guide for admins */}
@@ -776,14 +834,14 @@ export default function GamePage({ params }: GamePageProps) {
                 disabled={startingGame}
                 className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {startingGame ? "Starting…" : "Start Game"}
+                {startingGame ? t("games.starting") : t("games.start")}
               </button>
             </div>
             <ConfirmModal
               open={showStartConfirm}
-              title="Start your game?"
-              message="This will generate weekly match periods for your game. Make sure all players have joined before starting."
-              confirmLabel="Start Game"
+              title={t("games.start.confirm.title")}
+              message={t("games.start.confirm.body")}
+              confirmLabel={t("games.start")}
               loading={startingGame}
               onConfirm={handleStartGame}
               onCancel={() => setShowStartConfirm(false)}
@@ -794,9 +852,9 @@ export default function GamePage({ params }: GamePageProps) {
         {isAdmin ? (
           <ConfirmModal
             open={showDeleteConfirm}
-            title="Delete this game?"
-            message="This will permanently delete the game, all matches, scores, and member data. This action cannot be undone."
-            confirmLabel="Delete Game"
+            title={t("games.delete.confirm.title")}
+            message={t("games.delete.confirm.body")}
+            confirmLabel={t("games.delete")}
             loading={deletingGame}
             destructive
             onConfirm={handleDeleteGame}
@@ -805,9 +863,9 @@ export default function GamePage({ params }: GamePageProps) {
         ) : (
           <ConfirmModal
             open={showLeaveConfirm}
-            title="Leave this game?"
-            message="You will be removed from the game and your scores will remain on record. You can rejoin later with an invite code."
-            confirmLabel="Leave Game"
+            title={t("games.leave.confirm.title")}
+            message={t("games.leave.confirm.body")}
+            confirmLabel={t("games.leave")}
             loading={leavingGame}
             destructive
             onConfirm={handleLeaveGame}
@@ -841,13 +899,30 @@ export default function GamePage({ params }: GamePageProps) {
               the get_game_activity_feed RPC. */}
           {isMember && <GameActivityCard gameId={gameId} />}
 
+          {/* Ryder scoreboard (Phase D): the team race header, with the
+              admin's team-assignment panel folded inside. */}
+          {game.team_mode && (
+            <TeamScoreHeader
+              gameId={gameId}
+              isAdmin={game.admin_id === user.id}
+              members={members.map((m) => ({
+                user_id: m.user_id,
+                name:
+                  m.profiles?.username || m.profiles?.first_name || "Player",
+                team: m.team ?? null,
+              }))}
+              onChanged={loadData}
+            />
+          )}
+
           {/* Format info (Stroke Play · Best 3 of 5 cards) moved to the
               page header, so the Leaderboard card doesn't duplicate it. */}
           <LeaderboardTable
             leaderboard={leaderboard}
             currentUserId={user.id}
             scoringCardsCount={game.scoring_cards_count ?? null}
-            gameFormat={resolveFormat(game)}
+            gameFormat={effectiveFormat(game)}
+            matchPlay={game.format === "match_play"}
           />
 
           {/* Honors — compact achievements strip. Hidden entirely for
@@ -858,7 +933,7 @@ export default function GamePage({ params }: GamePageProps) {
             <BadgesCard
               badges={badges}
               currentUserId={user.id}
-              gameFormat={resolveFormat(game)}
+              gameFormat={effectiveFormat(game)}
             />
           )}
 
@@ -877,6 +952,10 @@ export default function GamePage({ params }: GamePageProps) {
               autoEdit={autoEdit}
               onFocusConsumed={handleFocusConsumed}
               context="game"
+              resolveCoursePar={(m) => {
+                const cid = m.course_id ?? game.course_id
+                return cid ? (coursePars[String(cid)] ?? null) : null
+              }}
               // Empty-day CTA deep-links into match-create with this
               // game pre-selected + the tapped day pre-filled.
               defaultGameId={game.id}
@@ -899,13 +978,13 @@ export default function GamePage({ params }: GamePageProps) {
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Request pending — waiting for admin approval
+                {t("games.join.pending")}
               </div>
             ) : isGameFull ? (
-              <p className="text-sm text-primary/50">This game is full ({members.length}/{game.max_players} players)</p>
+              <p className="text-sm text-primary/50">{t("games.full", { n: members.length, max: game.max_players ?? "" })}</p>
             ) : (
               <>
-                <p className="mb-3 text-sm text-primary/60">Want to join this game?</p>
+                <p className="mb-3 text-sm text-primary/60">{t("games.join.prompt")}</p>
                 <button
                   type="button"
                   onClick={handleRequestJoinGame}
@@ -915,7 +994,7 @@ export default function GamePage({ params }: GamePageProps) {
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                   </svg>
-                  {requestingJoin ? "Sending request…" : "Request to Join Game"}
+                  {requestingJoin ? t("games.join.sending") : t("games.join.request")}
                 </button>
                 {joinRequestError && (
                   <p className="mt-2 text-xs text-red-600">{joinRequestError}</p>
@@ -934,12 +1013,12 @@ export default function GamePage({ params }: GamePageProps) {
             is tiny. Admins see Delete, members see Leave. */}
         {(game.invite_code || isMember || isAdmin) && (
           <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-sm font-semibold text-primary">Game settings</h2>
+            <h2 className="mb-4 text-sm font-semibold text-primary">{t("games.settings")}</h2>
 
             <div className="flex items-center justify-between gap-3">
               {game.invite_code ? (
                 <>
-                  <span className="text-xs text-primary/60">Invite code</span>
+                  <span className="text-xs text-primary/60">{t("games.invitecode")}</span>
                   <div className="flex items-center gap-2">
                     <GameInviteCode
                       inviteCode={game.invite_code}
@@ -951,8 +1030,8 @@ export default function GamePage({ params }: GamePageProps) {
                         type="button"
                         onClick={() => setShowDeleteConfirm(true)}
                         disabled={deletingGame}
-                        aria-label="Delete this game"
-                        title="Delete this game"
+                        aria-label={t("games.delete.aria")}
+                        title={t("games.delete.aria")}
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-60"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" /></svg>
@@ -962,8 +1041,8 @@ export default function GamePage({ params }: GamePageProps) {
                         type="button"
                         onClick={() => setShowLeaveConfirm(true)}
                         disabled={leavingGame}
-                        aria-label="Leave this game"
-                        title="Leave this game"
+                        aria-label={t("games.leave.aria")}
+                        title={t("games.leave.aria")}
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-60"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
@@ -978,15 +1057,15 @@ export default function GamePage({ params }: GamePageProps) {
                       icon against a subtle label so it doesn't float
                       alone on the row. */}
                   <span className="text-xs text-primary/60">
-                    {isAdmin ? "Admin" : "Member"}
+                    {isAdmin ? t("games.role.admin") : t("games.role.member")}
                   </span>
                   {isAdmin ? (
                     <button
                       type="button"
                       onClick={() => setShowDeleteConfirm(true)}
                       disabled={deletingGame}
-                      aria-label="Delete this game"
-                      title="Delete this game"
+                      aria-label={t("games.delete.aria")}
+                      title={t("games.delete.aria")}
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-60"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" /></svg>
@@ -996,8 +1075,8 @@ export default function GamePage({ params }: GamePageProps) {
                       type="button"
                       onClick={() => setShowLeaveConfirm(true)}
                       disabled={leavingGame}
-                      aria-label="Leave this game"
-                      title="Leave this game"
+                      aria-label={t("games.leave.aria")}
+                      title={t("games.leave.aria")}
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-60"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
@@ -1030,6 +1109,7 @@ function PeriodProgress({
   startDate?: string | null
   endDate?: string | null
 }) {
+  const t = useT()
   if (!startDate || !endDate) return null
 
   const start = new Date(startDate + "T00:00:00")
@@ -1057,12 +1137,14 @@ function PeriodProgress({
       </div>
       <div className="mt-1 flex items-center justify-between text-[10px] text-primary/50">
         <span>
-          Day {dayNumber} of {totalDays}
+          {t("games.period.day", { n: dayNumber, total: totalDays })}
         </span>
         <span>
           {daysLeft === 0
-            ? "Last day"
-            : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`}
+            ? t("games.period.lastday")
+            : daysLeft === 1
+              ? t("games.period.daysleft.one")
+              : t("games.period.daysleft", { n: daysLeft })}
         </span>
       </div>
     </div>
@@ -1078,6 +1160,7 @@ function PeriodProgress({
  * match cards ("Completed").
  */
 function PeriodCompleted() {
+  const t = useT()
   return (
     <div className="mt-3">
       <div className="h-1 w-full overflow-hidden rounded-full bg-emerald-100">
@@ -1087,7 +1170,7 @@ function PeriodCompleted() {
         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polyline points="20 6 9 17 4 12" />
         </svg>
-        Completed
+        {t("games.status.completed")}
       </div>
     </div>
   )
@@ -1137,6 +1220,7 @@ function YourStatusCard({
   leaderboard: LeaderboardRow[]
   game: Game
 }) {
+  const t = useT()
   // Local date, not UTC — see AUD#17 / src/lib/date.ts. `match_date` is a
   // plain calendar date; comparing it against a UTC "today" mis-buckets
   // matches for viewers around midnight.
@@ -1154,7 +1238,7 @@ function YourStatusCard({
   // all of them are among the best-N — so no more submissions needed.
   const myPlayed = myRow?.rounds_played ?? 0
   const leader = leaderboard[0] ?? null
-  const leaderName = leader?.player_name ?? "the leader"
+  const leaderName = leader?.player_name ?? t("games.status.theleader")
   // Format-aware gap. `gap` is always a positive number when you're
   // TRAILING the leader, 0 when you are the leader (or no leader
   // exists). Stroke play: you-trail when your total is higher than
@@ -1197,7 +1281,7 @@ function YourStatusCard({
             month: "short",
             day: "numeric",
           })
-        : "this match"
+        : t("games.action.thismatch")
       return {
         tone: "amber",
         icon: (
@@ -1207,8 +1291,8 @@ function YourStatusCard({
             <line x1="9" y1="15" x2="15" y2="15" />
           </svg>
         ),
-        title: "Submit your score",
-        subtitle: `${dateLabel} — your card isn't submitted yet`,
+        title: t("home.action.enter"),
+        subtitle: t("games.action.submit.sub", { date: dateLabel }),
         href: `/games/${gameId}?match=${pendingPast.id}&edit=1`,
       }
     }
@@ -1233,7 +1317,7 @@ function YourStatusCard({
             month: "short",
             day: "numeric",
           })
-        : "this match"
+        : t("games.action.thismatch")
       const others = (matchPlayersMap.get(pendingApproval.id) || []).filter(
         (p) => p.user_id !== userId && p.status != null,
       ).length
@@ -1244,8 +1328,11 @@ function YourStatusCard({
             <polyline points="20 6 9 17 4 12" />
           </svg>
         ),
-        title: "Approve scores",
-        subtitle: `${dateLabel} — ${others} teammate${others === 1 ? "" : "s"} waiting on you`,
+        title: t("games.action.approve"),
+        subtitle:
+          others === 1
+            ? t("games.action.approve.sub.one", { date: dateLabel })
+            : t("games.action.approve.sub", { date: dateLabel, n: others }),
         href: `/games/${gameId}?match=${pendingApproval.id}`,
       }
     }
@@ -1262,7 +1349,7 @@ function YourStatusCard({
             month: "short",
             day: "numeric",
           })
-        : "TBA"
+        : t("games.tba")
       return {
         tone: "primary",
         icon: (
@@ -1271,7 +1358,7 @@ function YourStatusCard({
             <path d="M4 22h16" />
           </svg>
         ),
-        title: "Play your round",
+        title: t("games.action.play"),
         subtitle: `${dateLabel}${upcoming.match_time ? ` · ${upcoming.match_time.slice(0, 5)}` : ""}${upcoming.course_name ? ` · ${upcoming.course_name}` : ""}`,
         href: `/games/${gameId}?match=${upcoming.id}`,
       }
@@ -1298,8 +1385,8 @@ function YourStatusCard({
         ),
         title:
           toGo === 1
-            ? "1 more round to lock your rank"
-            : `${toGo} more rounds to lock your rank`,
+            ? t("games.action.lock.one")
+            : t("games.action.lock", { n: toGo }),
         subtitle: "",
         href: `/matches/create?game=${gameId}`,
       }
@@ -1318,7 +1405,7 @@ function YourStatusCard({
             <polyline points="12 6 12 12 16 14" />
           </svg>
         ),
-        title: `${myPlayed}/${cap} played`,
+        title: t("games.action.played", { n: myPlayed, total: cap }),
         subtitle: "",
         // Amber pill is tappable — taking the user to match-create
         // prefilled with this game is the natural next step when
@@ -1336,7 +1423,7 @@ function YourStatusCard({
             <polyline points="20 6 9 17 4 12" />
           </svg>
         ),
-        title: `${cap}/${cap} cards filled`,
+        title: t("games.action.cardsfilled", { n: cap, total: cap }),
         subtitle: "",
       }
     }
@@ -1349,8 +1436,8 @@ function YourStatusCard({
           <polyline points="20 6 9 17 4 12" />
         </svg>
       ),
-      title: "You're all caught up",
-      subtitle: "No pending rounds. Check back when the next match is scheduled.",
+      title: t("home.caughtup"),
+      subtitle: t("games.caughtup.sub"),
     }
   }, [
     userId,
@@ -1364,6 +1451,7 @@ function YourStatusCard({
     myCounted,
     scoringCards,
     gameCompleted,
+    t,
   ])
 
   /* ── Tone-dependent classes for the action strip ────── */
@@ -1380,6 +1468,16 @@ function YourStatusCard({
 
   /* ── Copy helpers ───────────────────────────────────── */
   const leading = rank === 1
+  // Translated counterpart of fmtCopy.noun / nounSingular — the
+  // helper in @/lib/gameFormat only carries the English nouns.
+  const gapUnit =
+    fmt === "stableford"
+      ? gap === 1
+        ? t("games.unit.point")
+        : t("games.unit.points")
+      : gap === 1
+        ? t("games.unit.stroke")
+        : t("games.unit.strokes")
 
   // Compact action pill for the right column. Subtitle is dropped
   // here — the title + icon + chevron carry enough signal; detail
@@ -1409,7 +1507,7 @@ function YourStatusCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary/50">
-            Your status
+            {t("games.status.title")}
           </p>
 
           {/* Rank + Best on the primary row; strokes-behind drops to
@@ -1418,15 +1516,15 @@ function YourStatusCard({
               context ("behind will") subordinated. */}
           <div className="mt-1.5 flex items-baseline gap-3">
             {rank === null ? (
-              <span className="text-2xl font-bold text-primary/40">Unranked</span>
+              <span className="text-2xl font-bold text-primary/40">{t("games.status.unranked")}</span>
             ) : leading ? (
-              <span className="text-2xl font-bold text-primary">Leading</span>
+              <span className="text-2xl font-bold text-primary">{t("games.status.leading")}</span>
             ) : (
               <span className="text-2xl font-bold text-primary">#{rank}</span>
             )}
             {myBest != null && (
               <span className="text-xs text-primary/60">
-                Best{" "}
+                {t("games.status.best")}{" "}
                 <span className="font-semibold tabular-nums text-primary/80">
                   {myBest}
                   {fmtCopy.unit}
@@ -1440,11 +1538,17 @@ function YourStatusCard({
               flips per format ("strokes" / "points"). */}
           {rank !== null && !leading && gap > 0 && (
             <p className="mt-1 truncate text-[11px] text-primary/60">
-              {gap} {gap === 1 ? fmtCopy.nounSingular : fmtCopy.noun} behind {leaderName}
+              {t("games.status.behind", {
+                n: gap,
+                unit: gapUnit,
+                name: leaderName,
+              })}
             </p>
           )}
           {leading && (
-            <p className="mt-1 text-[11px] text-primary/60">the game</p>
+            <p className="mt-1 text-[11px] text-primary/60">
+              {t("games.status.leading.sub")}
+            </p>
           )}
         </div>
 

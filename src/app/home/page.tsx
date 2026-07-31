@@ -8,6 +8,7 @@ import { todayLocalIso } from "@/lib/date"
 import { loadHomeData, type HomeData, type HomeMatch } from "@/lib/home"
 import { useI18n } from "@/lib/i18n"
 import { track } from "@/lib/analytics"
+import { MulliganRankingCard } from "@/components/home/MulliganRankingCard"
 
 function formatMatchDate(iso: string | null, locale = "fr"): string {
   if (!iso) return "—"
@@ -147,6 +148,9 @@ export default function HomePage() {
           </div>
         )}
       </section>
+
+      {/* ── Classement Mulligan (Phase G) ─────────────────────────── */}
+      {user && <MulliganRankingCard viewerId={user.id} />}
 
       {/* ── My standings ─────────────────────────────────────────── */}
       {data && data.positions.length > 0 && (

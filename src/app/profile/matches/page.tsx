@@ -23,6 +23,7 @@ import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
+import { useT } from "@/lib/i18n"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 import { MatchDetailCard } from "@/components/match/MatchDetailCard"
 import type {
@@ -45,18 +46,20 @@ function todayIsoLocal(): string {
 }
 
 export default function AllMatchesPage() {
+  const t = useT()
   // useSearchParams forces dynamic rendering and must be inside a
   // Suspense boundary per Next 14 — otherwise the page opts out of
   // static rendering silently. Wrapping an inner component keeps the
   // boundary explicit without affecting behavior on the client.
   return (
-    <Suspense fallback={<LoadingSpinner message="Loading matches..." />}>
+    <Suspense fallback={<LoadingSpinner message={t("match.loading.list")} />}>
       <AllMatchesInner />
     </Suspense>
   )
 }
 
 function AllMatchesInner() {
+  const t = useT()
   const { user, loading: authLoading } = useAuth()
   const searchParams = useSearchParams()
   // When present, scopes the list to a single game — the "Game
@@ -208,7 +211,9 @@ function AllMatchesInner() {
       const arr = map.get(r.match_id) || []
       arr.push({
         name:
-          r.profiles?.username || r.profiles?.first_name || "Player",
+          r.profiles?.username ||
+          r.profiles?.first_name ||
+          t("players.unnamed"),
         avatar_url: r.profiles?.avatar_url ?? null,
         user_id: r.user_id,
         score: entry?.score ?? null,
@@ -219,7 +224,7 @@ function AllMatchesInner() {
       map.set(r.match_id, arr)
     }
     setPlayersByMatch(map)
-  }, [])
+  }, [t])
 
   useEffect(() => {
     if (authLoading || !user) return
@@ -292,7 +297,8 @@ function AllMatchesInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, scopedGameId, load])
 
-  if (authLoading) return <LoadingSpinner message="Checking your session..." />
+  if (authLoading)
+    return <LoadingSpinner message={t("common.session.checking")} />
   if (!user) return null
 
   // Classify every match as past or scheduled. A match is "past" when
@@ -326,8 +332,8 @@ function AllMatchesInner() {
     ? gamesById.get(scopedGameId) ?? null
     : null
   const pageTitle = scopedGameId
-    ? scopedGame?.name || "Game calendar"
-    : "My calendar"
+    ? scopedGame?.name || t("match.calendar.game")
+    : t("nav.menu.calendar")
 
   // Scoped mode, load completed, but the game didn't land in
   // `gamesById` — viewer isn't a member (RLS blocked the join) or
@@ -346,7 +352,7 @@ function AllMatchesInner() {
             className="inline-flex items-center gap-1 text-xs font-medium text-primary/60 hover:text-primary"
           >
             <ChevronLeft />
-            Back
+            {t("common.back")}
           </Link>
           <h1 className="text-sm font-semibold text-primary">{pageTitle}</h1>
           <span className="w-[50px]" />
@@ -361,16 +367,16 @@ function AllMatchesInner() {
               </svg>
             </div>
             <p className="text-sm font-medium text-primary/70">
-              You&rsquo;re not a member of this game
+              {t("match.calendar.denied.title")}
             </p>
             <p className="mb-3 mt-0.5 text-xs text-primary/40">
-              Join the game to see its calendar, or head back to your own.
+              {t("match.calendar.denied.body")}
             </p>
             <Link
               href="/profile/matches"
               className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-cream hover:bg-primary/90"
             >
-              See my calendar
+              {t("match.calendar.mine")}
             </Link>
           </div>
         )}
@@ -382,7 +388,7 @@ function AllMatchesInner() {
           <>
         <div className="flex gap-1 rounded-full border border-primary/15 bg-white p-1 shadow-sm">
           <TabButton active={tab === "past"} onClick={() => setTab("past")}>
-            Past
+            {t("match.tab.past")}
             {past.length > 0 && (
               <span className="ml-1.5 tabular-nums text-primary/50">
                 {past.length}
@@ -393,7 +399,7 @@ function AllMatchesInner() {
             active={tab === "scheduled"}
             onClick={() => setTab("scheduled")}
           >
-            Scheduled
+            {t("match.tab.scheduled")}
             {scheduled.length > 0 && (
               <span className="ml-1.5 tabular-nums text-primary/50">
                 {scheduled.length}
@@ -461,6 +467,7 @@ function TabButton({
 }
 
 function EmptyState({ tab }: { tab: Tab }) {
+  const t = useT()
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary/15 bg-white p-10 text-center">
       <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/5">
@@ -485,13 +492,13 @@ function EmptyState({ tab }: { tab: Tab }) {
       </div>
       <p className="text-sm font-medium text-primary/70">
         {tab === "scheduled"
-          ? "No scheduled matches"
-          : "No completed matches yet"}
+          ? t("match.empty.scheduled.title")
+          : t("match.empty.past.title")}
       </p>
       <p className="mt-0.5 text-xs text-primary/40">
         {tab === "scheduled"
-          ? "Create one from a game to get rolling."
-          : "Results will appear here once scores are approved."}
+          ? t("match.empty.scheduled.body")
+          : t("match.empty.past.body")}
       </p>
     </div>
   )

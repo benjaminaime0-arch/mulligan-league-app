@@ -15,6 +15,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 
+import { useT } from "@/lib/i18n"
+
 interface DatePickerModalProps {
   open: boolean
   /** ISO `yyyy-mm-dd` of the currently-selected day (used to seed the view). */
@@ -25,10 +27,22 @@ interface DatePickerModalProps {
   matchDates?: Set<string>
 }
 
-const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"]
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+// Translation keys, not labels: the lookup happens inside the component so
+// `useT()` stays a hook call at the top level.
+const WEEKDAY_LETTER_KEYS = [
+  "common.weekday.narrow.sun",
+  "common.weekday.narrow.mon",
+  "common.weekday.narrow.tue",
+  "common.weekday.narrow.wed",
+  "common.weekday.narrow.thu",
+  "common.weekday.narrow.fri",
+  "common.weekday.narrow.sat",
+]
+const MONTH_NAME_KEYS = [
+  "common.month.january", "common.month.february", "common.month.march",
+  "common.month.april", "common.month.may", "common.month.june",
+  "common.month.july", "common.month.august", "common.month.september",
+  "common.month.october", "common.month.november", "common.month.december",
 ]
 
 // Local-date → `yyyy-mm-dd`. We deliberately do NOT use
@@ -57,6 +71,8 @@ export function DatePickerModal({
   onClose,
   matchDates,
 }: DatePickerModalProps) {
+  const t = useT()
+
   // The month currently being browsed. Starts at the selected day's
   // month, updated as the user taps prev/next. Resets when the modal
   // opens fresh (not on every re-render, just on open → selected change).
@@ -129,7 +145,7 @@ export function DatePickerModal({
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"
       role="dialog"
       aria-modal="true"
-      aria-label="Pick a date"
+      aria-label={t("common.datepicker.aria")}
       onClick={onClose}
     >
       <div
@@ -139,13 +155,13 @@ export function DatePickerModal({
         {/* Header */}
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold text-primary">
-            {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear()}
+            {t(MONTH_NAME_KEYS[viewDate.getMonth()])} {viewDate.getFullYear()}
           </p>
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={prevMonth}
-              aria-label="Previous month"
+              aria-label={t("common.datepicker.prevmonth")}
               className="flex h-8 w-8 items-center justify-center rounded-full text-primary/60 hover:bg-primary/5 hover:text-primary"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -155,7 +171,7 @@ export function DatePickerModal({
             <button
               type="button"
               onClick={nextMonth}
-              aria-label="Next month"
+              aria-label={t("common.datepicker.nextmonth")}
               className="flex h-8 w-8 items-center justify-center rounded-full text-primary/60 hover:bg-primary/5 hover:text-primary"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -167,12 +183,12 @@ export function DatePickerModal({
 
         {/* Weekday row */}
         <div className="mt-4 grid grid-cols-7 gap-1 px-1 text-center">
-          {WEEKDAY_LETTERS.map((l, i) => (
+          {WEEKDAY_LETTER_KEYS.map((k, i) => (
             <span
-              key={`${l}-${i}`}
+              key={`${k}-${i}`}
               className="text-[10px] font-medium uppercase tracking-wide text-primary/40"
             >
-              {l}
+              {t(k)}
             </span>
           ))}
         </div>
@@ -231,14 +247,14 @@ export function DatePickerModal({
             onClick={() => handlePick(todayIso)}
             className="text-xs font-medium text-primary/70 hover:text-primary"
           >
-            Today
+            {t("common.today")}
           </button>
           <button
             type="button"
             onClick={onClose}
             className="text-xs font-medium text-primary/50 hover:text-primary"
           >
-            Close
+            {t("common.close")}
           </button>
         </div>
       </div>

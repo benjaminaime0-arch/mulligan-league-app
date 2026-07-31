@@ -30,6 +30,10 @@ const PREFERENCE_META: Record<NotificationType, { label: string; description: st
     label: "Added to a match",
     description: "When you're added to a scheduled game match",
   },
+  match_live: {
+    label: "Match live",
+    description: "When a match in one of your games starts hole-by-hole scoring",
+  },
   join_request: {
     label: "Join request (admin)",
     description: "When someone wants to join your game or match",

@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { Avatar } from "@/components/Avatar"
+import { useT } from "@/lib/i18n"
 import type { LeaderboardRow } from "../types"
 import type { GameFormat } from "@/components/match/types"
 import { formatCopy, gapAhead } from "@/lib/gameFormat"
@@ -26,6 +27,12 @@ interface LeaderboardTableProps {
    * play if omitted.
    */
   gameFormat?: GameFormat
+  /**
+   * Match-play games (Phase D): total_score arrives as 2×wins + 1×halves
+   * (halves kept integral for the bigint pipe) and best_score carries holes
+   * won. Render V/half points and the right column titles.
+   */
+  matchPlay?: boolean
 }
 
 export function LeaderboardTable({
@@ -34,15 +41,30 @@ export function LeaderboardTable({
   currentUserId,
   scoringCardsCount,
   gameFormat = "stroke_play",
+  matchPlay = false,
 }: LeaderboardTableProps) {
+  const t = useT()
   const copy = formatCopy(gameFormat)
   // Tooltip copy flexes with game config. When a `scoring_cards_count`
   // is set, every round played may not count toward Total — we
   // explain the "best N of M" rule. Otherwise the two numbers are
   // always equal, so we label the column for what it is.
   const countedTitle = scoringCardsCount
-    ? `Counted / Played — best ${scoringCardsCount} of all rounds played count toward Total`
-    : "Rounds played in this game"
+    ? t("games.standings.counted.title", { n: scoringCardsCount })
+    : t("games.standings.counted.title.all")
+
+  // The per-format noun ("strokes"/"points") and superlative
+  // ("Lowest"/"Best") don't survive interpolation into French, so the
+  // localized strings are keyed off the format instead of built from
+  // `formatCopy`'s English words. Same branch `formatCopy` itself uses.
+  const scoreNoun =
+    gameFormat === "stableford"
+      ? t("games.format.noun.points")
+      : t("games.format.noun.strokes")
+  const bestTitle =
+    gameFormat === "stableford"
+      ? t("games.standings.best.title.stableford")
+      : t("games.standings.best.title.stroke")
 
   // Defensive sort — the RPC already returns rows in the right order,
   // but the `+N ahead` gap calculation below reads `rows[idx + 1]`
@@ -59,7 +81,9 @@ export function LeaderboardTable({
   return (
     <div className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold text-primary">Leaderboard</h2>
+        <h2 className="text-sm font-semibold text-primary">
+          {t("games.standings.title")}
+        </h2>
         {subtitle && (
           <p className="shrink-0 text-[10px] text-primary/40">{subtitle}</p>
         )}
@@ -93,10 +117,10 @@ export function LeaderboardTable({
               appears even at zero rounds. So the copy addresses the
               "roster is empty" case, not "nobody has played yet". */}
           <p className="text-sm font-medium text-primary/70">
-            No players yet
+            {t("games.standings.empty")}
           </p>
           <p className="mt-0.5 text-xs text-primary/40">
-            Invite your first players to start the board.
+            {t("games.standings.empty.sub")}
           </p>
         </div>
       ) : (
@@ -105,24 +129,26 @@ export function LeaderboardTable({
             <thead>
               <tr className="border-b border-primary/10 text-[10px] uppercase tracking-wider text-primary/50">
                 <th className="py-2 pr-2 font-medium">#</th>
-                <th className="py-2 pr-3 font-medium">Player</th>
-                <th
-                  className="py-2 pr-3 text-right font-medium"
-                  title={`Sum of your counted ${copy.noun} rounds`}
-                >
-                  Total
+                <th className="py-2 pr-3 font-medium">
+                  {t("games.standings.col.player")}
                 </th>
                 <th
                   className="py-2 pr-3 text-right font-medium"
-                  title={`${copy.superlative} single round this game`}
+                  title={t("games.standings.total.title", { noun: scoreNoun })}
                 >
-                  Best
+                  {t("games.standings.col.total")}
+                </th>
+                <th
+                  className="py-2 pr-3 text-right font-medium"
+                  title={bestTitle}
+                >
+                  {t("games.standings.col.best")}
                 </th>
                 <th
                   className="py-2 text-right font-medium"
                   title={countedTitle}
                 >
-                  Counted
+                  {t("games.standings.col.counted")}
                 </th>
               </tr>
             </thead>
@@ -197,7 +223,9 @@ export function LeaderboardTable({
                     <td className="py-3 pl-1 pr-2">
                       <span
                         className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${medal.className}`}
-                        aria-label={`Position ${position}`}
+                        aria-label={t("games.standings.position", {
+                          n: position,
+                        })}
                       >
                         {medal.content ?? position}
                       </span>
@@ -213,7 +241,7 @@ export function LeaderboardTable({
                           <Avatar src={row.avatar_url} size={24} fallback={row.player_name || "P"} />
                           <span className="flex min-w-0 flex-1 items-center gap-1.5">
                             <span className="truncate font-medium">
-                              {row.player_name || "Player"}
+                              {row.player_name || t("games.standings.col.player")}
                             </span>
                             {/* "YOU" pill dropped — the row already
                                 carries a cream bg + left primary border
@@ -222,15 +250,21 @@ export function LeaderboardTable({
                                 from the leader-gap text. */}
                             {gapToNext != null && gapToNext > 0 && (
                               <span className="shrink-0 text-[10px] font-medium text-emerald-700/80">
-                                +{gapToNext} ahead
+                                {t("games.standings.ahead", { n: gapToNext })}
                               </span>
                             )}
                             {toGoForRank != null && (
                               <span
                                 className="shrink-0 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
-                                title={`Provisional — needs ${toGoForRank} more counted round${toGoForRank === 1 ? "" : "s"} to lock this total`}
+                                title={
+                                  toGoForRank === 1
+                                    ? t("games.standings.togo.title.one")
+                                    : t("games.standings.togo.title", {
+                                        n: toGoForRank,
+                                      })
+                                }
                               >
-                                +{toGoForRank} to go
+                                {t("games.standings.togo", { n: toGoForRank })}
                               </span>
                             )}
                           </span>
@@ -246,19 +280,25 @@ export function LeaderboardTable({
                           <Avatar src={row.avatar_url} size={24} fallback={row.player_name || "P"} />
                           <span className="flex min-w-0 flex-1 items-center gap-1.5">
                             <span className="truncate font-medium">
-                              {row.player_name || "Player"}
+                              {row.player_name || t("games.standings.col.player")}
                             </span>
                             {gapToNext != null && gapToNext > 0 && (
                               <span className="shrink-0 text-[10px] font-medium text-emerald-700/80">
-                                +{gapToNext} ahead
+                                {t("games.standings.ahead", { n: gapToNext })}
                               </span>
                             )}
                             {toGoForRank != null && (
                               <span
                                 className="shrink-0 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
-                                title={`Provisional — needs ${toGoForRank} more counted round${toGoForRank === 1 ? "" : "s"} to lock this total`}
+                                title={
+                                  toGoForRank === 1
+                                    ? t("games.standings.togo.title.one")
+                                    : t("games.standings.togo.title", {
+                                        n: toGoForRank,
+                                      })
+                                }
                               >
-                                +{toGoForRank} to go
+                                {t("games.standings.togo", { n: toGoForRank })}
                               </span>
                             )}
                           </span>
@@ -273,14 +313,22 @@ export function LeaderboardTable({
                         isLeader ? "text-lg font-extrabold" : "text-base font-bold"
                       }`}
                     >
-                      {row.total_score != null ? `${row.total_score}${copy.unit}` : "–"}
+                      {row.total_score != null
+                        ? matchPlay
+                          ? formatHalfPoints(row.total_score)
+                          : `${row.total_score}${copy.unit}`
+                        : "–"}
                     </td>
 
                     {/* Best — secondary. Same unit flip so stableford
                         shows "18 pts" instead of a bare 18 that reads
                         like a stroke score. */}
                     <td className="py-3 pr-3 text-right text-xs tabular-nums text-primary/60">
-                      {row.best_score != null ? `${row.best_score}${copy.unit}` : "–"}
+                      {row.best_score != null
+                        ? matchPlay
+                          ? String(row.best_score)
+                          : `${row.best_score}${copy.unit}`
+                        : "–"}
                     </td>
 
                     {/* Counted — secondary. Rendered as "counted / played"
@@ -326,4 +374,15 @@ function getMedal(position: number): { content: string | null; className: string
     content: null,
     className: "text-primary/60",
   }
+}
+
+/**
+ * Match points arrive doubled (2 = win, 1 = half) so the DB pipe stays
+ * integral; display 3 → "1,5 pts". French decimal comma on purpose —
+ * the whole surface is FR-first.
+ */
+function formatHalfPoints(doubled: number | null | undefined): string {
+  if (doubled == null) return "–"
+  const whole = Math.floor(doubled / 2)
+  return doubled % 2 === 0 ? `${whole} pts` : `${whole},5 pts`
 }

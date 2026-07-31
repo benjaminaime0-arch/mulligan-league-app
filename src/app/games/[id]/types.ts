@@ -12,6 +12,8 @@ export type MemberWithProfile = {
   id: string | number
   game_id: string | number
   user_id: string
+  /** Ryder team (Phase D): 1 | 2 | null while unassigned. */
+  team?: number | null
   profiles?: {
     id: string
     first_name?: string | null

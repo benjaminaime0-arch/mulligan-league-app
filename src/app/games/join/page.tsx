@@ -4,13 +4,16 @@ import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
+import { useT } from "@/lib/i18n"
 
 export default function JoinGamePage() {
+  const t = useT()
+
   return (
     <Suspense
       fallback={
         <main className="flex min-h-screen items-center justify-center">
-          <p className="text-primary/70">Loading…</p>
+          <p className="text-primary/70">{t("common.loading")}</p>
         </main>
       }
     >
@@ -23,6 +26,7 @@ function JoinGameContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
+  const t = useT()
 
   const [code, setCode] = useState(searchParams.get("code")?.toUpperCase().slice(0, 6) || "")
   const [submitting, setSubmitting] = useState(false)
@@ -38,7 +42,7 @@ function JoinGameContent() {
 
     const trimmed = code.trim().toUpperCase()
     if (trimmed.length !== 6) {
-      setError("Invite code must be 6 characters.")
+      setError(t("games.join.error.length"))
       return
     }
 
@@ -59,7 +63,7 @@ function JoinGameContent() {
       if (!result || !result.success || !result.game_id || !result.game_name) {
         const message =
           result?.error ||
-          "Unable to join game. The code may be invalid, the game may be full, or you may already be a member."
+          t("games.join.error.failed")
         setError(message)
         return
       }
@@ -84,13 +88,13 @@ function JoinGameContent() {
       )
       setSuccessMemberCount(membersRes.data?.length ?? 0)
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Something went wrong. Please try again."
+      const message = err instanceof Error ? err.message : t("common.error.generic")
       if (message.toLowerCase().includes("invalid")) {
-        setError("Invalid invite code.")
+        setError(t("games.join.error.invalid"))
       } else if (message.toLowerCase().includes("full")) {
-        setError("This game is full.")
+        setError(t("games.join.error.full"))
       } else if (message.toLowerCase().includes("already")) {
-        setError("You are already a member of this game.")
+        setError(t("games.join.error.member"))
       } else {
         setError(message)
       }
@@ -102,7 +106,7 @@ function JoinGameContent() {
   if (authLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-primary/70">Checking your session…</p>
+        <p className="text-primary/70">{t("auth.checking")}</p>
       </main>
     )
   }
@@ -124,16 +128,18 @@ function JoinGameContent() {
               </svg>
             </div>
 
-            <h2 className="text-xl font-bold text-primary">You&apos;re in!</h2>
+            <h2 className="text-xl font-bold text-primary">{t("games.joined.title")}</h2>
 
             <p className="mt-2 text-lg font-semibold text-primary">
               {successGameName}
             </p>
 
             <p className="mt-1 text-sm text-primary/60">
-              {successCourseName || "Course TBA"}
+              {successCourseName || t("games.card.nocourse")}
               {" · "}
-              {successMemberCount} member{successMemberCount !== 1 ? "s" : ""}
+              {successMemberCount === 1
+                ? t("games.members.one")
+                : t("games.members", { n: successMemberCount })}
             </p>
 
             <div className="mt-6 flex flex-col gap-3">
@@ -142,14 +148,14 @@ function JoinGameContent() {
                 onClick={() => router.push(`/games/${gameId}`)}
                 className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98]"
               >
-                Go to Game
+                {t("games.goto")}
               </button>
               <button
                 type="button"
                 onClick={() => router.push("/dashboard")}
                 className="w-full rounded-lg border border-primary/30 bg-white px-4 py-3 text-sm font-medium text-primary transition-all hover:bg-primary/5 active:scale-[0.98]"
               >
-                Back to Dashboard
+                {t("common.back.dashboard")}
               </button>
             </div>
           </div>
@@ -162,9 +168,9 @@ function JoinGameContent() {
     <main className="min-h-screen px-4 py-8">
       <div className="mx-auto flex w-full max-w-md flex-col gap-8">
         <header className="text-center">
-          <h1 className="text-2xl font-bold text-primary">Join a Game</h1>
+          <h1 className="text-2xl font-bold text-primary">{t("games.join.full")}</h1>
           <p className="mt-2 text-sm text-primary/70">
-            Got a code from a friend? Punch it in and you&apos;re in.
+            {t("games.join.subtitle")}
           </p>
         </header>
 
@@ -183,7 +189,7 @@ function JoinGameContent() {
               htmlFor="invite-code"
               className="mb-3 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60"
             >
-              INVITE CODE
+              {t("games.join.code.label")}
             </label>
             <input
               id="invite-code"
@@ -198,7 +204,7 @@ function JoinGameContent() {
               disabled={submitting}
             />
             <p className="mt-2 text-xs text-primary/60">
-              6 letters and numbers, not case sensitive.
+              {t("games.join.code.hint")}
             </p>
           </div>
 
@@ -207,7 +213,7 @@ function JoinGameContent() {
             disabled={submitting}
             className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? "Joining game…" : "Join Game"}
+            {submitting ? t("invite.joining") : t("games.join.full")}
           </button>
         </form>
       </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useT } from "@/lib/i18n"
 
 interface SharePageProps {
   params: { matchId: string }
@@ -19,6 +20,7 @@ interface SharePageProps {
  * Slack the preview already renders the card.
  */
 export default function RoundSharePage({ params }: SharePageProps) {
+  const t = useT()
   const matchId = params.matchId
   const [origin, setOrigin] = useState("")
   const [copied, setCopied] = useState(false)
@@ -48,8 +50,8 @@ export default function RoundSharePage({ params }: SharePageProps) {
     if (!shareUrl || typeof navigator === "undefined" || !navigator.share) return
     try {
       await navigator.share({
-        title: "Mulligan round",
-        text: "Check out this round on Mulligan:",
+        title: t("games.share.native.title"),
+        text: t("games.share.native.text"),
         url: shareUrl,
       })
     } catch {
@@ -66,9 +68,11 @@ export default function RoundSharePage({ params }: SharePageProps) {
             className="inline-flex items-center gap-1 text-xs font-medium text-primary/60 hover:text-primary"
           >
             <ChevronLeft />
-            Back to match
+            {t("games.share.back")}
           </Link>
-          <h1 className="text-sm font-semibold text-primary">Share round</h1>
+          <h1 className="text-sm font-semibold text-primary">
+            {t("games.share.title")}
+          </h1>
           <span className="w-[68px]" />
         </header>
 
@@ -78,7 +82,7 @@ export default function RoundSharePage({ params }: SharePageProps) {
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageUrl}
-              alt="Round card"
+              alt={t("games.share.card.alt")}
               className="block h-auto w-full"
               width={1080}
               height={1080}
@@ -99,7 +103,7 @@ export default function RoundSharePage({ params }: SharePageProps) {
               className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-cream transition-colors hover:bg-primary/90"
             >
               <ShareIcon />
-              Share
+              {t("games.share.cta")}
             </button>
           )}
 
@@ -109,7 +113,7 @@ export default function RoundSharePage({ params }: SharePageProps) {
             className="flex items-center justify-center gap-2 rounded-lg border border-primary/20 bg-white px-4 py-3 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
           >
             <LinkIcon />
-            {copied ? "Link copied!" : "Copy share link"}
+            {copied ? t("games.share.copied") : t("games.share.copy")}
           </button>
 
           {imageUrl && (
@@ -119,13 +123,13 @@ export default function RoundSharePage({ params }: SharePageProps) {
               className="flex items-center justify-center gap-2 rounded-lg border border-primary/20 bg-white px-4 py-3 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
             >
               <DownloadIcon />
-              Download image
+              {t("games.share.download")}
             </a>
           )}
         </div>
 
         <p className="mt-2 text-center text-[11px] text-primary/40">
-          Anyone with the link can see this round card.
+          {t("games.share.note")}
         </p>
       </div>
     </main>

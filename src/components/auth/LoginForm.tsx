@@ -3,8 +3,10 @@
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { useT } from "@/lib/i18n"
 
 export function LoginForm() {
+  const t = useT()
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get("redirect")
@@ -21,11 +23,11 @@ export function LoginForm() {
 
   const validate = () => {
     const errors: Record<string, string> = {}
-    if (!formData.email.trim()) errors.email = "Email is required"
+    if (!formData.email.trim()) errors.email = t("auth.error.email.required")
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = "Please enter a valid email"
+      errors.email = t("auth.error.email.invalid")
     }
-    if (!formData.password) errors.password = "Password is required"
+    if (!formData.password) errors.password = t("auth.error.password.required")
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -48,7 +50,7 @@ export function LoginForm() {
       router.refresh()
       router.push(redirectTo || "/home")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid email or password")
+      setError(err instanceof Error ? err.message : t("auth.error.credentials"))
     } finally {
       setLoading(false)
     }
@@ -67,7 +69,7 @@ export function LoginForm() {
 
       <div>
         <label htmlFor="login-email" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
-          Email
+          {t("auth.email")}
         </label>
         <input
           id="login-email"
@@ -86,7 +88,7 @@ export function LoginForm() {
 
       <div>
         <label htmlFor="login-password" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
-          Password
+          {t("auth.password")}
         </label>
         <input
           id="login-password"
@@ -108,12 +110,12 @@ export function LoginForm() {
         disabled={loading}
         className="w-full rounded-[10px] bg-primary px-4 py-3 text-[15px] font-bold tracking-[-0.02em] text-cream transition-all hover:bg-primary-deep active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {loading ? "Logging in…" : "Log In"}
+        {loading ? t("auth.login.submitting") : t("auth.login")}
       </button>
 
       <p className="text-center text-sm text-charcoal/70">
         {resetSent ? (
-          <span className="text-primary">Check your email for a reset link.</span>
+          <span className="text-primary">{t("auth.reset.sent")}</span>
         ) : (
           <button
             type="button"
@@ -121,7 +123,7 @@ export function LoginForm() {
             onClick={async () => {
               const email = formData.email.trim()
               if (!email) {
-                setError("Enter your email above, then click forgot password.")
+                setError(t("auth.reset.needemail"))
                 return
               }
               setResetLoading(true)
@@ -136,14 +138,14 @@ export function LoginForm() {
                 if (resetError) throw resetError
                 setResetSent(true)
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Failed to send reset email.")
+                setError(err instanceof Error ? err.message : t("auth.reset.failed"))
               } finally {
                 setResetLoading(false)
               }
             }}
             className="text-charcoal underline hover:no-underline disabled:opacity-60"
           >
-            {resetLoading ? "Sending…" : "Forgot password?"}
+            {resetLoading ? t("games.match.sending") : t("auth.forgot")}
           </button>
         )}
       </p>

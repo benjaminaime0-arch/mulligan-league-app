@@ -125,3 +125,79 @@ export function formatScore(
   const unit = formatCopy(format).unit
   return `${score}${unit}`
 }
+
+/**
+ * Score relative to par: +16, E, −3. Null when either side is unknown —
+ * callers render nothing rather than a wrong number. Uses the typographic
+ * minus (U+2212) to match the en-dash style used elsewhere.
+ */
+export function vsPar(
+  score: number | null | undefined,
+  par: number | null | undefined,
+): string | null {
+  if (score == null || par == null) return null
+  const d = score - par
+  if (d === 0) return "E"
+  return d > 0 ? `+${d}` : `−${-d}`
+}
+
+/**
+ * Single helper for the "88 (+16)" display (Phase B): stroke-play totals on
+ * a course with known par gain the vs-par suffix; stableford points and
+ * par-less courses fall back to plain formatScore. Every surface showing a
+ * round total goes through here — never hand-roll the parenthesis.
+ */
+export function formatScoreVsPar(
+  score: number | null | undefined,
+  par: number | null | undefined,
+  format: GameFormat,
+): string {
+  const base = formatScore(score, format)
+  if (format !== "stroke_play") return base
+  const rel = vsPar(score, par)
+  return rel == null ? base : `${base} (${rel})`
+}
+
+/**
+ * Per-hole result vs par, for scorecard cells and live strips.
+ * net = strokes − par: −2 eagle, −1 birdie, 0 par, +1 bogey, +2 double.
+ */
+export type HoleRelative = "eagle" | "birdie" | "par" | "bogey" | "double_plus"
+
+export function holeRelative(strokes: number, par: number): HoleRelative {
+  const d = strokes - par
+  if (d <= -2) return "eagle"
+  if (d === -1) return "birdie"
+  if (d === 0) return "par"
+  if (d === 1) return "bogey"
+  return "double_plus"
+}
+
+/**
+ * Scoring basis (Phase C): what the leaderboard aggregates in a stroke-play
+ * game. 'gross' = raw totals (default, pre-C behavior), 'net' = gross −
+ * playing handicap, 'stableford_net' = points computed from per-hole net.
+ * A stableford-FORMAT game always uses 'gross' (it already is points).
+ */
+export type ScoringBasis = "gross" | "net" | "stableford_net"
+
+export function resolveBasis(
+  game: Pick<Game, "scoring_basis"> | null | undefined,
+): ScoringBasis {
+  const b = game?.scoring_basis
+  return b === "net" || b === "stableford_net" ? b : "gross"
+}
+
+/**
+ * The format whose DIRECTION and COPY apply once the basis is considered:
+ * a stableford_net stroke-play game behaves exactly like stableford
+ * downstream (higher is better, "points" copy), so every existing
+ * comparator/copy callsite can stay format-driven — just resolve through
+ * here instead of resolveFormat wherever basis matters.
+ */
+export function effectiveFormat(
+  game: Pick<Game, "format" | "scoring_basis"> | null | undefined,
+): GameFormat {
+  if (resolveFormat(game) === "stableford") return "stableford"
+  return resolveBasis(game) === "stableford_net" ? "stableford" : "stroke_play"
+}
