@@ -18,6 +18,7 @@ import {
   MyHonorsCard,
   type UserHonorRow,
 } from "@/components/profile/MyHonorsCard"
+import { ConquestCard } from "@/components/profile/ConquestCard"
 import { MatchCalendarSection } from "@/components/match/MatchCalendarSection"
 import type { Game as SharedGame, Match as SharedMatch, MatchPlayer as SharedMatchPlayer } from "@/components/match/types"
 import { ScoreTrendCard } from "@/components/profile/ScoreTrendCard"
@@ -818,6 +819,10 @@ export default function ProfilePage() {
             own empty state, so we always include it; loading flag is
             driven by the null sentinel while the RPC is in flight. */}
         <MyHonorsCard honors={honors ?? []} loading={honors === null} />
+
+        {/* 3c. Parcours conquis — department grid (Phase F). Renders
+            nothing until the player has verified-course rounds. */}
+        <ConquestCard userId={user.id} />
 
         {/* Activity feed retired here — each game page now owns
             its own scoped feed (see GameActivityCard). */}

@@ -3,12 +3,19 @@
 import { useState } from "react"
 
 import { useI18n } from "@/lib/i18n"
+import { vsPar } from "@/lib/gameFormat"
 
 export interface CoursePlay {
   course_name: string
   times_played: number
   best_score: number | null
   last_played_date: string | null
+  // Verified-course context (Phase F): present when the rounds carry a
+  // course_id — enables the city line, the "(+N)" on best, and the deep
+  // link to the public course page.
+  course_id?: string | null
+  course_city?: string | null
+  course_par?: number | null
 }
 
 interface CoursesCardProps {
@@ -89,6 +96,9 @@ export function CoursesCard({ courses, loading = false }: CoursesCardProps) {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-primary">
                       {course.course_name}
+                      {course.course_city ? (
+                        <span className="font-normal text-primary/40"> · {course.course_city}</span>
+                      ) : null}
                     </p>
                     <p className="mt-0.5 truncate text-[11px] text-primary/50">
                       {Number(course.times_played) === 1
@@ -109,6 +119,11 @@ export function CoursesCard({ courses, loading = false }: CoursesCardProps) {
                     </p>
                     <p className="text-sm font-bold tabular-nums text-primary">
                       {course.best_score}
+                      {course.course_par != null && (
+                        <span className="font-medium text-primary/50">
+                          {" "}({vsPar(course.best_score, course.course_par)})
+                        </span>
+                      )}
                     </p>
                   </div>
                 )}
