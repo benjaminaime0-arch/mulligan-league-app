@@ -23,6 +23,7 @@ import { DraftGuide } from "./components/DraftGuide"
 import { GameActivityCard } from "./components/GameActivityCard"
 import { BadgesCard, type BadgeRow } from "./components/BadgesCard"
 import {
+  effectiveFormat,
   formatCopy,
   isBetter,
   resolveFormat,
@@ -318,7 +319,7 @@ export default function GamePage({ params }: GamePageProps) {
               supabase
                 .from("match_players")
                 .select(
-                  "match_id, user_id, approved_at, profiles(username, first_name, avatar_url)",
+                  "match_id, user_id, approved_at, playing_handicap, profiles(username, first_name, avatar_url)",
                 )
                 .in("match_id", matchIds),
               // All scores (any status) for period matches. We used to
@@ -401,6 +402,7 @@ export default function GamePage({ params }: GamePageProps) {
                 match_id: string | number
                 user_id: string
                 approved_at: string | null
+                playing_handicap: number | null
                 profiles: { username?: string | null; first_name?: string | null; avatar_url?: string | null } | null
               }>) {
                 const existing = map.get(row.match_id) || []
@@ -416,6 +418,7 @@ export default function GamePage({ params }: GamePageProps) {
                   holes: entry?.holes ?? null,
                   status: entry?.status ?? null,
                   approved_at: row.approved_at,
+                  playing_handicap: row.playing_handicap,
                   isBestScore:
                     entry?.status === "approved" && bestMatchIds.has(key)
                       ? true
@@ -892,7 +895,7 @@ export default function GamePage({ params }: GamePageProps) {
             leaderboard={leaderboard}
             currentUserId={user.id}
             scoringCardsCount={game.scoring_cards_count ?? null}
-            gameFormat={resolveFormat(game)}
+            gameFormat={effectiveFormat(game)}
           />
 
           {/* Honors — compact achievements strip. Hidden entirely for
@@ -903,7 +906,7 @@ export default function GamePage({ params }: GamePageProps) {
             <BadgesCard
               badges={badges}
               currentUserId={user.id}
-              gameFormat={resolveFormat(game)}
+              gameFormat={effectiveFormat(game)}
             />
           )}
 

@@ -172,3 +172,32 @@ export function holeRelative(strokes: number, par: number): HoleRelative {
   if (d === 1) return "bogey"
   return "double_plus"
 }
+
+/**
+ * Scoring basis (Phase C): what the leaderboard aggregates in a stroke-play
+ * game. 'gross' = raw totals (default, pre-C behavior), 'net' = gross −
+ * playing handicap, 'stableford_net' = points computed from per-hole net.
+ * A stableford-FORMAT game always uses 'gross' (it already is points).
+ */
+export type ScoringBasis = "gross" | "net" | "stableford_net"
+
+export function resolveBasis(
+  game: Pick<Game, "scoring_basis"> | null | undefined,
+): ScoringBasis {
+  const b = game?.scoring_basis
+  return b === "net" || b === "stableford_net" ? b : "gross"
+}
+
+/**
+ * The format whose DIRECTION and COPY apply once the basis is considered:
+ * a stableford_net stroke-play game behaves exactly like stableford
+ * downstream (higher is better, "points" copy), so every existing
+ * comparator/copy callsite can stay format-driven — just resolve through
+ * here instead of resolveFormat wherever basis matters.
+ */
+export function effectiveFormat(
+  game: Pick<Game, "format" | "scoring_basis"> | null | undefined,
+): GameFormat {
+  if (resolveFormat(game) === "stableford") return "stableford"
+  return resolveBasis(game) === "stableford_net" ? "stableford" : "stroke_play"
+}

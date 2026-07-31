@@ -33,6 +33,7 @@ import {
   formatCopy,
   formatScoreVsPar,
   gapAhead,
+  resolveBasis,
   resolveFormat,
 } from "@/lib/gameFormat"
 import { ScorecardEditor } from "./ScorecardEditor"
@@ -957,7 +958,12 @@ export function MatchDetailCard({
                         }`}
                       >
                         {p.score != null
-                          ? formatScoreVsPar(p.score, coursePar, gameFormat)
+                          ? resolveBasis(game) === "net" && p.playing_handicap != null
+                            ? t("scores.netgross", {
+                                net: p.score - p.playing_handicap,
+                                gross: p.score,
+                              })
+                            : formatScoreVsPar(p.score, coursePar, gameFormat)
                           : "–"}
                       </span>
                       {/* Per-player status pill dropped on both

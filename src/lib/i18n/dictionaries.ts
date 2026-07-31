@@ -652,6 +652,16 @@ export const en: Dict = {
   "scorecard.forceclose": "Leave anyway",
   "scorecard.loading": "Loading the card…",
   "scorecard.error": "Could not load the scorecard.",
+
+  // ── Net scoring (Phase C) ───────────────────────────────────────────────
+  "games.create.basis": "Ranking basis",
+  "games.basis.gross": "Gross",
+  "games.basis.gross.hint": "Raw scores",
+  "games.basis.net": "Net",
+  "games.basis.net.hint": "Handicap deducted",
+  "games.basis.stableford_net": "Net Stableford",
+  "games.basis.stableford_net.hint": "Points, hole by hole",
+  "scores.netgross": "Net {net} · Gross {gross}",
 }
 
 export const fr: Dict = {
@@ -1285,6 +1295,16 @@ export const fr: Dict = {
   "scorecard.forceclose": "Quitter quand même",
   "scorecard.loading": "Chargement de la carte…",
   "scorecard.error": "Impossible de charger la carte de score.",
+
+  // ── Score net (Phase C) ─────────────────────────────────────────────────
+  "games.create.basis": "Base de classement",
+  "games.basis.gross": "Brut",
+  "games.basis.gross.hint": "Scores bruts",
+  "games.basis.net": "Net",
+  "games.basis.net.hint": "Handicap déduit",
+  "games.basis.stableford_net": "Stableford net",
+  "games.basis.stableford_net.hint": "Points, trou par trou",
+  "scores.netgross": "Net {net} · Brut {gross}",
 }
 
 export const dictionaries: Record<Locale, Dict> = { fr, en }
