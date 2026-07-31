@@ -8,11 +8,13 @@ import { useAuth } from "@/hooks/useAuth"
 import { track } from "@/lib/analytics"
 import { useT } from "@/lib/i18n"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
+import { CourseAutocomplete, type CourseSuggestion } from "@/components/CourseAutocomplete"
 
 type Game = {
   id: string
   name: string
   course_name?: string | null
+  course_id?: string | null
   // `status` surfaces so we can filter out completed games from the
   // create-match picker — you can't schedule new rounds in a game
   // whose season is already wrapped.
@@ -83,10 +85,27 @@ function CreateMatchContent() {
   const [time, setTime] = useState<string>("")
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([])
 
+  // Course: prefilled from the selected game, editable per match (T A3).
+  // courseText is what gets stored as course_name; courseId only survives a
+  // referential pick (free-typing clears it via onSelect(null)).
+  const [courseText, setCourseText] = useState<string>("")
+  const [courseId, setCourseId] = useState<string | null>(null)
+
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const selectedGame = userGames.find((l) => l.id === selectedGameId) || null
+
+  // Re-prefill the course whenever the game changes: most matches happen on
+  // the game's home course, so that's the default — but any round can move.
+  useEffect(() => {
+    setCourseText(selectedGame?.course_name || "")
+    setCourseId(selectedGame?.course_id || null)
+  }, [selectedGame?.id, selectedGame?.course_name, selectedGame?.course_id])
+
+  const handleCoursePick = useCallback((c: CourseSuggestion | null) => {
+    setCourseId(c?.id ?? null)
+  }, [])
 
   // Load user's games once auth is ready
   useEffect(() => {
@@ -98,7 +117,7 @@ function CreateMatchContent() {
       // accept new matches.
       const { data: memberships, error: memErr } = await supabase
         .from("game_members")
-        .select("id, game_id, user_id, games(id, name, course_name, status)")
+        .select("id, game_id, user_id, games(id, name, course_name, course_id, status)")
         .eq("user_id", user.id)
 
       if (!memErr && memberships) {
@@ -252,7 +271,8 @@ function CreateMatchContent() {
         .insert({
           game_id: selectedGameId,
           period_id: activePeriod.id,
-          course_name: selectedGame.course_name || null,
+          course_name: courseText.trim() || selectedGame.course_name || null,
+          course_id: courseId,
           match_date: date,
           match_time: time || null,
           created_by: user.id,
@@ -361,6 +381,24 @@ function CreateMatchContent() {
               ))}
             </select>
           </div>
+
+          {/* Course — defaults to the game's home course, editable per match.
+              Free text stays allowed for unlisted courses (course_id NULL). */}
+          {selectedGameId && (
+            <div>
+              <label htmlFor="match-course" className="mb-1 block text-sm font-medium text-primary">
+                {t("course.label")}
+              </label>
+              <CourseAutocomplete
+                id="match-course"
+                value={courseText}
+                onChange={setCourseText}
+                onSelect={handleCoursePick}
+                placeholder={t("course.placeholder")}
+                disabled={submitting}
+              />
+            </div>
+          )}
 
           {/* Date / Time */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
