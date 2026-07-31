@@ -680,6 +680,9 @@ export const en: Dict = {
   "games.team.assign.open": "Assign teams",
   "games.team.assign.close": "Close assignment",
   "games.team.autobalance": "Auto-balance the rest",
+
+  // ── Live scoring (Phase E) ──────────────────────────────────────────────
+  "games.match.live": "Live",
 }
 
 export const fr: Dict = {
@@ -1341,6 +1344,9 @@ export const fr: Dict = {
   "games.team.assign.open": "Attribuer les équipes",
   "games.team.assign.close": "Fermer l'attribution",
   "games.team.autobalance": "Répartir le reste",
+
+  // ── Score en direct (Phase E) ───────────────────────────────────────────
+  "games.match.live": "En direct",
 }
 
 export const dictionaries: Record<Locale, Dict> = { fr, en }

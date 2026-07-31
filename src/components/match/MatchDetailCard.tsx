@@ -360,6 +360,16 @@ export function MatchDetailCard({
   // those cases the player absolutely needs the Edit button. Only
   // lock editing once the match is "completed" (all approvals done,
   // leaderboard finalized) or "cancelled".
+  // LIVE = scores moved in the last 3h on a match that isn't closed (Phase E).
+  // last_edit_at is bumped by a DB trigger on every score write, so this
+  // captures both hole-by-hole entry and aggregate submissions in progress.
+  const isLive =
+    match.status !== "completed" &&
+    match.status !== "cancelled" &&
+    hasAnyScore &&
+    !!match.last_edit_at &&
+    Date.now() - new Date(match.last_edit_at).getTime() < 3 * 60 * 60 * 1000
+
   const canEnterScores =
     viewerIsPlayer &&
     match.status !== "completed" &&
@@ -782,6 +792,12 @@ export function MatchDetailCard({
               {timeLabel ? ` · ${timeLabel}` : ""}
             </p>
           </div>
+        )}
+        {isLive && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-600">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
+            {t("games.match.live")}
+          </span>
         )}
         {hasAnyScore && (
           <MatchApprovalBadge
