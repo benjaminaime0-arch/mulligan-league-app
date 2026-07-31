@@ -32,6 +32,8 @@ export type Match = {
   game_id: string | number
   period_id?: string | number | null
   course_name?: string | null
+  /** Verified course reference (Phase A); NULL for free-text courses. */
+  course_id?: string | null
   match_date?: string | null
   match_time?: string | null
   status?: string | null
@@ -56,6 +58,8 @@ export type Game = {
   id: string | number
   name: string
   course_name?: string | null
+  /** Verified course reference (Phase A); NULL for free-text courses. */
+  course_id?: string | null
   invite_code?: string | null
   max_players?: number | null
   admin_id?: string | null
