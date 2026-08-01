@@ -18,7 +18,7 @@ import { supabaseAnonServer } from "@/lib/supabaseServer"
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: "Golfs d'Île-de-France — annuaire des parcours | Mulligan",
+  title: "Golfs d'Île-de-France — annuaire des parcours",
   description:
     "Les parcours de golf d'Île-de-France : trous, par, distances et cartes de score. Créez votre ligue entre amis sur votre parcours avec Mulligan.",
   alternates: { canonical: "https://app.mulliganclub.co/courses" },

@@ -20,6 +20,7 @@ export type AnalyticsEvent =
   | "score_entered"
   | "score_confirmed"
   | "scorecard_opened"
+  | "live_share_enabled"
   | "home_cta_clicked"
   | "practice_started"
 

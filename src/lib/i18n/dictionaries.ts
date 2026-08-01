@@ -749,6 +749,12 @@ export const en: Dict = {
   "h2h.details": "{n} shared rounds · {ties} halved · avg margin {margin}",
   "h2h.streak.you": "{n}-win streak for you",
   "h2h.streak.them": "{n}-win streak for {name}",
+
+  // ── Live spectator link ─────────────────────────────────────────────────
+  "live.share.cta": "Share live",
+  "live.share.whatsapp": "Share live on WhatsApp",
+  "live.share.disable": "Deactivate the public link",
+  "live.whatsapp.message": "Follow our round live on Mulligan 🏌️ {url}",
 }
 
 export const fr: Dict = {
@@ -1475,6 +1481,12 @@ export const fr: Dict = {
   "h2h.details": "{n} tours partagés · {ties} nuls · écart moyen {margin}",
   "h2h.streak.you": "série de {n} victoires pour vous",
   "h2h.streak.them": "série de {n} victoires pour {name}",
+
+  // ── Lien spectateur en direct ───────────────────────────────────────────
+  "live.share.cta": "Partager en direct",
+  "live.share.whatsapp": "Partager en direct sur WhatsApp",
+  "live.share.disable": "Désactiver le lien public",
+  "live.whatsapp.message": "Suivez notre partie en direct sur Mulligan 🏌️ {url}",
 }
 
 export const dictionaries: Record<Locale, Dict> = { fr, en }

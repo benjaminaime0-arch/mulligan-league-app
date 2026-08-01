@@ -46,6 +46,8 @@ export type Match = {
   created_by?: string | null
   /** Bumped by DB trigger on every score change — powers the LIVE pill. */
   last_edit_at?: string | null
+  /** Public spectator token (live share); NULL = link not active. */
+  live_share_token?: string | null
 }
 
 /**

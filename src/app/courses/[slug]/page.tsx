@@ -66,7 +66,7 @@ export async function generateMetadata({
   params: { slug: string }
 }): Promise<Metadata> {
   const res = await fetchCourse(params.slug)
-  if (!res) return { title: "Parcours introuvable | Mulligan" }
+  if (!res) return { title: "Parcours introuvable" }
   const { course } = res
   const facts = [
     course.holes ? `${course.holes} trous` : null,
@@ -75,10 +75,22 @@ export async function generateMetadata({
   ]
     .filter(Boolean)
     .join(", ")
+  const title = `${course.name} — carte de score et infos`
+  const description = `${course.name} (${facts}) : carte de score trou par trou, distances et index. Organisez votre ligue entre amis sur ce parcours avec Mulligan.`
   return {
-    title: `${course.name} — carte de score et infos | Mulligan`,
-    description: `${course.name} (${facts}) : carte de score trou par trou, distances et index. Organisez votre ligue entre amis sur ce parcours avec Mulligan.`,
+    // Root layout's title.template appends "| Mulligan" — never hardcode it
+    // here or tabs render "… | Mulligan | Mulligan".
+    title,
+    description,
     alternates: { canonical: `https://app.mulliganclub.co/courses/${course.slug}` },
+    openGraph: {
+      title: `${course.name} — ${facts}`,
+      description,
+      type: "website",
+      siteName: "Mulligan",
+      url: `https://app.mulliganclub.co/courses/${course.slug}`,
+    },
+    twitter: { card: "summary", title: `${course.name} — ${facts}`, description },
   }
 }
 
