@@ -30,6 +30,16 @@ ALTER TABLE public.games ADD COLUMN IF NOT EXISTS is_practice boolean NOT NULL D
 CREATE UNIQUE INDEX IF NOT EXISTS games_one_practice_per_user
   ON public.games (admin_id) WHERE is_practice;
 
+-- The legacy cap (2..10, constraint name predates the leagues→games rename)
+-- forbids a party of one — carve the practice exception while keeping the
+-- exact same rule for real games. NULL max_players still passes, as before.
+ALTER TABLE public.games DROP CONSTRAINT IF EXISTS leagues_max_players_check;
+ALTER TABLE public.games ADD CONSTRAINT leagues_max_players_check
+  CHECK (
+    (max_players >= 2 AND max_players <= 10)
+    OR (is_practice AND max_players = 1)
+  );
+
 -- ---------------------------------------------------------------------------
 -- get_or_create_practice_game: lazy, idempotent
 -- ---------------------------------------------------------------------------
