@@ -15,7 +15,7 @@ import { useAuthContext } from "@/components/AuthProvider"
  * HTML looked perfect (Googlebot runs JS: it would have indexed the
  * login page for every course URL).
  */
-const authFreePrefixes = ["/privacy", "/terms", "/courses", "/share", "/join"]
+const authFreePrefixes = ["/privacy", "/terms", "/courses", "/share", "/join", "/live"]
 
 function isAuthFree(pathname: string): boolean {
   if (pathname === "/") return true
