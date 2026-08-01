@@ -3,6 +3,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { supabaseAnonServer } from "@/lib/supabaseServer"
 import { MyCourseStats } from "./MyCourseStats"
+import { PracticeCta } from "./PracticeCta"
 
 /**
  * /courses/[slug] — one course's public page (Phase F): header facts, the
@@ -212,6 +213,10 @@ export default async function CoursePage({ params }: { params: { slug: string } 
           logged out or never played (client island; the page stays static
           HTML for crawlers either way). */}
       <MyCourseStats courseId={course.id} coursePar={course.par} courseHoles={course.holes} />
+
+      {/* Solo practice round — one tap from course page to scorecard.
+          Logged-out visitors route through auth with ?redirect back here. */}
+      <PracticeCta courseId={course.id} courseName={course.name} slug={course.slug} />
 
       <section className="mt-10 rounded-xl bg-primary p-6 text-center text-cream">
         <h2 className="text-lg font-bold">Créez votre ligue sur ce parcours</h2>

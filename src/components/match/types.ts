@@ -91,4 +91,11 @@ export type Game = {
   team_mode?: boolean | null
   team1_name?: string | null
   team2_name?: string | null
+  /**
+   * Hidden single-player practice game (one per user, lazily created).
+   * Practice matches render with an "Entraînement" pill and drop the
+   * social actions (invite / request-join / leave) — you can't invite
+   * anyone into a solo practice round.
+   */
+  is_practice?: boolean | null
 }

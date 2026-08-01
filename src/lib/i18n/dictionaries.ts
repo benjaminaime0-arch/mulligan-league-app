@@ -662,6 +662,22 @@ export const en: Dict = {
   "scorecard.loading": "Loading the card…",
   "scorecard.error": "Could not load the scorecard.",
 
+  // ── Practice rounds ─────────────────────────────────────────────────────
+  "practice.pill": "Practice",
+  "practice.cta.title": "Play a practice round here",
+  "practice.cta.sub": "Keep your own hole-by-hole card, solo — it counts in your course record.",
+  "practice.cta.sub.loggedout": "Sign in to keep your hole-by-hole card on this course.",
+  "practice.cta": "Start a practice round",
+  "practice.starting": "Starting…",
+  "practice.error": "Could not start the practice round.",
+  "scorecard.finish": "Finish round",
+  "scorecard.finishing": "Finishing…",
+  "scorecard.finish.pending": "Some scores haven't synced yet — try again in a moment.",
+  "scorecard.finish.error": "Could not finish the round.",
+  "home.practice": "Practice round",
+  "home.practice.sub": "Solo, hole by hole, on any course",
+  "home.practice.cta": "Pick a course",
+
   // ── Net scoring (Phase C) ───────────────────────────────────────────────
   "games.create.basis": "Ranking basis",
   "games.basis.gross": "Gross",
@@ -1371,6 +1387,22 @@ export const fr: Dict = {
   "scorecard.forceclose": "Quitter quand même",
   "scorecard.loading": "Chargement de la carte…",
   "scorecard.error": "Impossible de charger la carte de score.",
+
+  // ── Parties d'entraînement ──────────────────────────────────────────────
+  "practice.pill": "Entraînement",
+  "practice.cta.title": "Jouez une partie d'entraînement ici",
+  "practice.cta.sub": "Notez votre carte trou par trou, en solo — elle compte dans votre historique sur ce parcours.",
+  "practice.cta.sub.loggedout": "Connectez-vous pour noter votre carte trou par trou sur ce parcours.",
+  "practice.cta": "Lancer une partie d'entraînement",
+  "practice.starting": "Création…",
+  "practice.error": "Impossible de créer la partie d'entraînement.",
+  "scorecard.finish": "Terminer la partie",
+  "scorecard.finishing": "Validation…",
+  "scorecard.finish.pending": "Des scores ne sont pas encore synchronisés — réessayez dans un instant.",
+  "scorecard.finish.error": "Impossible de terminer la partie.",
+  "home.practice": "Partie d'entraînement",
+  "home.practice.sub": "En solo, trou par trou, sur le parcours de votre choix",
+  "home.practice.cta": "Choisir un parcours",
 
   // ── Score net (Phase C) ─────────────────────────────────────────────────
   "games.create.basis": "Base de classement",

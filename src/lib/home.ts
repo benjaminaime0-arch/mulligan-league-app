@@ -53,7 +53,7 @@ type MatchRow = {
     match_date: string | null
     match_time: string | null
     status: string | null
-    games: { name: string | null } | null
+    games: { name: string | null; is_practice: boolean | null } | null
   } | null
 }
 
@@ -82,15 +82,20 @@ export async function loadHomeData(
   const { data: myRows, error: myErr } = await supabase
     .from("match_players")
     .select(
-      "match_id, approved_at, matches!inner(id, game_id, course_name, match_date, match_time, status, games(name))",
+      "match_id, approved_at, matches!inner(id, game_id, course_name, match_date, match_time, status, games(name, is_practice))",
     )
     .eq("user_id", userId)
 
   if (myErr) throw myErr
 
   const rows = ((myRows as unknown) as MatchRow[]) || []
+  // Practice rounds are self-driven — an abandoned solo card shouldn't nag
+  // from the action strip, and "next match" means a real match with others.
   const activeMatches = rows.filter(
-    (r) => r.matches && r.matches.status !== "cancelled",
+    (r) =>
+      r.matches &&
+      r.matches.status !== "cancelled" &&
+      !r.matches.games?.is_practice,
   )
   const matchIds = activeMatches.map((r) => r.match_id)
 

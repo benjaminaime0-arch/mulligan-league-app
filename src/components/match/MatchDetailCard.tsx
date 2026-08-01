@@ -65,6 +65,14 @@ interface MatchDetailCardProps {
   /** Called once after `autoEdit` has been consumed. */
   onAutoEditConsumed?: () => void
   /**
+   * Like `autoEdit` but opens the hole-by-hole ScorecardEditor instead
+   * of the aggregate editor. Set by the parent for `?match=X&card=1`
+   * deep links (the practice-round CTA lands here). Consumed once.
+   */
+  autoCard?: boolean
+  /** Called once after `autoCard` has been consumed. */
+  onAutoCardConsumed?: () => void
+  /**
    * Which page surface this card is rendered on. Drives a few
    * presentation-only differences:
    *
@@ -272,6 +280,8 @@ export function MatchDetailCard({
   onRefresh,
   autoEdit = false,
   onAutoEditConsumed,
+  autoCard = false,
+  onAutoCardConsumed,
   context = "profile",
   gameHighlights,
 }: MatchDetailCardProps) {
@@ -344,6 +354,11 @@ export function MatchDetailCard({
         )
       : players
 
+  // Solo practice round (hidden per-user practice game). Social actions
+  // (invite / request-join / leave) make no sense on a party of one, so
+  // they're dropped; score entry, share-card and delete stay.
+  const isPractice = !!game.is_practice
+
   const viewerIsPlayer =
     !!currentUserId && players.some((p) => p.user_id === currentUserId)
   const viewerIsCreator =
@@ -400,6 +415,15 @@ export function MatchDetailCard({
       onAutoEditConsumed?.()
     }
   }, [autoEdit, autoEditConsumed, canEnterScores, onAutoEditConsumed])
+  // Same consumption dance for the hole-by-hole deep link (`&card=1`).
+  const [autoCardConsumed, setAutoCardConsumed] = useState(false)
+  useEffect(() => {
+    if (autoCard && !autoCardConsumed && canEnterScores) {
+      setHoleEditing(true)
+      setAutoCardConsumed(true)
+      onAutoCardConsumed?.()
+    }
+  }, [autoCard, autoCardConsumed, canEnterScores, onAutoCardConsumed])
   // Viewer has "review work" when at least one score exists on the match
   // and they're a player who hasn't yet approved. Edit mode hides this
   // to avoid competing CTAs.
@@ -410,6 +434,7 @@ export function MatchDetailCard({
   // Any non-finalized match with an open slot.
   const canInvite =
     viewerIsPlayer &&
+    !isPractice &&
     match.status !== "completed" &&
     match.status !== "cancelled" &&
     players.length < MAX_MATCH_PLAYERS
@@ -419,6 +444,7 @@ export function MatchDetailCard({
   // an open slot, AND hasn't been finalized.
   const canRequestJoin =
     !viewerIsPlayer &&
+    !isPractice &&
     match.status !== "completed" &&
     match.status !== "cancelled" &&
     players.length < MAX_MATCH_PLAYERS
@@ -773,6 +799,7 @@ export function MatchDetailCard({
       {holeEditing && (
         <ScorecardEditor
           matchId={String(match.id)}
+          finishable={isPractice && viewerIsPlayer}
           onClose={() => {
             setHoleEditing(false)
             // Hole writes hit the DB one by one — the card's aggregate view
@@ -805,6 +832,11 @@ export function MatchDetailCard({
               {timeLabel ? ` · ${timeLabel}` : ""}
             </p>
           </div>
+        )}
+        {isPractice && (
+          <span className="inline-flex shrink-0 items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary/70">
+            {t("practice.pill")}
+          </span>
         )}
         {isLive && (
           <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-600">
@@ -1118,7 +1150,7 @@ export function MatchDetailCard({
                     <line x1="3" y1="15" x2="21" y2="15" />
                   </svg>
                 </button>
-                {viewerIsPlayer && (
+                {viewerIsPlayer && !isPractice && (
                   <button
                     type="button"
                     onClick={() => setShowConfirm("leave")}
@@ -1142,7 +1174,8 @@ export function MatchDetailCard({
                 here when Edit didn't render on row 1; otherwise it
                 stays up there next to Edit. */}
             {(() => {
-              const leaveOnThisRow = viewerIsPlayer && !canEnterScores
+              const leaveOnThisRow =
+                viewerIsPlayer && !isPractice && !canEnterScores
               if (
                 !canInvite &&
                 !canShareRound &&
