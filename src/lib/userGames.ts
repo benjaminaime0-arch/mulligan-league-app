@@ -32,6 +32,7 @@ export type GameRow = {
   start_date: string | null
   end_date: string | null
   invite_code: string | null
+  is_practice: boolean | null
 }
 
 export type MemberProfile = {
@@ -97,7 +98,9 @@ export async function loadUserGames(userId: string): Promise<EnrichedGame[]> {
   const gameMap = new Map<string, GameRow>()
   for (const m of (memberRows || []) as unknown as Array<{ games: GameRow | null }>) {
     const g = m.games
-    if (g && !gameMap.has(String(g.id))) gameMap.set(String(g.id), g)
+    // Practice games are a hidden per-user container for solo rounds —
+    // they never surface in game listings (hub, profile, players/[id]).
+    if (g && !g.is_practice && !gameMap.has(String(g.id))) gameMap.set(String(g.id), g)
   }
 
   const games = Array.from(gameMap.values())

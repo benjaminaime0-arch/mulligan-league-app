@@ -21,6 +21,9 @@ type Game = {
   // create-match picker — you can't schedule new rounds in a game
   // whose season is already wrapped.
   status?: string | null
+  // Hidden practice container — practice rounds start from the course
+  // page / home shortcut, never from this picker.
+  is_practice?: boolean | null
 }
 
 type GameMembership = {
@@ -119,7 +122,7 @@ function CreateMatchContent() {
       // accept new matches.
       const { data: memberships, error: memErr } = await supabase
         .from("game_members")
-        .select("id, game_id, user_id, games(id, name, course_name, course_id, status, format, team_mode)")
+        .select("id, game_id, user_id, games(id, name, course_name, course_id, status, format, team_mode, is_practice)")
         .eq("user_id", user.id)
 
       if (!memErr && memberships) {
@@ -130,7 +133,9 @@ function CreateMatchContent() {
           // If the user came in via `?game=<id>` pointing at a
           // completed game, the preselected branch below will miss
           // and the picker will fall back to "Choose a game…".
-          .filter((l) => l.status !== "completed")
+          // Practice containers are hidden too: solo rounds start
+          // from the course page, not this scheduler.
+          .filter((l) => l.status !== "completed" && !l.is_practice)
         setUserGames(games)
 
         // Pre-select if only one game or if game param provided

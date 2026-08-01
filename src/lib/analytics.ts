@@ -22,6 +22,7 @@ export type AnalyticsEvent =
   | "scorecard_opened"
   | "live_share_enabled"
   | "home_cta_clicked"
+  | "practice_started"
 
 export const CONSENT_KEY = "mulligan.consent.analytics"
 

@@ -149,6 +149,29 @@ export default function HomePage() {
         )}
       </section>
 
+      {/* ── Practice shortcut ────────────────────────────────────── */}
+      {/* Routes through /courses: pick a course there, then its
+          practice CTA creates the solo match and opens the card. */}
+      <section className="mb-6">
+        <Link
+          href="/courses"
+          onClick={() => track("home_cta_clicked", { kind: "practice" })}
+          className="flex w-full items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 transition-colors hover:bg-emerald-50"
+        >
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-emerald-900">
+              {t("home.practice")}
+            </span>
+            <span className="mt-0.5 block truncate text-xs text-emerald-800/70">
+              {t("home.practice.sub")}
+            </span>
+          </span>
+          <span className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white">
+            {t("home.practice.cta")}
+          </span>
+        </Link>
+      </section>
+
       {/* ── Classement Mulligan (Phase G) ─────────────────────────── */}
       {user && <MulliganRankingCard viewerId={user.id} />}
 

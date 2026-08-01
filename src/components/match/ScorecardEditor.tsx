@@ -82,10 +82,18 @@ const RETRY_MS = 4000
 export function ScorecardEditor({
   matchId,
   onClose,
+  finishable = false,
 }: {
   matchId: string
   /** Called on close; parent should refresh (scores changed server-side). */
   onClose: () => void
+  /**
+   * Show a "Finish round" button that approves the viewer's card
+   * (approve_match_scores) and closes. Used for solo practice rounds,
+   * where the sole player's approval completes the match on the spot —
+   * no waiting on teammates, no separate approve step on the card.
+   */
+  finishable?: boolean
 }) {
   const t = useT()
   const [card, setCard] = useState<Scorecard | null>(null)
@@ -97,6 +105,8 @@ export function ScorecardEditor({
   const [queueSize, setQueueSize] = useState(0)
   const [flushFailing, setFlushFailing] = useState(false)
   const [confirmLeave, setConfirmLeave] = useState(false)
+  const [finishing, setFinishing] = useState(false)
+  const [finishError, setFinishError] = useState<string | null>(null)
   // Match-play running state (Phase D): fetched alongside the card and
   // refreshed lazily after writes settle. Null = not a match-play round.
   const [mpState, setMpState] = useState<MatchPlayState | null>(null)
@@ -344,6 +354,46 @@ export function ScorecardEditor({
     onClose()
   }
 
+  // Practice finish: drain the queue, then approve the viewer's card —
+  // for a solo round that flips the match to completed server-side.
+  const handleFinish = async () => {
+    setFinishing(true)
+    setFinishError(null)
+    try {
+      await flush()
+      if (queueRef.current.size > 0) {
+        // Writes still stuck (offline / refused) — approving now would
+        // finalize a card that's missing the user's last taps.
+        setFinishError(t("scorecard.finish.pending"))
+        return
+      }
+      const { data, error } = await supabase.rpc("approve_match_scores", {
+        p_match_id: matchId,
+      })
+      if (error) throw error
+      const res = data as { success?: boolean; error?: string } | null
+      if (!res?.success) {
+        setFinishError(res?.error || t("scorecard.finish.error"))
+        return
+      }
+      track("score_confirmed", { practice: true })
+      closedRef.current = true
+      onClose()
+    } catch (err) {
+      setFinishError(
+        err instanceof Error ? err.message : t("scorecard.finish.error"),
+      )
+    } finally {
+      setFinishing(false)
+    }
+  }
+  // Only offer Finish once at least one stroke is on the card — approving
+  // an empty card wouldn't complete anything (no scores row to approve)
+  // and would just confuse.
+  const hasAnyStrokes = Object.values(strokes).some(
+    (m) => Object.keys(m).length > 0,
+  )
+
   // ---- render -------------------------------------------------------------
   if (loadError) {
     return (
@@ -551,6 +601,26 @@ export function ScorecardEditor({
           <span className="text-primary/50">{t("scorecard.pending")}</span>
         ) : null}
       </div>
+
+      {/* Practice finish — approves the solo card and completes the round */}
+      {finishable && editable && hasAnyStrokes && card.match_status !== "completed" && (
+        <div className="mt-1">
+          <button
+            type="button"
+            onClick={handleFinish}
+            disabled={finishing}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+            {finishing ? t("scorecard.finishing") : t("scorecard.finish")}
+          </button>
+          {finishError && (
+            <p className="mt-2 text-center text-xs text-red-600" role="alert">
+              {finishError}
+            </p>
+          )}
+        </div>
+      )}
 
       {confirmLeave && (
         <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3 text-center">

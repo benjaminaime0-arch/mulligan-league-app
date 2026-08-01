@@ -66,6 +66,14 @@ function AllMatchesInner() {
   // calendar" link on the game page passes this. Absent → cross-
   // game "My calendar" mode (from /profile).
   const scopedGameId = searchParams.get("game")
+  // `?match=X&card=1` deep link: auto-open the hole-by-hole scorecard
+  // for that match once it renders. Set by the practice-round CTA on
+  // /courses/[slug] (create_practice_match → straight into the card).
+  // Consumed once so closing the editor doesn't reopen it.
+  const [autoCardMatchId, setAutoCardMatchId] = useState<string | null>(
+    () =>
+      searchParams.get("card") === "1" ? searchParams.get("match") : null,
+  )
   const [tab, setTab] = useState<Tab>("scheduled")
   const [matches, setMatches] = useState<SharedMatch[]>([])
   const [gamesById, setGamesById] = useState<
@@ -98,6 +106,7 @@ function AllMatchesInner() {
       start_date?: string | null
       end_date?: string | null
       format?: string | null
+      is_practice?: boolean | null
     }
     type MineRow = {
       match_id: string
@@ -118,7 +127,7 @@ function AllMatchesInner() {
     let mineQ = supabase
       .from("match_players")
       .select(
-        "match_id, matches!inner(id, course_name, match_date, match_time, status, game_id, created_by, games(id, name, course_name, status, max_players, scoring_cards_count, total_cards_count, invite_code, admin_id, start_date, end_date, format))",
+        "match_id, matches!inner(id, course_name, match_date, match_time, status, game_id, created_by, games(id, name, course_name, status, max_players, scoring_cards_count, total_cards_count, invite_code, admin_id, start_date, end_date, format, is_practice))",
       )
       .eq("user_id", userId)
     if (gameId) {
@@ -428,6 +437,8 @@ function AllMatchesInner() {
                   currentUserId={user.id}
                   variant={tab === "scheduled" ? "scheduled" : "past"}
                   onRefresh={() => load(user.id, scopedGameId)}
+                  autoCard={autoCardMatchId === String(m.id)}
+                  onAutoCardConsumed={() => setAutoCardMatchId(null)}
                   context={scopedGameId ? "game" : "profile"}
                 />
               )
