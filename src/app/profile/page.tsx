@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { supabase } from "@/lib/supabase"
+import { toLocalIso } from "@/lib/date"
 import { useAuth } from "@/hooks/useAuth"
 import { useT } from "@/lib/i18n"
 // fetchMatchPlayers + MatchPlayer types used to feed the old
@@ -148,13 +149,11 @@ export default function ProfilePage() {
     start.setDate(now.getDate() - 30)
     const end = new Date(now)
     end.setDate(now.getDate() + 30)
-    // Local date parts, NOT toISOString(): match_date is a calendar date
-    // in the player's world. In UTC+2, toISOString between midnight and
-    // 2am lands on yesterday and shifts the whole ±30d window (AUDIT#17).
-    const localIso = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-    const startIso = localIso(start)
-    const endIso = localIso(end)
+    // toLocalIso, NOT toISOString(): match_date is a calendar date in
+    // the player's world. In UTC+2, toISOString between midnight and
+    // 2am lands on yesterday and shifts the whole ±30d window (AUD#17).
+    const startIso = toLocalIso(start)
+    const endIso = toLocalIso(end)
 
     type GameEmbed = {
       id: string
