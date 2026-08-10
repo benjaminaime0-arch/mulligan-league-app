@@ -359,12 +359,26 @@ export function MatchDetailCard({
   // Solo practice round (hidden per-user practice game). Social actions
   // (invite / request-join / leave) make no sense on a party of one, so
   // they're dropped; score entry, share-card and delete stay.
+  //
+  // Belt and braces: some callers' game embeds predate the is_practice
+  // column in their select list, so the flag can arrive undefined. A
+  // 1-player match whose sole player created it behaves like practice
+  // for the Leave action either way — leaving would delete the only
+  // match_players row and orphan the match (invisible, undeletable).
   const isPractice = !!game.is_practice
 
   const viewerIsPlayer =
     !!currentUserId && players.some((p) => p.user_id === currentUserId)
   const viewerIsCreator =
     !!currentUserId && match.created_by === currentUserId
+  // Leave is for walking out on OTHER people's round. On a match where
+  // the viewer is the only player AND its creator (practice, or a
+  // scheduled match nobody joined yet), leaving would strip the last
+  // match_players row and orphan the match — Delete is the right exit.
+  const canLeave =
+    viewerIsPlayer &&
+    !isPractice &&
+    !(players.length === 1 && viewerIsCreator)
   const viewerApproved = players.some(
     (p) => p.user_id === currentUserId && p.approved_at != null,
   )
@@ -1201,7 +1215,7 @@ export function MatchDetailCard({
                     <line x1="3" y1="15" x2="21" y2="15" />
                   </svg>
                 </button>
-                {viewerIsPlayer && !isPractice && (
+                {canLeave && (
                   <button
                     type="button"
                     onClick={() => setShowConfirm("leave")}
@@ -1262,8 +1276,7 @@ export function MatchDetailCard({
                 here when Edit didn't render on row 1; otherwise it
                 stays up there next to Edit. */}
             {(() => {
-              const leaveOnThisRow =
-                viewerIsPlayer && !isPractice && !canEnterScores
+              const leaveOnThisRow = canLeave && !canEnterScores
               if (
                 !canInvite &&
                 !canShareRound &&

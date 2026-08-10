@@ -55,6 +55,7 @@ type GameData = {
   start_date?: string | null
   end_date?: string | null
   format?: string | null
+  is_practice?: boolean | null
 }
 
 // ScheduledMatch/PastMatch types removed with the retired carousels.
@@ -147,8 +148,13 @@ export default function ProfilePage() {
     start.setDate(now.getDate() - 30)
     const end = new Date(now)
     end.setDate(now.getDate() + 30)
-    const startIso = start.toISOString().slice(0, 10)
-    const endIso = end.toISOString().slice(0, 10)
+    // Local date parts, NOT toISOString(): match_date is a calendar date
+    // in the player's world. In UTC+2, toISOString between midnight and
+    // 2am lands on yesterday and shifts the whole ±30d window (AUDIT#17).
+    const localIso = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+    const startIso = localIso(start)
+    const endIso = localIso(end)
 
     type GameEmbed = {
       id: string
@@ -162,6 +168,7 @@ export default function ProfilePage() {
       admin_id?: string | null
       start_date?: string | null
       end_date?: string | null
+      is_practice?: boolean | null
     }
     type MineRow = {
       match_id: string
@@ -183,7 +190,10 @@ export default function ProfilePage() {
     const mineRes = await supabase
       .from("match_players")
       .select(
-        "match_id, matches!inner(id, course_name, match_date, match_time, status, game_id, created_by, games(id, name, course_name, status, max_players, scoring_cards_count, total_cards_count, invite_code, admin_id, start_date, end_date))",
+        // is_practice must ride along: MatchDetailCard keys its
+        // "Entraînement" pill + suppressed Invite/Leave actions on it
+        // (the /profile/matches twin already selects it).
+        "match_id, matches!inner(id, course_name, match_date, match_time, status, game_id, created_by, games(id, name, course_name, status, max_players, scoring_cards_count, total_cards_count, invite_code, admin_id, start_date, end_date, is_practice))",
       )
       .eq("user_id", userId)
       .gte("matches.match_date", startIso)
@@ -344,7 +354,10 @@ export default function ProfilePage() {
         const gameMap = new Map<string, GameData>()
         for (const m of membershipData) {
           const l = m.games as GameData | null
-          if (l && !gameMap.has(String(l.id))) {
+          // The hidden per-user "Entraînement" container is not a game
+          // the user is "in" — it must not appear in the switcher, feed
+          // a pointless get_leaderboard call, or inflate the stat chips.
+          if (l && !l.is_practice && !gameMap.has(String(l.id))) {
             gameMap.set(String(l.id), l)
           }
         }
@@ -783,10 +796,12 @@ export default function ProfilePage() {
                     : t("profile.stat.matches", { n: matchesPlayed })}
                 </span>
                 <span className="text-primary/30">·</span>
+                {/* myGames, not memberships: the raw membership rows
+                    include the hidden practice container. */}
                 <span className="tabular-nums">
-                  {memberships.length === 1
+                  {myGames.length === 1
                     ? t("profile.stat.games.one")
-                    : t("profile.stat.games", { n: memberships.length })}
+                    : t("profile.stat.games", { n: myGames.length })}
                 </span>
               </div>
             </>
