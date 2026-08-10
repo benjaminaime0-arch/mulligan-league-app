@@ -41,8 +41,12 @@ self.addEventListener("notificationclick", (event) => {
 
   if (data.match_id) {
     url = `/matches/${data.match_id}`
+  } else if (data.game_id) {
+    url = `/games/${data.game_id}`
   } else if (data.league_id) {
-    url = `/leagues/${data.league_id}`
+    // Pre-rename payloads: league ids ARE game ids (the table was renamed
+    // in place), and /leagues/* was never a route in this app.
+    url = `/games/${data.league_id}`
   } else if (data.new_member_id) {
     url = `/players/${data.new_member_id}`
   }
