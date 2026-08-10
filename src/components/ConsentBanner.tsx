@@ -47,15 +47,18 @@ export function ConsentBanner({ measurementId }: { measurementId?: string }) {
       {state === "granted" && (
         <>
           <Script
-            src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
+            src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`}
             strategy="afterInteractive"
           />
+          {/* JSON.stringify, not raw interpolation: the id is spliced into
+              executable JS, so any unexpected character in the env value
+              (the trailing-newline incident) must arrive escaped, not live. */}
           <Script id="google-analytics" strategy="afterInteractive">
             {`
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
               gtag('js', new Date());
-              gtag('config', '${measurementId}', { anonymize_ip: true });
+              gtag('config', ${JSON.stringify(measurementId)}, { anonymize_ip: true });
             `}
           </Script>
         </>
