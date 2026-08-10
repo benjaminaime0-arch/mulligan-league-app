@@ -6,6 +6,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { supabase } from "@/lib/supabase"
 import { toLocalIso } from "@/lib/date"
+import { rpcOrFallback } from "@/lib/rpc"
 import { useAuth } from "@/hooks/useAuth"
 import { useT } from "@/lib/i18n"
 // fetchMatchPlayers + MatchPlayer types used to feed the old
@@ -396,18 +397,10 @@ export default function ProfilePage() {
           ]),
           loadLeaderboards(gameList.map((l) => String(l.id))),
         ])
-        if (!recordsRes.error && recordsRes.data) {
-          setRecords(recordsRes.data as RecordsData)
-        }
-        // Honors are non-critical — if the RPC isn't deployed yet or
-        // hits a transient issue, we fall back to an empty list so
-        // the rest of the profile still renders.
-        if (honorsRes.error) {
-          console.warn("get_user_honors failed", honorsRes.error)
-          setHonors([])
-        } else {
-          setHonors((honorsRes.data || []) as UserHonorRow[])
-        }
+        setRecords(rpcOrFallback<RecordsData | null>("get_profile_records", recordsRes, null))
+        // Honors are non-critical — fall back to an empty list so the
+        // rest of the profile still renders; the helper logs the outage.
+        setHonors(rpcOrFallback<UserHonorRow[]>("get_user_honors", honorsRes, []))
         setLeaderboardsByGame(lbMap)
 
         // Calendar data — the viewer's matches in a ±30 day window
