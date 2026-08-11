@@ -6,6 +6,8 @@ import { useNotifications, type Notification } from "@/hooks/useNotifications"
 import { useAuth } from "@/hooks/useAuth"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 import { JoinRequestActionModal } from "@/components/JoinRequestActionModal"
+import { NotificationPreferences } from "@/components/NotificationPreferences"
+import { PushNotificationToggle } from "@/components/PushNotificationToggle"
 import { useI18n, useT } from "@/lib/i18n"
 import {
   formatRelativeTime,
@@ -45,6 +47,10 @@ export default function NotificationsPage() {
       return
     }
 
+    // join_rejected: the match/game is RLS-invisible to the rejected
+    // requester by design — following the id would dead-end. Read-only.
+    if (notif.type === "join_rejected") return
+
     if (data.match_id) {
       router.push(`/matches/${data.match_id}`)
     } else if (data.game_id) {
@@ -82,6 +88,22 @@ export default function NotificationsPage() {
             </button>
           )}
         </header>
+
+        {/* Settings — the account menu's "Notification settings" entry
+            lands here, so the settings actually live here (they were
+            previously built but mounted nowhere). */}
+        <section className="rounded-2xl border border-primary/10 bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-primary">
+            {t("notif.settings.title")}
+          </h2>
+          <p className="mt-0.5 text-xs text-primary/50">
+            {t("notif.settings.sub")}
+          </p>
+          <div className="mt-3 flex flex-col gap-3">
+            <PushNotificationToggle />
+            <NotificationPreferences />
+          </div>
+        </section>
 
         {/* Empty state */}
         {notifications.length === 0 && (
@@ -174,8 +196,9 @@ function NotificationRow({
     notification.type === "join_request" && !!notification.data?.request_id
 
   const isClickable =
-    isJoinRequest ||
-    !!(notification.data?.match_id || notification.data?.game_id)
+    notification.type !== "join_rejected" &&
+    (isJoinRequest ||
+      !!(notification.data?.match_id || notification.data?.game_id))
 
   return (
     <button

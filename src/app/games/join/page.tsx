@@ -152,7 +152,7 @@ function JoinGameContent() {
               </button>
               <button
                 type="button"
-                onClick={() => router.push("/dashboard")}
+                onClick={() => router.push("/home")}
                 className="w-full rounded-lg border border-primary/30 bg-white px-4 py-3 text-sm font-medium text-primary transition-all hover:bg-primary/5 active:scale-[0.98]"
               >
                 {t("common.back.dashboard")}

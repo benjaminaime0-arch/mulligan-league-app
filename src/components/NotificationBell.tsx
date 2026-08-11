@@ -72,6 +72,10 @@ export function NotificationBell() {
       return
     }
 
+    // join_rejected: the match/game is RLS-invisible to the rejected
+    // requester by design — following the id would dead-end. Read-only.
+    if (notif.type === "join_rejected") return
+
     setOpen(false)
 
     if (data.match_id) {
@@ -211,8 +215,9 @@ function NotificationRow({
   const isJoinRequest =
     notification.type === "join_request" && !!notification.data?.request_id
   const isClickable =
-    isJoinRequest ||
-    !!(notification.data?.match_id || notification.data?.game_id)
+    notification.type !== "join_rejected" &&
+    (isJoinRequest ||
+      !!(notification.data?.match_id || notification.data?.game_id))
 
   return (
     <button

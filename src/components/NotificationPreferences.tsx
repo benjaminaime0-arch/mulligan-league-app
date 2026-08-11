@@ -7,50 +7,12 @@ import {
   type NotificationType,
   getNotificationIcon,
 } from "@/lib/notificationDisplay"
-
-/** Display labels / descriptions per notification type. */
-const PREFERENCE_META: Record<NotificationType, { label: string; description: string }> = {
-  score_submitted: {
-    label: "Score submitted",
-    description: "When someone submits scores for a match you're in",
-  },
-  score_approved: {
-    label: "Score approved",
-    description: "When someone approves scores in a match you're in",
-  },
-  match_completed: {
-    label: "Match completed",
-    description: "When all players approve and a match is final",
-  },
-  member_joined: {
-    label: "New game member",
-    description: "When a new player joins one of your games",
-  },
-  match_scheduled: {
-    label: "Added to a match",
-    description: "When you're added to a scheduled game match",
-  },
-  match_live: {
-    label: "Match live",
-    description: "When a match in one of your games starts hole-by-hole scoring",
-  },
-  join_request: {
-    label: "Join request (admin)",
-    description: "When someone wants to join your game or match",
-  },
-  join_approved: {
-    label: "Your request approved",
-    description: "When a game/match admin accepts your request",
-  },
-  join_rejected: {
-    label: "Your request declined",
-    description: "When a game/match admin declines your request",
-  },
-}
+import { useT } from "@/lib/i18n"
 
 type PrefMap = Record<string, boolean>
 
 export function NotificationPreferences() {
+  const t = useT()
   const [prefs, setPrefs] = useState<PrefMap>({})
   const [loading, setLoading] = useState(true)
   const [pendingType, setPendingType] = useState<string | null>(null)
@@ -106,7 +68,10 @@ export function NotificationPreferences() {
   return (
     <div className="flex flex-col divide-y divide-primary/5">
       {NOTIFICATION_TYPES.map((type) => {
-        const meta = PREFERENCE_META[type]
+        const meta = {
+          label: t(`notif.type.${type}`),
+          description: t(`notif.type.${type}.desc`),
+        }
         const enabled = isEnabled(type)
         const pending = pendingType === type
 
@@ -141,7 +106,11 @@ export function NotificationPreferences() {
               className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
                 enabled ? "bg-emerald-500" : "bg-primary/20"
               }`}
-              aria-label={enabled ? `Disable ${meta.label}` : `Enable ${meta.label}`}
+              aria-label={
+                enabled
+                  ? t("notif.pref.disable", { label: meta.label })
+                  : t("notif.pref.enable", { label: meta.label })
+              }
               aria-pressed={enabled}
             >
               <span
