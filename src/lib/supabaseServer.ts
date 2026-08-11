@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import type { Database } from "@/lib/database.types"
 
 /**
  * Anonymous server-side client for the public /courses pages (Phase F).
@@ -10,7 +11,11 @@ import { createClient } from "@supabase/supabase-js"
  * (dummy URL) fails inside the caller's try/catch, not at module load.
  */
 export function supabaseAnonServer() {
-  return createClient(
+  // Typed: this client is used only by the public /courses pages, a small
+  // surface that already matches the generated row types cleanly — so it
+  // gets the Database generic now (the browser client's flip is deferred;
+  // see src/lib/supabase.ts).
+  return createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
     { auth: { persistSession: false, autoRefreshToken: false } },
