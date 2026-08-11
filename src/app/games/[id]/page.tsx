@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { rpcOrFallback } from "@/lib/rpc"
 import { useAuth } from "@/hooks/useAuth"
 import { useT } from "@/lib/i18n"
 import { ConfirmModal } from "@/components/ConfirmModal"
@@ -435,16 +436,10 @@ export default function GamePage({ params }: GamePageProps) {
         if (leaderboardRes.error) throw leaderboardRes.error
         setLeaderboard((leaderboardRes.data || []) as LeaderboardRow[])
 
-        // Badges are non-critical — if the RPC errors for any reason
-        // (e.g. migration not yet applied, transient DB hiccup) we
-        // fall back to an empty list rather than failing the whole
-        // page. The badges section renders its own empty state.
-        if (badgesRes.error) {
-          console.warn("get_game_badges failed", badgesRes.error)
-          setBadges([])
-        } else {
-          setBadges((badgesRes.data || []) as BadgeRow[])
-        }
+        // Badges are non-critical — on RPC error fall back to an empty
+        // list (the section renders its own empty state), but log at
+        // error level via the shared helper so outages are visible.
+        setBadges(rpcOrFallback<BadgeRow[]>("get_game_badges", badgesRes, []))
       } catch (err) {
         // Supabase PostgrestErrors aren't Error instances — they're
         // plain `{ message, code, details, hint }` objects. A bare
