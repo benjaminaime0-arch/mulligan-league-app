@@ -33,9 +33,9 @@ export type MatchPlayer = {
 }
 
 export type Match = {
-  id: string | number
-  game_id: string | number
-  period_id?: string | number | null
+  id: string
+  game_id: string
+  period_id?: string | null
   course_name?: string | null
   /** Verified course reference (Phase A); NULL for free-text courses. */
   course_id?: string | null
@@ -64,7 +64,7 @@ export type Match = {
 export type GameFormat = "stroke_play" | "stableford"
 
 export type Game = {
-  id: string | number
+  id: string
   name: string
   course_name?: string | null
   /** Verified course reference (Phase A); NULL for free-text courses. */

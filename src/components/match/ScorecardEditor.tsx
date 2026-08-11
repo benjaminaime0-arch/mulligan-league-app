@@ -169,7 +169,9 @@ export function ScorecardEditor({
           p_match_id: matchId,
           p_user_id: w.userId,
           p_hole_number: w.hole,
-          p_strokes: w.strokes,
+          // null strokes = delete the hole; upsert_score_hole handles it,
+          // but the generated arg type models p_strokes as non-null.
+          p_strokes: w.strokes as number,
         })
         const res = data as { success?: boolean; error?: string } | null
         if (error || !res?.success) {

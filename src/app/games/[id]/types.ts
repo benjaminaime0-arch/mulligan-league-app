@@ -4,13 +4,13 @@
 export type { Match, Game, MatchPlayer } from "@/components/match/types"
 
 export type UserGame = {
-  id: string | number
+  id: string
   name: string
 }
 
 export type MemberWithProfile = {
-  id: string | number
-  game_id: string | number
+  id: string
+  game_id: string
   user_id: string
   /** Ryder team (Phase D): 1 | 2 | null while unassigned. */
   team?: number | null
@@ -23,8 +23,8 @@ export type MemberWithProfile = {
 }
 
 export type GamePeriod = {
-  id: string | number
-  game_id: string | number
+  id: string
+  game_id: string
   name?: string | null
   start_date?: string | null
   end_date?: string | null

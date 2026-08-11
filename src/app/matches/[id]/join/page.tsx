@@ -123,7 +123,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
           const { data: membership } = await supabase
             .from("game_members")
             .select("id")
-            .eq("game_id", m.game_id)
+            .eq("game_id", String(m.game_id))
             .eq("user_id", user.id)
             .maybeSingle()
 
@@ -132,7 +132,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
             const { data: gameMembers } = await supabase
               .from("game_members")
               .select("id")
-              .eq("game_id", m.game_id)
+              .eq("game_id", String(m.game_id))
 
             const memberCount = gameMembers?.length || 0
             setGameMemberCount(memberCount)
@@ -164,7 +164,7 @@ export default function JoinMatchPage({ params }: JoinMatchPageProps) {
     try {
       // Send a join request (admin will approve/reject)
       const { data, error: rpcError } = await supabase.rpc("request_join_match", {
-        p_match_id: match.id,
+        p_match_id: String(match.id),
       })
 
       if (rpcError) throw rpcError

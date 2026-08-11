@@ -492,7 +492,7 @@ export default function GamePage({ params }: GamePageProps) {
     const fmt = resolveFormat(game)
     const matchById = new Map(periodMatches.map((m) => [m.id, m]))
     for (const [matchId, players] of Array.from(matchPlayersMap.entries())) {
-      const match = matchById.get(matchId)
+      const match = matchById.get(String(matchId))
       const date = match?.match_date ?? "9999-99-99"
       for (const p of players) {
         if (!p.user_id || p.score == null) continue

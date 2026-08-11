@@ -86,7 +86,7 @@ export default function CreateGamePage() {
         p_scoring_cards: scoringCards,
         p_total_cards: totalCards,
         p_game_type: format,
-        p_course_id: pickedCourse?.id ?? null,
+        p_course_id: pickedCourse?.id ?? undefined,
         // Basis is a stroke-play concept; a Stableford game is always gross.
         p_scoring_basis: format === "stroke_play" ? basis : "gross",
         p_team_mode: format === "match_play" ? teamMode : false,
