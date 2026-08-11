@@ -33,6 +33,16 @@ INSERT INTO game_members (game_id, user_id) VALUES
 INSERT INTO game_periods (id, game_id, week_number, name, start_date, end_date, status)
 VALUES ('92240000-0000-0000-0000-000000000001', '12240000-0000-0000-0000-0000000000a1', 1, 'Week 1', current_date - 3, current_date + 3, 'active');
 
+-- The three-player match, seeded directly (creating it through
+-- create_scheduled_match is t2_3's job — that RPC ships in a separate
+-- migration and this file must not depend on it).
+INSERT INTO matches (id, game_id, period_id, created_by, course_name, match_date, status)
+VALUES ('b2240000-0000-0000-0000-0000000000b1', '12240000-0000-0000-0000-0000000000a1', '92240000-0000-0000-0000-000000000001', 'a2240000-0000-0000-0000-000000000001', 'T24 Course', current_date, 'scheduled');
+INSERT INTO match_players (match_id, user_id) VALUES
+  ('b2240000-0000-0000-0000-0000000000b1', 'a2240000-0000-0000-0000-000000000001'),
+  ('b2240000-0000-0000-0000-0000000000b1', 'a2240000-0000-0000-0000-000000000002'),
+  ('b2240000-0000-0000-0000-0000000000b1', 'a2240000-0000-0000-0000-000000000003');
+
 -- ----------------------------------------------------------------------------
 -- T1: three-player match; captain submits all cards — submitted_by stamped,
 --     bad targets/bounds refused
@@ -40,21 +50,13 @@ VALUES ('92240000-0000-0000-0000-000000000001', '12240000-0000-0000-0000-0000000
 DO $$
 DECLARE
   v json;
-  v_match uuid;
+  v_match uuid := 'b2240000-0000-0000-0000-0000000000b1';
   v_n int;
 BEGIN
+  PERFORM set_config('t24.match_id', v_match::text, false);
   SET LOCAL ROLE authenticated;
   PERFORM set_config('request.jwt.claims',
     '{"sub":"a2240000-0000-0000-0000-000000000001","role":"authenticated"}', true);
-
-  v := create_scheduled_match(
-    '12240000-0000-0000-0000-0000000000a1'::uuid, current_date,
-    ARRAY['a2240000-0000-0000-0000-000000000001','a2240000-0000-0000-0000-000000000002','a2240000-0000-0000-0000-000000000003']::uuid[]);
-  IF (v->>'success')::boolean IS NOT TRUE THEN
-    RESET ROLE; RAISE EXCEPTION 'T1 FAIL: create_scheduled_match: %', v;
-  END IF;
-  v_match := (v->>'match_id')::uuid;
-  PERFORM set_config('t24.match_id', v_match::text, false);
 
   -- Non-player target refused (the arbitrary-profile-id hole).
   v := submit_match_scores(v_match, json_build_array(
