@@ -295,8 +295,9 @@ export function MatchDetailCard({
   const [shareCopied, setShareCopied] = useState(false)
   const [leaving, setLeaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [finalizing, setFinalizing] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [showConfirm, setShowConfirm] = useState<"leave" | "delete" | null>(null)
+  const [showConfirm, setShowConfirm] = useState<"leave" | "delete" | "finalize" | null>(null)
   const [liveShareBusy, setLiveShareBusy] = useState(false)
   const [liveCopied, setLiveCopied] = useState(false)
   // Request-to-join state for non-player viewers (game members who
@@ -431,6 +432,27 @@ export function MatchDetailCard({
   // to avoid competing CTAs.
   const canApprove =
     viewerIsPlayer && hasAnyScore && !viewerApproved && !editing
+  // Captain finalization (P0#4): the game admin or match creator can
+  // close out a round without waiting the full 24h auto-validation —
+  // but only once every card is in, or after 2h of inactivity (the
+  // server enforces the same guard; this gate just avoids showing a
+  // button that would be refused).
+  const viewerIsGameAdmin =
+    !!currentUserId && game.admin_id != null && game.admin_id === currentUserId
+  const allScored =
+    players.length > 0 && players.every((p) => p.status != null)
+  const idleTwoHours =
+    !!match.last_edit_at &&
+    Date.now() - new Date(match.last_edit_at).getTime() > 2 * 60 * 60 * 1000
+  const canFinalize =
+    (viewerIsGameAdmin || viewerIsCreator) &&
+    !isPractice &&
+    !editing &&
+    match.status !== "completed" &&
+    match.status !== "cancelled" &&
+    hasAnyScore &&
+    approvedCount < players.length &&
+    (allScored || idleTwoHours)
   // Invite: only shown to viewers who are ALREADY in the match.
   // Non-members see "Request to Join" instead (see canRequestJoin).
   // Any non-finalized match with an open slot.
@@ -630,6 +652,32 @@ export function MatchDetailCard({
       )
     } finally {
       setApproving(false)
+    }
+  }
+
+  const handleFinalize = async () => {
+    setFinalizing(true)
+    setActionError(null)
+    try {
+      const { data, error: rpcError } = await supabase.rpc(
+        "finalize_match_scores",
+        { p_match_id: match.id },
+      )
+      if (rpcError) throw rpcError
+      const result = data as { success: boolean; error?: string }
+      if (!result.success) {
+        setActionError(result.error || t("games.match.error.finalize"))
+        return
+      }
+      track("match_finalized", {})
+      setShowConfirm(null)
+      await onRefresh()
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : t("games.match.error.finalize"),
+      )
+    } finally {
+      setFinalizing(false)
     }
   }
 
@@ -1144,6 +1192,42 @@ export function MatchDetailCard({
           </svg>
           {approving ? t("games.match.approving") : t("games.match.approve")}
         </button>
+      )}
+
+      {/* Captain finalization — amber outline: an override, not the
+          normal path. Tapping asks for an inline confirm (below). */}
+      {canFinalize && showConfirm !== "finalize" && (
+        <button
+          type="button"
+          onClick={() => setShowConfirm("finalize")}
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M20 6 9 17l-5-5" />
+            <path d="m14 6 7 7" />
+          </svg>
+          {t("games.match.finalize")}
+        </button>
+      )}
+      {canFinalize && showConfirm === "finalize" && !editing && (
+        <div className="mt-2 flex items-center gap-2 rounded-md bg-amber-50 p-2 text-[11px] text-amber-800">
+          <span className="flex-1">{t("games.match.finalize.confirm")}</span>
+          <button
+            type="button"
+            onClick={handleFinalize}
+            disabled={finalizing}
+            className="rounded-md bg-amber-600 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-60"
+          >
+            {finalizing ? t("games.match.finalizing") : t("games.match.finalize.yes")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowConfirm(null)}
+            className="rounded-md border border-amber-200 bg-white px-2 py-1 text-[11px] font-medium text-amber-700"
+          >
+            {t("common.cancel")}
+          </button>
+        </div>
       )}
 
       {/* Action grid. Up to two rows; each pairs a primary action
