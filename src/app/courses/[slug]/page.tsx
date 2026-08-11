@@ -160,59 +160,77 @@ export default async function CoursePage({ params }: { params: { slug: string } 
           <h2 className="text-xl font-bold text-primary">
             Carte de score{tee ? ` (départs ${tee}s)` : " (départs jaunes)"}
           </h2>
+          {/* Tables carry no min-width: at 375px a forced 28rem grid pushed
+              holes 8-9/17-18 + the half totals behind an overflow edge with
+              no visible affordance — readers assumed they were gone. Tighter
+              type/padding lets all 11 columns fit on phones; the wrapper's
+              overflow-x-auto stays as a safety net for narrower screens. */}
           <div className="mt-3 overflow-x-auto rounded-xl border border-primary/15 bg-white">
             {[out, back]
               .filter((half) => half.length > 0)
               .map((half, i) => (
-                <table key={i} className="w-full min-w-[28rem] text-sm tabular-nums">
+                <table key={i} className="w-full text-xs tabular-nums sm:text-sm">
                   <thead>
                     <tr className="border-b border-primary/10 text-left text-primary/50">
-                      <th className="px-3 py-2 font-medium">Trou</th>
+                      <th className="px-2 py-2 sm:px-3 font-medium">Trou</th>
                       {half.map((h) => (
-                        <th key={h.hole_number} className="px-2 py-2 text-center font-medium">
+                        <th key={h.hole_number} className="px-1 py-2 text-center sm:px-2 font-medium">
                           {h.hole_number}
                         </th>
                       ))}
-                      <th className="px-3 py-2 text-center font-medium">
+                      <th className="px-2 py-2 sm:px-3 text-center font-medium">
                         {i === 0 && back.length > 0 ? "Aller" : back.length > 0 ? "Retour" : "Total"}
                       </th>
                     </tr>
                   </thead>
                   <tbody className="text-primary">
                     <tr className="border-b border-primary/5">
-                      <td className="px-3 py-2 font-medium text-primary/60">Par</td>
+                      <td className="px-2 py-2 sm:px-3 font-medium text-primary/60">Par</td>
                       {half.map((h) => (
-                        <td key={h.hole_number} className="px-2 py-2 text-center">
+                        <td key={h.hole_number} className="px-1 py-2 text-center sm:px-2">
                           {h.par}
                         </td>
                       ))}
-                      <td className="px-3 py-2 text-center font-semibold">
+                      <td className="px-2 py-2 sm:px-3 text-center font-semibold">
                         {half.reduce((s, h) => s + h.par, 0)}
                       </td>
                     </tr>
                     <tr className="border-b border-primary/5">
-                      <td className="px-3 py-2 font-medium text-primary/60">Index</td>
+                      <td className="px-2 py-2 sm:px-3 font-medium text-primary/60">Index</td>
                       {half.map((h) => (
-                        <td key={h.hole_number} className="px-2 py-2 text-center">
+                        <td key={h.hole_number} className="px-1 py-2 text-center sm:px-2">
                           {h.hcp_index ?? "–"}
                         </td>
                       ))}
-                      <td className="px-3 py-2" />
+                      <td className="px-2 py-2 sm:px-3" />
                     </tr>
                     <tr>
-                      <td className="px-3 py-2 font-medium text-primary/60">m</td>
+                      <td className="px-2 py-2 sm:px-3 font-medium text-primary/60">m</td>
                       {half.map((h) => (
-                        <td key={h.hole_number} className="px-2 py-2 text-center">
+                        <td key={h.hole_number} className="px-1 py-2 text-center sm:px-2">
                           {h.dist_yellow_m ?? "–"}
                         </td>
                       ))}
-                      <td className="px-3 py-2 text-center font-semibold">
+                      <td className="px-2 py-2 sm:px-3 text-center font-semibold">
                         {half.reduce((s, h) => s + (h.dist_yellow_m ?? 0), 0) || "–"}
                       </td>
                     </tr>
                   </tbody>
                 </table>
               ))}
+            {/* 18-hole grand total — the per-table header only ever labels
+                halves ("Aller"/"Retour") when both nines exist, so without
+                this strip the course total appeared nowhere on the page. */}
+            {out.length > 0 && back.length > 0 && (
+              <div className="flex items-center justify-between border-t border-primary/10 bg-cream/50 px-2 py-2 text-xs font-semibold text-primary sm:px-3 sm:text-sm">
+                <span>Total 18 trous</span>
+                <span className="tabular-nums">
+                  Par {holes.reduce((s, h) => s + h.par, 0)}
+                  {holes.some((h) => h.dist_yellow_m != null) &&
+                    ` · ${holes.reduce((s, h) => s + (h.dist_yellow_m ?? 0), 0)} m`}
+                </span>
+              </div>
+            )}
           </div>
         </section>
       ) : (
