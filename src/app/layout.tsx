@@ -6,7 +6,15 @@ import { I18nProvider } from "@/lib/i18n"
 import { ConsentBanner } from "@/components/ConsentBanner"
 import { Navbar } from "@/components/Navbar"
 
-const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
+// NEXT_PUBLIC_* values are inlined at build time exactly as stored in the
+// env store — including any stray whitespace (a trailing newline in the
+// Vercel value shipped a SyntaxError inside the inline gtag config and
+// killed analytics for every consenting visitor). Trim, then refuse
+// anything that isn't a plausible G-XXXXXXX id: no id → no banner, no GA.
+const GA_MEASUREMENT_ID = (() => {
+  const raw = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim()
+  return raw && /^G-[A-Z0-9]{6,}$/.test(raw) ? raw : undefined
+})()
 
 // Nobel TRIAL — Mulligan brand font. The brand's default tracking (-0.02em)
 // is set on `body` in globals.css so every element inherits it without
