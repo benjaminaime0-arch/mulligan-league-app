@@ -170,9 +170,13 @@ function CreateMatchContent() {
             .from("game_members")
             .select("id, game_id, user_id, profiles(username, first_name, last_name)")
             .eq("game_id", selectedGameId),
+          // Coverage check only: "does this game have periods at all?"
+          // — fast local feedback for the noperiod error. WHICH period
+          // the match lands in is decided server-side from the picked
+          // date by create_scheduled_match.
           supabase
             .from("game_periods")
-            .select("*")
+            .select("id, game_id")
             .eq("game_id", selectedGameId)
             .order("start_date", { ascending: true })
             .limit(1)
@@ -282,38 +286,32 @@ function CreateMatchContent() {
 
     setSubmitting(true)
     try {
-      const { data: match, error: matchError } = await supabase
-        .from("matches")
-        .insert({
-          game_id: selectedGameId,
-          period_id: activePeriod.id,
-          course_name: courseText.trim() || selectedGame.course_name || null,
-          course_id: courseId,
-          match_date: date,
-          match_time: time || null,
-          created_by: user.id,
-          status: "scheduled",
-        })
-        .select("id")
-        .single()
+      // One server-side transaction: match + roster together, and the
+      // period derived from the PICKED DATE. The previous two-insert
+      // client sequence could strand a zero-player match when the
+      // second call failed, and always pinned period_id to the first
+      // period of the season — permanently, since period_id is
+      // immutable after insert.
+      const { data: created, error: createError } = await supabase.rpc(
+        "create_scheduled_match",
+        {
+          p_game_id: selectedGameId,
+          p_match_date: date,
+          p_player_ids: selectedPlayerIds,
+          p_match_time: time || null,
+          p_course_id: courseId,
+          p_course_name: courseText.trim() || null,
+        },
+      )
 
-      if (matchError) throw matchError
-
-      const matchId = (match as { id: string | number }).id
-
-      const playerRows = selectedPlayerIds.map((playerId) => ({
-        match_id: matchId,
-        user_id: playerId,
-      }))
-
-      const { error: playersError } = await supabase
-        .from("match_players")
-        .insert(playerRows)
-
-      if (playersError) throw playersError
+      if (createError) throw createError
+      const result = created as { success: boolean; error?: string; match_id?: string }
+      if (!result?.success || !result.match_id) {
+        throw new Error(result?.error || t("match.create.error.failed"))
+      }
 
       track("match_created", {})
-      router.push(`/matches/${matchId}`)
+      router.push(`/matches/${result.match_id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : t("match.create.error.failed"))
     } finally {

@@ -13,7 +13,7 @@
  *   2. Forwards any `?edit=1` query as `?match=[id]&edit=1` on the
  *      game URL so the game page can auto-select that match +
  *      auto-open the score editor
- *   3. Falls back to /dashboard if the match is gone or not visible
+ *   3. Falls back to /home if the match is gone or not visible
  *      to the current user (RLS-filtered)
  *
  * The previous full-page experience (1000+ lines) along with its
@@ -52,8 +52,8 @@ export default function MatchRedirectPage() {
 
       if (!gameId) {
         // Match isn't visible (RLS), or doesn't exist, or was
-        // casual (shouldn't happen post-purge). Punt to dashboard.
-        router.replace("/dashboard")
+        // casual (shouldn't happen post-purge). Punt to home.
+        router.replace("/home")
         return
       }
 
@@ -78,10 +78,10 @@ export default function MatchRedirectPage() {
           <p className="text-sm text-red-700">{error}</p>
           <button
             type="button"
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.push("/home")}
             className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-cream"
           >
-            Back to dashboard
+            Back to home
           </button>
         </div>
       </main>

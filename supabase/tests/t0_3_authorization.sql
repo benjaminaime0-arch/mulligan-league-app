@@ -72,8 +72,12 @@ RESET ROLE;
 -- === AUD#1b: editing a score resets ITS OWN approval too =====================
 DO $$
 BEGIN
-  -- Pre-approve both scores as the system, then Bob edits his score value.
-  UPDATE scores SET status = 'approved' WHERE match_id = 'a3000000-0000-0000-0000-0000000000bb';
+  -- Pre-approve Bob's score ONLY. Approving both would cascade
+  -- check_match_completion -> match completed, and post-completion value
+  -- edits are now blocked outright by trg_enforce_score_lock
+  -- (20260811130000, covered in t2_4) — the OPEN-match reset path is
+  -- what this test guards.
+  UPDATE scores SET status = 'approved' WHERE id = 'a3000000-0000-0000-0000-0000000000c2';
 
   SET LOCAL ROLE authenticated;
   PERFORM set_config('request.jwt.claims',

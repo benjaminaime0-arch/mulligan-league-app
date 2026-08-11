@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import { supabase } from "@/lib/supabase"
+import { rpcOrFallback } from "@/lib/rpc"
 import { useAuth } from "@/hooks/useAuth"
 import { useI18n, useT } from "@/lib/i18n"
 import { Avatar } from "@/components/Avatar"
@@ -97,12 +98,8 @@ export default function PlayerProfilePage() {
       setGameCount(enriched.length)
       setEnrichedGames(enriched)
 
-      if (!recordsRes.error && recordsRes.data) {
-        setRecords(recordsRes.data as RecordsData)
-      }
-      if (!coursesRes.error && coursesRes.data) {
-        setCourses(coursesRes.data as CoursePlay[])
-      }
+      setRecords(rpcOrFallback<RecordsData | null>("get_profile_records", recordsRes, null))
+      setCourses(rpcOrFallback<CoursePlay[]>("get_profile_courses", coursesRes, []))
 
       setMatchesPlayed(scoresCountRes.count || 0)
       setLoading(false)

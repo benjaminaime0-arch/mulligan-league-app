@@ -271,4 +271,59 @@ BEGIN
 END;
 $$;
 
+-- ----------------------------------------------------------------------------
+-- T8 (20260811120000): stats policy + silent finish + same-day reuse
+-- ----------------------------------------------------------------------------
+DO $$
+DECLARE
+  v json;
+  v_records jsonb;
+  v_n int;
+  v_m1 uuid;
+  v_m2 uuid;
+BEGIN
+  -- (a) best_score must NOT come from the (completed, approved, score=9)
+  -- practice round created in T2/T4. The solo user has no competitive
+  -- rounds in this fixture, so the record must be NULL. Caller gate:
+  -- p_user_id may inspect themselves (shares_game_with is true for self).
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claims',
+    '{"sub":"a2220000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+  v_records := get_profile_records('a2220000-0000-0000-0000-000000000001');
+  IF v_records->'best_score' IS NOT NULL AND v_records->>'best_score' IS NOT NULL THEN
+    RAISE EXCEPTION 'T8 FAIL: best_score % came from a practice round', v_records->'best_score';
+  END IF;
+  -- ...but the play streak still counts the practice week (habit stat).
+  IF (v_records->>'longest_streak_weeks')::int < 1 THEN
+    RAISE EXCEPTION 'T8 FAIL: streak lost its practice week';
+  END IF;
+
+  -- (b) completing the practice round (T4) must not have self-notified.
+  RESET ROLE;
+  SELECT count(*) INTO v_n FROM notifications
+  WHERE user_id = 'a2220000-0000-0000-0000-000000000001'
+    AND type = 'match_completed';
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'T8 FAIL: % match_completed self-notifications for practice', v_n;
+  END IF;
+
+  -- (c) two CTA taps, same course, same day => ONE scheduled match.
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claims',
+    '{"sub":"a2220000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+  v := create_practice_match('c2220000-0000-0000-0000-0000000000c1', NULL);
+  v_m1 := (v->>'match_id')::uuid;
+  v := create_practice_match('c2220000-0000-0000-0000-0000000000c1', NULL);
+  v_m2 := (v->>'match_id')::uuid;
+  RESET ROLE;
+  IF v_m1 IS NULL OR v_m1 <> v_m2 OR (v->>'reused')::boolean IS NOT TRUE THEN
+    RAISE EXCEPTION 'T8 FAIL: second tap minted a new match (% vs %, reused=%)',
+      v_m1, v_m2, v->>'reused';
+  END IF;
+
+  RAISE NOTICE 'T8 PASS: stats policy + silent finish + same-day reuse';
+END;
+$$;
+RESET ROLE;
+
 ROLLBACK;

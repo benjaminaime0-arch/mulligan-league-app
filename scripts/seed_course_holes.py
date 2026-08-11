@@ -455,7 +455,15 @@ def main() -> int:
         # (par 68 = 2×34, distances likewise). All derived fixes follow it.
         loop = 2 if n == 9 else 1
         card_par = card.par_sum * loop
-        card_dist = sum(h.dist or 0 for h in card.holes) * loop or None
+        # A courses.dist_yellow fix/backfill is only valid from a complete
+        # yellow-tee card: another tee's meters (tee_note) or a partial sum
+        # must never land in the yellow column (they'd render as "N m
+        # (jaunes)" and the sync trigger would rightly refuse to repair them).
+        card_dist = (
+            sum(h.dist for h in card.holes) * loop
+            if card.tee == "jaune" and all(h.dist is not None for h in card.holes)
+            else None
+        )
         fixes: dict[str, int] = {}
         if seed.name in REPAIRS:
             # Seed row contradicts the internally-consistent hole card on

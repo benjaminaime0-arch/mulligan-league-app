@@ -6,33 +6,43 @@ import { I18nProvider } from "@/lib/i18n"
 import { ConsentBanner } from "@/components/ConsentBanner"
 import { Navbar } from "@/components/Navbar"
 
-const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
+// NEXT_PUBLIC_* values are inlined at build time exactly as stored in the
+// env store — including any stray whitespace (a trailing newline in the
+// Vercel value shipped a SyntaxError inside the inline gtag config and
+// killed analytics for every consenting visitor). Trim, then refuse
+// anything that isn't a plausible G-XXXXXXX id: no id → no banner, no GA.
+const GA_MEASUREMENT_ID = (() => {
+  const raw = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim()
+  return raw && /^G-[A-Z0-9]{6,}$/.test(raw) ? raw : undefined
+})()
 
-// Nobel TRIAL — Mulligan brand font. The brand's default tracking (-0.02em)
+// Nobel — Mulligan brand font. The brand's default tracking (-0.02em)
 // is set on `body` in globals.css so every element inherits it without
 // per-class repetition; headings opt into tighter values themselves.
 //
-// NOTE: these files ship the TRIAL cut, which draws a "TRIAL" watermark
-// instead of the real glyph for 481 codepoints — most punctuation and every
-// accented letter. globals.css carries a generated per-weight/style fallback
-// under its OWN family ("nobel-trial-patch"), placed first in the Tailwind
-// sans stack. It is no longer keyed to next/font's hashed family, so changing
-// the weights or files below cannot silently disable it — but re-run
-// scripts/gen_nobel_fallback_range.py if you swap the font files themselves.
+// These are SUBSET WOFF2 files (~7.5KB each, was ~155KB OTF) built by
+// scripts/build_nobel_woff2.py from the archived TRIAL OTFs in
+// assets/fonts/nobel-trial/. The subsets contain ONLY the clean glyphs —
+// the 481 codepoints the trial cut watermarks (most punctuation, every
+// accented letter) are simply absent, so a "TRIAL" label can no longer
+// render from these files at all. Those codepoints are still served by
+// the generated "nobel-trial-patch" system-font fallback in globals.css,
+// placed FIRST in the Tailwind sans stack — keep it there, and re-run
+// both scripts if the source fonts ever change.
 const nobel = localFont({
   src: [
-    { path: "../../public/fonts/nobel/NobelTRIAL-ExtraLight.otf",       weight: "200", style: "normal" },
-    { path: "../../public/fonts/nobel/NobelTRIAL-ExtraLightItalic.otf", weight: "200", style: "italic" },
-    { path: "../../public/fonts/nobel/NobelTRIAL-Light.otf",            weight: "300", style: "normal" },
-    { path: "../../public/fonts/nobel/NobelTRIAL-LightItalic.otf",      weight: "300", style: "italic" },
-    { path: "../../public/fonts/nobel/NobelTRIAL-Book.otf",             weight: "400", style: "normal" },
-    { path: "../../public/fonts/nobel/NobelTRIAL-BookItalic.otf",       weight: "400", style: "italic" },
-    { path: "../../public/fonts/nobel/NobelTRIAL-Regular.otf",          weight: "500", style: "normal" },
-    { path: "../../public/fonts/nobel/NobelTRIAL-RegularItalic.otf",    weight: "500", style: "italic" },
-    { path: "../../public/fonts/nobel/NobelTRIAL-Bold.otf",             weight: "700", style: "normal" },
-    { path: "../../public/fonts/nobel/NobelTRIAL-BoldItalic.otf",       weight: "700", style: "italic" },
-    { path: "../../public/fonts/nobel/NobelTRIAL-Black.otf",            weight: "900", style: "normal" },
-    { path: "../../public/fonts/nobel/NobelTRIAL-BlackItalic.otf",      weight: "900", style: "italic" },
+    { path: "../fonts/nobel/NobelTRIAL-ExtraLight.woff2",       weight: "200", style: "normal" },
+    { path: "../fonts/nobel/NobelTRIAL-ExtraLightItalic.woff2", weight: "200", style: "italic" },
+    { path: "../fonts/nobel/NobelTRIAL-Light.woff2",            weight: "300", style: "normal" },
+    { path: "../fonts/nobel/NobelTRIAL-LightItalic.woff2",      weight: "300", style: "italic" },
+    { path: "../fonts/nobel/NobelTRIAL-Book.woff2",             weight: "400", style: "normal" },
+    { path: "../fonts/nobel/NobelTRIAL-BookItalic.woff2",       weight: "400", style: "italic" },
+    { path: "../fonts/nobel/NobelTRIAL-Regular.woff2",          weight: "500", style: "normal" },
+    { path: "../fonts/nobel/NobelTRIAL-RegularItalic.woff2",    weight: "500", style: "italic" },
+    { path: "../fonts/nobel/NobelTRIAL-Bold.woff2",             weight: "700", style: "normal" },
+    { path: "../fonts/nobel/NobelTRIAL-BoldItalic.woff2",       weight: "700", style: "italic" },
+    { path: "../fonts/nobel/NobelTRIAL-Black.woff2",            weight: "900", style: "normal" },
+    { path: "../fonts/nobel/NobelTRIAL-BlackItalic.woff2",      weight: "900", style: "italic" },
   ],
   variable: "--font-nobel",
   display: "swap",

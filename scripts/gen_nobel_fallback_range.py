@@ -4,7 +4,8 @@ Regenerate the Nobel TRIAL fallback @font-face block in src/app/globals.css.
 
 WHY THIS EXISTS
 ---------------
-public/fonts/nobel/ ships the *TRIAL* cut of Nobel. A trial font is not
+assets/fonts/nobel-trial/ archives the *TRIAL* cut of Nobel (the app
+ships subset WOFF2 built from it — see build_nobel_woff2.py). A trial font is not
 glyph-restricted in the usual sense — its cmap covers 577 codepoints — but
 422 of those map to a watermark glyph that draws a small rotated "TRIAL"
 label instead of the real character. Affected codepoints include ASCII
@@ -46,7 +47,7 @@ from fontTools.pens.boundsPen import BoundsPen
 from fontTools.ttLib import TTFont
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-FONT_DIR = ROOT / "public" / "fonts" / "nobel"
+FONT_DIR = ROOT / "assets" / "fonts" / "nobel-trial"
 CSS = ROOT / "src" / "app" / "globals.css"
 
 # Detection. The watermark is one piece of artwork (rotated "TRIAL" text)
