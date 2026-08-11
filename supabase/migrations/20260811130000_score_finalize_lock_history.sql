@@ -305,6 +305,12 @@ BEGIN
   SET status = 'completed'
   WHERE id = p_match_id AND status IN ('scheduled', 'in_progress');
 
+  -- Drop the system lane before returning: set_config(..., true) lives to
+  -- the END OF THE TRANSACTION, not the function — leaving it on would
+  -- disable the score lock for whatever else runs in the caller's
+  -- transaction (and did exactly that in the single-transaction test file).
+  PERFORM set_config('mulligan.system_update', 'off', true);
+
   RETURN json_build_object(
     'success', true,
     'player_count', v_player_count,
