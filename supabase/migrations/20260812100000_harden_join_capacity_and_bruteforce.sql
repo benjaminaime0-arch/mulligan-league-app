@@ -23,22 +23,27 @@
 -- Safe to re-run: IF NOT EXISTS / OR REPLACE / DROP TRIGGER IF EXISTS.
 -- ============================================================================
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
 -- ---------------------------------------------------------------------------
 -- gen_invite_code: 10 chars of Crockford base32 (no I/L/O/U — unambiguous).
 -- 32^10 ≈ 1.1e15 ≈ 2^50. Collisions are astronomically unlikely; the UNIQUE
 -- constraint on games.invite_code remains the hard guarantee.
+--
+-- Randomness comes from gen_random_uuid() (core since PG13) via uuid_send,
+-- NOT pgcrypto's gen_random_bytes — the latter lives in the `extensions`
+-- schema on Supabase and isn't on the search_path when this runs as a
+-- column DEFAULT, so it fails on a fresh db. A v4 uuid gives 16 random
+-- bytes; we use the first 10. search_path pinned for safety.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.gen_invite_code()
 RETURNS text
 LANGUAGE plpgsql
 VOLATILE
+SET search_path TO 'public'
 AS $$
 DECLARE
   alphabet constant text := '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
   out text := '';
-  b bytea := gen_random_bytes(10);
+  b bytea := uuid_send(gen_random_uuid());
   i int;
 BEGIN
   FOR i IN 0..9 LOOP
