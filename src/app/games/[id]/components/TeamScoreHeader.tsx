@@ -60,7 +60,9 @@ export function TeamScoreHeader({
       const { data } = await supabase.rpc("set_member_team", {
         p_game_id: gameId,
         p_user_id: userId,
-        p_team: team,
+        // team is null when unassigning; set_member_team accepts it, but the
+        // generated arg type models p_team as non-null.
+        p_team: team as number,
       })
       if ((data as { success?: boolean } | null)?.success) {
         await onChanged()

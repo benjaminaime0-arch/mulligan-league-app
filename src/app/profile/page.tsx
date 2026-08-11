@@ -565,7 +565,9 @@ export default function ProfilePage() {
         .from("profiles")
         .update({
           username,
-          first_name: firstName || null,
+          // first_name is NOT NULL in the schema — omit when empty rather
+          // than sending null (which the column would reject anyway).
+          first_name: firstName || undefined,
           last_name: lastName || null,
           town: town || null,
           handicap: handicapNum,

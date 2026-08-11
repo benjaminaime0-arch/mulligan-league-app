@@ -76,12 +76,12 @@ function JoinGameContent() {
         supabase
           .from("games")
           .select("course_name")
-          .eq("id", result.game_id)
+          .eq("id", String(result.game_id))
           .maybeSingle(),
         supabase
           .from("game_members")
           .select("id")
-          .eq("game_id", result.game_id),
+          .eq("game_id", String(result.game_id)),
       ])
       setSuccessCourseName(
         (gameRes.data as { course_name?: string | null } | null)?.course_name ?? null

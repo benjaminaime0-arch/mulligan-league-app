@@ -298,9 +298,9 @@ function CreateMatchContent() {
           p_game_id: selectedGameId,
           p_match_date: date,
           p_player_ids: selectedPlayerIds,
-          p_match_time: time || null,
-          p_course_id: courseId,
-          p_course_name: courseText.trim() || null,
+          p_match_time: time || undefined,
+          p_course_id: courseId ?? undefined,
+          p_course_name: courseText.trim() || undefined,
         },
       )
 

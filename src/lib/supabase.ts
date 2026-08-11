@@ -8,14 +8,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-// NOTE: intentionally NOT parameterized as createClient<Database> yet.
-// Doing so surfaces ~34 pre-existing type-drift errors (loose
-// `string | number` id types that are really `string`, null/undefined
-// boundary mismatches) across MatchDetailCard, games/[id] and profile —
-// all files with PRs in flight. Flip this generic and fix those call
-// sites in one clean sweep AFTER the current PR queue merges; the
-// Database type is imported here so that follow-up is a one-word change.
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// Typed against the generated Database schema (src/lib/database.types.ts,
+// regenerate with `npm run db:types`). This makes `.from()`/`.rpc()`
+// results structurally checked at every call site, so schema drift is a
+// compile error instead of a runtime surprise.
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,

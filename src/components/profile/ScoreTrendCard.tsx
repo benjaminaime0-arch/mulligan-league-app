@@ -87,7 +87,7 @@ export function ScoreTrendCard({ handicap, userId, ownerName }: ScoreTrendCardPr
         // Surface it loudly in console so we can tell from DevTools.
         console.error("[ScoreTrendCard] get_profile_score_trend failed:", error.message)
       }
-      if (!error && data) setTrend(data as ScoreTrendData)
+      if (!error && data) setTrend(data as unknown as ScoreTrendData)
       setFetching(false)
     }
     load()
