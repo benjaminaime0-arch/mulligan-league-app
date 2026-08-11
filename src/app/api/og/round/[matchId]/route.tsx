@@ -68,7 +68,7 @@ export async function GET(
   const [matchRes, playersRes, scoresRes] = await Promise.all([
     supabase
       .from("matches")
-      .select("id, course_name, match_date, game_id, course_id")
+      .select("id, course_name, match_date, game_id, course_id, status")
       .eq("id", matchId)
       .maybeSingle(),
     supabase
@@ -81,13 +81,21 @@ export async function GET(
       .eq("match_id", matchId),
   ])
 
+  // This route reads with the service role (RLS bypassed) and its only key
+  // is the match UUID, which circulates outside the players (invite links
+  // pushed to group chats, browser history). So it must reveal NOTHING that
+  // the app's own share UI wouldn't, and every not-found / not-shareable
+  // outcome renders the SAME generic card — no id echo, no error text — so
+  // it can't be used to distinguish a real match id from a bogus one.
+  const NOT_FOUND = "Round not found"
+
   if (matchRes.error) {
     console.error("[og/round] match fetch error", matchRes.error)
-    return renderErrorCard(`Error: ${matchRes.error.message.slice(0, 40)}`)
+    return renderErrorCard(NOT_FOUND)
   }
   if (!matchRes.data) {
     console.error("[og/round] match not found", { matchId })
-    return renderErrorCard(`Match ${matchId.slice(0, 8)} not found`)
+    return renderErrorCard(NOT_FOUND)
   }
 
   const match = matchRes.data as {
@@ -96,6 +104,13 @@ export async function GET(
     match_date: string | null
     game_id: string | null
     course_id: string | null
+    status: string | null
+  }
+
+  // Cancelled matches are never shareable (the app's own canShareRound
+  // excludes them). Gate before any roster/score is read.
+  if (match.status === "cancelled") {
+    return renderErrorCard(NOT_FOUND)
   }
 
   let game: { name: string; course_name: string | null; course_id: string | null } | null = null
@@ -133,6 +148,16 @@ export async function GET(
   const approvedScores = scores.filter(
     (s) => s.status === "approved" || s.status === null,
   )
+
+  // No scores yet = a scheduled/future round. Rendering it would leak the
+  // full roster, course and date (who/where/when) of a private match to
+  // anyone holding the id. The app only shares once a score exists; match
+  // that. This also covers the "in-progress brag" share (>=1 score) that a
+  // strict completed-only gate would wrongly block.
+  if (approvedScores.length === 0) {
+    return renderErrorCard(NOT_FOUND)
+  }
+
   let winnerScore: number | null = null
   if (approvedScores.length > 0) {
     winnerScore = Math.min(...approvedScores.map((s) => s.score))

@@ -34,12 +34,22 @@ export async function GET(_req: Request, { params }: { params: { gameId: string 
 
   const { data: game } = await supabase
     .from("games")
-    .select("id, name, course_name, status, start_date, end_date")
+    .select("id, name, course_name, status, start_date, end_date, is_practice")
     .eq("id", gameId)
     .maybeSingle()
-  if (!game) return renderErrorCard("Game not found")
 
-  // Service role passes the leaderboard gate explicitly (see get_leaderboard).
+  // Service role bypasses RLS and get_leaderboard's member-only gate, so
+  // without this check the podium (names + totals) of any ACTIVE private
+  // game leaks to anyone holding the game id. Every legitimate season-recap
+  // flow is completed-games-only (get_game_recap refuses otherwise); mirror
+  // that, hide the hidden practice container, and use one generic card for
+  // all not-found / not-shareable outcomes (no existence oracle).
+  const NOT_FOUND = "Season not found"
+  const g0 = game as { status?: string; is_practice?: boolean } | null
+  if (!g0 || g0.status !== "completed" || g0.is_practice) {
+    return renderErrorCard(NOT_FOUND)
+  }
+
   const { data: board } = await supabase.rpc("get_leaderboard", { p_game_id: gameId })
   const podium = ((board ?? []) as PodiumRow[])
     .filter((r) => Number(r.rounds_counted) > 0)
