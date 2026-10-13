@@ -92,6 +92,8 @@ const cardFixture = {
 function renderPersonalCard(card) {
  return renderToStaticMarkup(React.createElement(PersonalRoundEditor, { data: card, onReload: async () => {} }))
 }
+const firstDraftHtml = renderPersonalCard({ ...cardFixture, revision: null, leagues: [], round: { ...cardFixture.round, status: 'draft', validator_id: null } })
+assert.ok(firstDraftHtml.includes('Create league and invite players'), 'first draft must allow inviting a validator before permanently locking scores')
 const personalHtml = renderPersonalCard(cardFixture)
 assert.equal((personalHtml.match(/>Submit this revision<\/button>/g) || []).length, 2, 'one revision must be offered to both leagues')
 assert.ok(personalHtml.includes('shares this confirmed revision with all members'), 'sharing consent must be visible')

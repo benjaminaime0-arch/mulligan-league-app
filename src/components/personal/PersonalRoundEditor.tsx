@@ -335,11 +335,11 @@ export function PersonalRoundEditor({
           {t("personal.incomplete")}
         </p>
       )}
-      {data.is_owner && data.revision && data.round.status !== "disputed" && (
+      {data.is_owner && data.round.status !== "disputed" && (ownerDraft || data.revision) && (
         <section className="mt-8">
-          <h2 className="font-semibold">{t("personal.submitTitle")}</h2>
+          <h2 className="font-semibold">{t(ownerDraft ? "personal.lifecycle.draftLeagues" : "personal.submitTitle")}</h2>
           <p className="mt-2 text-sm text-primary/70">
-            {t("personal.shareNotice")}
+            {t(ownerDraft ? "personal.lifecycle.bootstrap" : "personal.shareNotice")}
           </p>
           <ul className="mt-3 space-y-2">
             {data.leagues.map((g) => (
@@ -406,6 +406,7 @@ export function PersonalRoundEditor({
               onSubmit={(e) => {
                 e.preventDefault()
                 void run(async () => {
+                  if (ownerDraft) await save()
                   const g = personalResult<{ game_id: string }>(
                     await supabase.rpc("create_personal_league", {
                       p_name: name,
@@ -419,20 +420,13 @@ export function PersonalRoundEditor({
                         : "self_declared",
                     }),
                   )
-                  const res = personalResult<{
-                    success: boolean
-                    reason?: string
-                  }>(
-                    await supabase.rpc("submit_personal_card", {
-                      p_round: data.round.id,
-                      p_game: g.game_id,
-                    }),
-                  )
-                  await onReload()
-                  if (!res.success)
-                    throw new Error(t(`personal.reason.${res.reason}`))
+                  if (data.revision) {
+                    const res = personalResult<{ success: boolean; reason?: string }>(await supabase.rpc("submit_personal_card", { p_round: data.round.id, p_game: g.game_id }))
+                    await onReload()
+                    if (!res.success) throw new Error(t(`personal.reason.${res.reason}`))
+                  } else await onReload()
                   setName("")
-                  setNotice(t("personal.leagueCreated"))
+                  setNotice(t(ownerDraft ? "personal.lifecycle.draftLeagueCreated" : "personal.leagueCreated"))
                 })
               }}
             >
@@ -494,7 +488,7 @@ export function PersonalRoundEditor({
                 <input
                   type="checkbox"
                   checked={witness}
-                  disabled={!data.round.validator_id}
+                  disabled={!ownerDraft && !data.round.validator_id}
                   onChange={(e) => setWitness(e.target.checked)}
                 />
                 {t("personal.witnessRequired")}
@@ -506,7 +500,7 @@ export function PersonalRoundEditor({
                 disabled={busy || !data.tee.ready}
                 className={personalButton}
               >
-                {t("personal.createAndSubmit")}
+                {t(ownerDraft ? "personal.lifecycle.createLeagueOnly" : "personal.createAndSubmit")}
               </button>
             </form>
           </details>

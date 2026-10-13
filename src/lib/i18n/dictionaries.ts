@@ -22,6 +22,10 @@ export const DEFAULT_LOCALE: Locale = "fr"
 type Dict = Record<string, string>
 
 export const en: Dict = {
+  "personal.lifecycle.draftLeagues": "Leagues and playing partners",
+  "personal.lifecycle.bootstrap": "Create a compatible league below, open it to share its invite code, then return to this saved draft after your partner joins. Select the partner before confirming the card.",
+  "personal.lifecycle.createLeagueOnly": "Create league and invite players",
+  "personal.lifecycle.draftLeagueCreated": "Draft saved and league created. Open the league below to invite your partner, then return to select a validator and confirm.",
   "personal.lifecycle.requested": "Card submitted. It will count after validation.",
   "personal.lifecycle.remaining": "{h} h {m} min remaining",
   "personal.lifecycle.timerDue": "The 72-hour deadline has passed. The server will validate this card; refresh to see its status.",
@@ -920,6 +924,10 @@ export const en: Dict = {
 }
 
 export const fr: Dict = {
+  "personal.lifecycle.draftLeagues": "Ligues et partenaires de jeu",
+  "personal.lifecycle.bootstrap": "Créez une ligue compatible ci-dessous, ouvrez-la pour partager son code, puis revenez à ce brouillon enregistré après l’arrivée de votre partenaire. Choisissez le partenaire avant de confirmer la carte.",
+  "personal.lifecycle.createLeagueOnly": "Créer la ligue et inviter des joueurs",
+  "personal.lifecycle.draftLeagueCreated": "Brouillon enregistré et ligue créée. Ouvrez la ligue ci-dessous pour inviter votre partenaire, puis revenez choisir un validateur et confirmer.",
   "personal.lifecycle.requested": "Carte soumise. Elle comptera après validation.",
   "personal.lifecycle.remaining": "{h} h {m} min restantes",
   "personal.lifecycle.timerDue": "Le délai de 72 heures est écoulé. Le serveur validera cette carte ; actualisez pour voir son statut.",

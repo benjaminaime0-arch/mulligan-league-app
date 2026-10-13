@@ -24,6 +24,10 @@ draft edits remain private. Choose a designated playing partner from a shared
 league before confirming, or confirm an independent personal card immediately.
 The latter is permanently locked and cannot later enter a witness-required
 league. The validator declares presence; this is not technical proof of presence.
+For a first card, create a compatible league directly from the draft (the app
+saves the draft first), open its invite code and invite the playing partner.
+Return to the draft after the partner joins to select them and confirm. A
+validator must belong to each witness-required league receiving that card.
 
 The lifecycle is draft → pending_validation → validated, or
 pending_validation → pending_player_confirmation → validated/disputed.
