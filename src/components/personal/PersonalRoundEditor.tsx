@@ -329,7 +329,7 @@ export function PersonalRoundEditor({
           </>}
         </section>
       )}
-      {data.events.length > 0 && <details className="mt-5 text-sm"><summary>{t("personal.lifecycle.audit")}</summary><ol className="mt-2 space-y-2">{data.events.map((e) => <li key={e.id}>{displayTime(e.occurred_at)} · {t(`personal.event.${e.action}`)}{e.metadata.reason ? ` · ${e.metadata.reason}` : ""}</li>)}</ol></details>}
+      {data.events.length > 0 && <details className="mt-5 text-sm"><summary>{t("personal.lifecycle.audit")}</summary><ol className="mt-2 space-y-2">{data.events.map((e) => <li key={e.id}>{displayTime(e.occurred_at)} · {t(`personal.event.${e.action}`)}{e.actor_name ? ` · ${e.actor_name}` : ""}{e.metadata.reason ? ` · ${e.metadata.reason}` : ""}</li>)}</ol></details>}
       {ownerDraft && !complete && (
         <p className="mt-2 text-xs text-primary/70">
           {t("personal.incomplete")}

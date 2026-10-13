@@ -9,7 +9,7 @@ CREATE FUNCTION pg_temp.login(u uuid) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',u,'role','authenticated')::text,true); END $$;
 DO $$
 DECLARE owner uuid:='a4510000-0000-0000-0000-000000000001'; partner uuid:='a4510000-0000-0000-0000-000000000002'; outsider uuid:='a4510000-0000-0000-0000-000000000003';
- tee uuid; r uuid; refused uuid; automatic uuid; manual uuid; expired uuid; g1 uuid; g2 uuid; yesterday uuid; rev uuid; corrected uuid; due timestamptz;
+ tee uuid; r uuid; refused uuid; automatic uuid; manual uuid; expired uuid; g1 uuid; g2 uuid; nonpartner_league uuid; yesterday uuid; rev uuid; corrected uuid; due timestamptz;
  holes jsonb; changed jsonb; payload jsonb; n int; before_count int; after_count int; dt date:=(clock_timestamp() AT TIME ZONE 'Europe/Paris')::date;
 BEGIN
  -- Exact civil-day boundaries across spring/fall DST; 72-hour period is elapsed UTC.
@@ -42,6 +42,8 @@ BEGIN
  payload:=get_personal_card(r);
  IF payload->'round'->>'status'<>'pending_validation' OR (payload->'level'->>'cards_count')::int<>0 THEN RAISE EXCEPTION 'Pending card counted'; END IF;
  IF extract(epoch FROM ((payload->'round'->>'auto_validation_at')::timestamptz-(payload->'round'->>'validation_requested_at')::timestamptz))<>259200 THEN RAISE EXCEPTION 'Wrong 72 hour due instant'; END IF;
+ nonpartner_league:=(create_personal_league('Validator membership gate',tee,dt-1,dt+1,'stroke_net',1,'peer_required')->>'game_id')::uuid;
+ IF submit_personal_card(r,nonpartner_league)->>'reason'<>'validator_required' THEN RAISE EXCEPTION 'Validator outside league attested a peer-required submission'; END IF;
  PERFORM submit_personal_card(r,g1); PERFORM submit_personal_card(r,g2);
  IF EXISTS(SELECT 1 FROM get_leaderboard(g1) WHERE user_id=owner AND rounds_counted<>0) THEN RAISE EXCEPTION 'Pending score ranked'; END IF;
  BEGIN PERFORM save_personal_card(r,changed,1); RAISE EXCEPTION 'Owner edited pending card';

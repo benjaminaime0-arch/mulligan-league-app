@@ -64,7 +64,7 @@ export type PersonalCard = {
   is_owner: boolean
   revisions: PersonalRevision[]
   validators: { id: string; name: string }[]
-  events: { id: string; action: string; occurred_at: string; actor_id: string | null; metadata: { reason?: string; method?: string } }[]
+  events: { id: string; action: string; occurred_at: string; actor_id: string | null; actor_name: string | null; metadata: { reason?: string; method?: string } }[]
   round: {
     id: string
     tee_id: string

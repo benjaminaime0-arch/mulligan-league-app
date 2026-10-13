@@ -309,7 +309,7 @@ BEGIN
  IF r.tee_id<>rules.tee_id THEN RETURN 'wrong_layout_or_tee'; END IF;
  IF r.played_on<g.start_date OR r.played_on>g.end_date THEN RETURN 'outside_league_dates'; END IF;
  IF clock_timestamp()>=least(r.entry_deadline_at,(g.end_date+1)::timestamp AT TIME ZONE r.course_timezone) THEN RETURN 'submission_deadline'; END IF;
- IF rules.attestation='peer_required' AND r.validator_id IS NULL THEN RETURN 'validator_required'; END IF;
+ IF rules.attestation='peer_required' AND (r.validator_id IS NULL OR NOT is_game_member(p_game,r.validator_id)) THEN RETURN 'validator_required'; END IF;
  SELECT * INTO rev FROM personal_card_revisions WHERE id=r.current_revision_id;
  IF rules.format IN('stroke_gross','stroke_net') AND rev.gross_total IS NULL THEN RETURN 'picked_up_in_stroke'; END IF;
  RETURN NULL;
@@ -379,7 +379,7 @@ BEGIN
  IF r.id IS NULL THEN RAISE EXCEPTION 'Round not found.'; END IF;
  RETURN jsonb_build_object('server_now',clock_timestamp(),'round',to_jsonb(r),'is_owner',r.user_id=auth.uid(),
  'revisions',(SELECT jsonb_agg(to_jsonb(v) ORDER BY revision_number) FROM personal_card_revisions v WHERE round_id=p_round),
- 'events',COALESCE((SELECT jsonb_agg(to_jsonb(e) ORDER BY occurred_at,id) FROM personal_card_events e WHERE round_id=p_round),'[]'::jsonb),
+ 'events',COALESCE((SELECT jsonb_agg(to_jsonb(e)||jsonb_build_object('actor_name',COALESCE(p.username,p.first_name)) ORDER BY e.occurred_at,e.id) FROM personal_card_events e LEFT JOIN profiles p ON p.id=e.actor_id WHERE e.round_id=p_round),'[]'::jsonb),
  'validators',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'name',COALESCE(p.username,p.first_name,'Player')) ORDER BY p.username) FROM profiles p WHERE r.user_id=auth.uid() AND personal_validator_allowed(r.user_id,p.id)),'[]'::jsonb),
  'tee',(SELECT to_jsonb(t)||jsonb_build_object('course_name',c.name,'layout_name',l.name,'hole_count',l.hole_count,'ready',personal_reference_ready(t.id))
    FROM personal_tees t JOIN personal_layouts l ON l.id=t.layout_id JOIN courses c ON c.id=l.course_id WHERE t.id=r.tee_id),
