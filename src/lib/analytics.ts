@@ -10,6 +10,7 @@
 
 export type AnalyticsEvent =
   | "signup_started"
+  | "signup_confirmation_requested"
   | "signup_completed"
   | "onboarding_completed"
   | "invite_link_opened"

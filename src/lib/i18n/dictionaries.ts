@@ -330,6 +330,11 @@ export const en: Dict = {
   "auth.password.confirm": "Confirm password",
   "auth.signup.creating": "Creating account…",
   "auth.signup.submit": "Create Account",
+  "auth.signup.checkEmail": "Check your email",
+  "auth.signup.confirmationSent": "A confirmation link has been sent to {email}. Open it to finish creating your account.",
+  "auth.signup.confirmationHelp": "Check your spam folder too. You can return to Mulligan after confirming your email.",
+  "auth.signup.changeEmail": "Use a different email address",
+  "auth.signup.emailUnavailable": "We couldn't send the confirmation email. Please try again later.",
   "auth.username.rule": "Letters and numbers only",
 
   // ── common (T1.7 game workspace) ──────────────────
@@ -1228,6 +1233,11 @@ export const fr: Dict = {
   "auth.password.confirm": "Confirmer le mot de passe",
   "auth.signup.creating": "Création du compte…",
   "auth.signup.submit": "Créer un compte",
+  "auth.signup.checkEmail": "Consultez vos e-mails",
+  "auth.signup.confirmationSent": "Un lien de confirmation a été envoyé à {email}. Ouvrez-le pour terminer la création de votre compte.",
+  "auth.signup.confirmationHelp": "Vérifiez aussi vos courriers indésirables. Vous pourrez retrouver Mulligan après avoir confirmé votre e-mail.",
+  "auth.signup.changeEmail": "Utiliser une autre adresse e-mail",
+  "auth.signup.emailUnavailable": "Impossible d’envoyer l’e-mail de confirmation. Veuillez réessayer plus tard.",
   "auth.username.rule": "Lettres et chiffres uniquement",
 
   // ── common (T1.7 game workspace) ──────────────────

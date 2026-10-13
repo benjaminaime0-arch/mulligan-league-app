@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { track } from "@/lib/analytics"
 import { useT } from "@/lib/i18n"
+import { signupConfirmationUrl, signupDestination } from "@/lib/signupFlow"
 
 export function SignupForm() {
   const t = useT()
@@ -15,6 +16,7 @@ export function SignupForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     username: "",
@@ -64,16 +66,12 @@ export function SignupForm() {
 
     setLoading(true)
     try {
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email: formData.email.trim(),
         password: formData.password,
         options: {
-          // Email confirmation links bring users back to the home page
-          // (where the tabbed auth surface lives). Supabase JS auto-
-          // handles the access_token in the URL hash and creates a
-          // session, after which page.tsx's getSession effect routes
-          // to /profile.
-          emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/` : undefined,
+          // The auth shell waits for the confirmed session before opening onboarding.
+          emailRedirectTo: signupConfirmationUrl(window.location.origin, redirectTo),
           data: {
             username: formData.username.trim(),
             first_name: formData.firstName.trim(),
@@ -88,18 +86,55 @@ export function SignupForm() {
         if (signUpError.message?.includes("profiles_username_unique") || signUpError.message?.includes("duplicate")) {
           throw new Error(t("onboarding.username.taken"))
         }
+        if (/sending confirmation email/i.test(signUpError.message)) {
+          throw new Error(t("auth.signup.emailUnavailable"))
+        }
         throw signUpError
       }
 
-      // New accounts go through onboarding unless an invite is pending.
+      // A successful request may still need email verification. Do not visit
+      // protected onboarding without a session or retain passwords while waiting.
+      if (!data.session) {
+        setConfirmationEmail(formData.email.trim())
+        setFormData((p) => ({ ...p, password: "", confirmPassword: "" }))
+        track("signup_confirmation_requested", { provider: "email" })
+        return
+      }
+
       track("signup_completed", { provider: "email" })
-      router.push(redirectTo || "/welcome")
+      router.push(signupDestination(redirectTo))
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : t("common.error.generic"))
     } finally {
       setLoading(false)
     }
+  }
+
+  if (confirmationEmail) {
+    return (
+      <section className="space-y-4" aria-labelledby="signup-confirmation-title">
+        <div role="status" className="rounded-[10px] border border-primary/20 bg-cream/40 p-4">
+          <h2 id="signup-confirmation-title" className="text-lg font-bold text-primary">
+            {t("auth.signup.checkEmail")}
+          </h2>
+          <p className="mt-2 break-words text-sm text-primary/80">
+            {t("auth.signup.confirmationSent", { email: confirmationEmail })}
+          </p>
+          <p className="mt-2 text-sm text-primary/70">{t("auth.signup.confirmationHelp")}</p>
+        </div>
+        <button
+          type="button"
+          className="text-sm text-primary underline"
+          onClick={() => {
+            setConfirmationEmail(null)
+            setFormData((p) => ({ ...p, email: "" }))
+          }}
+        >
+          {t("auth.signup.changeEmail")}
+        </button>
+      </section>
+    )
   }
 
   return (
