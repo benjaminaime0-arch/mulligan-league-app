@@ -26,7 +26,7 @@ export const en: Dict = {
   "personal.lifecycle.remaining": "{h} h {m} min remaining",
   "personal.lifecycle.timerDue": "The 72-hour deadline has passed. The server will validate this card; refresh to see its status.",
   "personal.status.pending_validation": "Awaiting validator",
-  "personal.status.pending_player_confirmation": "Awaiting your decision on the correction",
+  "personal.status.pending_player_confirmation": "Awaiting player confirmation of correction",
   "personal.status.validated": "Validated and locked",
   "personal.status.disputed": "Permanently disputed",
   "personal.lifecycle.title": "Card status and deadlines",

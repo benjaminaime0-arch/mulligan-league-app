@@ -45,6 +45,9 @@ REVOKE ALL ON personal_card_events FROM PUBLIC,anon,authenticated;
 GRANT ALL ON personal_card_events TO service_role;
 CREATE INDEX ON personal_card_events(round_id,occurred_at);
 CREATE TRIGGER personal_event_immutable BEFORE UPDATE OR DELETE ON personal_card_events FOR EACH ROW EXECUTE FUNCTION personal_immutable();
+-- Retain the legacy column for backwards-compatible reads; it no longer controls eligibility.
+ALTER TABLE personal_league_rules ALTER COLUMN submission_deadline_days SET DEFAULT 0;
+COMMENT ON COLUMN personal_league_rules.submission_deadline_days IS 'Deprecated: course-local next-day deadline capped at league final day, enforced by personal_submission_reason.';
 CREATE INDEX personal_due_cards ON personal_rounds(auto_validation_at) WHERE status='pending_validation';
 CREATE FUNCTION personal_terminal_card_guard() RETURNS trigger LANGUAGE plpgsql SET search_path=public AS $$
 BEGIN
@@ -397,7 +400,7 @@ BEGIN
  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Authentication required.'; END IF;
  RETURN jsonb_build_object(
  'level',calculate_personal_level(auth.uid()),
- 'inbox',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',r.id,'played_on',r.played_on,'status',r.status,'auto_validation_at',r.auto_validation_at,'player_name',COALESCE(p.username,p.first_name),'course_name',c.name) ORDER BY r.submitted_at) FROM personal_rounds r JOIN profiles p ON p.id=r.user_id JOIN personal_tees t ON t.id=r.tee_id JOIN personal_layouts l ON l.id=t.layout_id JOIN courses c ON c.id=l.course_id WHERE (r.validator_id=auth.uid() AND r.status='pending_validation') OR (r.user_id=auth.uid() AND r.status='pending_player_confirmation')),'[]'::jsonb),
+ 'inbox',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',r.id,'played_on',r.played_on,'status',r.status,'auto_validation_at',r.auto_validation_at,'player_name',COALESCE(p.username,p.first_name),'course_name',c.name,'hole_count',l.hole_count,'tee_name',t.name) ORDER BY r.submitted_at) FROM personal_rounds r JOIN profiles p ON p.id=r.user_id JOIN personal_tees t ON t.id=r.tee_id JOIN personal_layouts l ON l.id=t.layout_id JOIN courses c ON c.id=l.course_id WHERE (r.validator_id=auth.uid() AND r.status='pending_validation') OR (r.user_id=auth.uid() AND r.status='pending_player_confirmation')),'[]'::jsonb),
  'official_index',(SELECT index_value FROM official_index_declarations WHERE user_id=auth.uid()
                   ORDER BY effective_on DESC,recorded_at DESC,id DESC LIMIT 1),
  'history',COALESCE((SELECT jsonb_agg(x ORDER BY x.calculated_at DESC) FROM(SELECT level_value,status,cards_count,calculated_at
