@@ -8,6 +8,8 @@ import { LoginForm } from "@/components/auth/LoginForm"
 import { SignupForm } from "@/components/auth/SignupForm"
 import { OAuthButtons } from "@/components/auth/OAuthButtons"
 import { useI18n } from "@/lib/i18n"
+import { signupDestination } from "@/lib/signupFlow"
+import { track } from "@/lib/analytics"
 
 export default function Home() {
   return (
@@ -43,16 +45,19 @@ function HomeContent() {
   // land on the right pane.
   const initialTab: Tab = searchParams.get("tab") === "signup" ? "signup" : "login"
   const [tab, setTab] = useState<Tab>(initialTab)
+  const signupConfirmed = searchParams.get("signup") === "confirmed"
+  const redirectTo = searchParams.get("redirect")
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
-        router.replace("/home")
+        if (signupConfirmed) track("signup_completed", { provider: "email" })
+        router.replace(signupConfirmed ? signupDestination(redirectTo) : "/home")
       } else {
         setChecking(false)
       }
     })
-  }, [router])
+  }, [router, signupConfirmed, redirectTo])
 
   if (checking) return <HomeLoading />
 
