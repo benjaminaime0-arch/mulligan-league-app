@@ -7,7 +7,7 @@ Existing matches, practice containers and Elo data remain available.
 ## User flow
 
 Open **My cards** from Home, Profile or the New menu. Select the exact layout
-and tee, enter the play date and record the holes. Save a draft at any time.
+and tee, enter the play date and record the holes. Save a draft until the course-local entry deadline.
 Confirmation requires all 9 or 18 holes completed or explicitly picked up and
 verified course reference data. A picked-up hole scores zero Stableford points;
 it does not produce a valid gross/net stroke total.
@@ -20,11 +20,41 @@ N have no rank. Other aggregation modes and secondary standings are subsequent
 milestones.
 
 Submitted revisions are visible to league members. Other personal cards and
-unconfirmed draft edits remain private. A witness must be another member and
-confirm their presence; this declaration is not technical proof of presence.
-Confirming a correction creates a new immutable revision, supersedes old
-submissions and requires new submissions/attestations. The personal round still
-contributes once to the internal level.
+draft edits remain private. Choose a designated playing partner from a shared
+league before confirming, or confirm an independent personal card immediately.
+The latter is permanently locked and cannot later enter a witness-required
+league. The validator declares presence; this is not technical proof of presence.
+For a first card, create a compatible league directly from the draft (the app
+saves the draft first), open its invite code and invite the playing partner.
+Return to the draft after the partner joins to select them and confirm. A
+validator must belong to each witness-required league receiving that card.
+
+The lifecycle is draft → pending_validation → validated, or
+pending_validation → pending_player_confirmation → validated/disputed.
+Submission freezes the scores. Only the designated validator may propose one
+correction, with a reason and a new immutable revision recording its author.
+The player explicitly accepts or refuses. Refusal permanently disputes the
+entire card; it is excluded from every league and the internal level, cannot
+be reopened and cannot be resubmitted. Validated cards are also permanently
+locked. The level and standings count validated cards only.
+
+A correction preserves every original timely league association and submission
+timestamp. Previous pinned revisions stay in the history as superseded.
+Acceptance updates all eligible leagues together; a newly picked-up hole excludes
+a net/gross stroke submission while still allowing a Stableford submission.
+The personal round contributes once to the internal level.
+
+The initial validator request stores UTC validation_requested_at and
+ auto_validation_at exactly 72 elapsed hours later. The server-only pg_cron
+worker runs every minute; transactions and consistent user/card locks prevent
+manual reviews and repeated workers from settling twice. A correction cancels
+the timer, and player confirmation never times out. The UI timer is display-only
+and derives elapsed time from the server response. UTC instants are displayed
+in the card's frozen IANA course timezone.
+
+My cards includes an action inbox. In-app notifications link to the same shared
+card review. Card events and revision authors/reasons remain available in the
+card's activity history. The legacy match-result approval timer is separate.
 
 ## Calculation conventions
 
@@ -44,10 +74,15 @@ The nine-hole differential is doubled as the plan's internal 18-hole estimate.
 Numeric rounding is deterministic. Negative handicaps give strokes back on the
 highest stroke indexes. Official index declarations are manual.
 
-Submission is permitted after play, within the league season dates; the initial
-submission deadline is seven days after season end in Europe/Paris. Rules lock
-after the first submission. These are explicit defaults for this milestone,
-not a full implementation of every configurable policy in the plan.
+Cards must be entered and initially submitted by the end of the calendar day
+following play, in the course's IANA timezone. The stored deadline is exclusive
+midnight at the start of the next day, so every instant of 23:59:59 is allowed.
+Leagues additionally cap the deadline at midnight following their final day.
+There is no seven-day grace period. Timely requests can finish validation after
+season closure. Pending requests display closed_provisional standings until all
+are validated or disputed; then the season displays finalized. Rules lock after
+the first submission. Existing previously confirmed cards retain their results
+as validated legacy cards, without retroactive deadline checks.
 
 ## Deploying reference data
 
@@ -100,8 +135,7 @@ For example, yellow Messieurs at Rueil has nine-hole SSS 30.4 and FFG half-slope
 card. The two-tour reference has SSS 60.7 and slope 104, giving 13 strokes.
 The internal differential remains the estimate described above.
 
-These are local migration changes. Applying them to the deployed database and
-deploying the app are still required for the pilot to appear in production.
+These pilot references were deployed and tested in production on 13 October 2026.
 
 ## Validation
 
@@ -112,6 +146,8 @@ deploying the app are still required for the pilot to appear in production.
 - `npm run build`
 - Full Supabase migration replay plus `supabase/tests/*.sql` in the existing
   db-replay CI workflow. SQL fixtures roll back and target a disposable DB.
+- `PGURL=<disposable local database> bash scripts/test_card_validation_races.sh`
+  races a designated reviewer with two real PostgreSQL worker connections in CI.
 
 The new SQL suites cover personal scoring, level selection/chronology, stable
 handicap snapshots, multi-league reuse, version conflicts, corrections,

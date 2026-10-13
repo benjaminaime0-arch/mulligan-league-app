@@ -2,6 +2,10 @@
 // legacy schema intact; regenerate and merge after production deployment.
 import type { Database as Legacy, Json } from "./database.types"
 type PersonalFunctions = {
+  request_personal_validation: { Args: { p_round: string; p_expected_version: number; p_validator: string | null }; Returns: Json }
+  review_personal_card: { Args: { p_round: string; p_revision: string; p_scores?: Json | null; p_reason?: string | null; p_present: boolean }; Returns: Json }
+  resolve_personal_correction: { Args: { p_round: string; p_revision: string; p_accept: boolean }; Returns: Json }
+
   get_personal_overview: { Args: never; Returns: Json }
   get_personal_card: { Args: { p_round: string }; Returns: Json }
   get_personal_league: { Args: { p_game: string }; Returns: Json }

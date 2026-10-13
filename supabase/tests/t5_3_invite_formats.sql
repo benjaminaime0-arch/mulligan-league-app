@@ -1,0 +1,23 @@
+BEGIN;
+INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES('a4540000-0000-4000-8000-000000000001','invite-formats@test.local','{"username":"invite-formats"}');
+DO $$ DECLARE tee uuid; six uuid; ten uuid; code text; p jsonb; BEGIN
+ SELECT t.id INTO tee FROM personal_tees t JOIN personal_layouts l ON l.id=t.layout_id WHERE l.hole_count=9 AND personal_reference_ready(t.id) LIMIT 1;
+ PERFORM set_config('request.jwt.claims','{"sub":"a4540000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+ SET LOCAL ROLE authenticated;
+ six:=(create_personal_league('Legacy six-character invite',tee,current_date-1,current_date+1,'stroke_net')->>'game_id')::uuid;
+ ten:=(create_personal_league('Current ten-character invite',tee,current_date-1,current_date+1,'stroke_net')->>'game_id')::uuid;
+ code:=get_personal_league(ten)->'game'->>'invite_code';
+ IF length(code)<>10 THEN RAISE EXCEPTION 'Current creator did not produce ten-character code'; END IF;
+ RESET ROLE;
+ UPDATE games SET invite_code='CDE123' WHERE id=six;
+ SET LOCAL ROLE anon;
+ p:=get_invite_preview(' cde123 ');
+ IF (p->>'found')::boolean IS NOT TRUE OR p->>'name'<>'Legacy six-character invite' THEN RAISE EXCEPTION 'Legacy invite lost'; END IF;
+ p:=get_invite_preview(lower(code));
+ IF (p->>'found')::boolean IS NOT TRUE OR p->>'name'<>'Current ten-character invite' THEN RAISE EXCEPTION 'Full ten-character invite refused'; END IF;
+ IF p->>'format'<>'stroke_net' THEN RAISE EXCEPTION 'Personal league invite advertised wrong scoring format'; END IF;
+ IF p ? 'id' OR p ? 'game_id' OR p ? 'invite_code' OR p ? 'members' OR p ? 'scores' THEN RAISE EXCEPTION 'Invite projection leaked private fields'; END IF;
+ IF (get_invite_preview(NULL)->>'found')::boolean OR (get_invite_preview('CDE12!')->>'found')::boolean OR (get_invite_preview('CDE12')->>'found')::boolean THEN RAISE EXCEPTION 'Malformed invite accepted'; END IF;
+ RESET ROLE;
+END $$;
+ROLLBACK;

@@ -46,11 +46,11 @@ END $$;
 CREATE FUNCTION pg_temp.level_fixture(u uuid,d numeric,days_ago int) RETURNS void LANGUAGE plpgsql AS $$
 DECLARE r uuid; v uuid;
 BEGIN
- INSERT INTO personal_rounds(user_id,tee_id,played_on,handicap_source,handicap_index)
- VALUES(u,current_setting('t442.tee')::uuid,current_date-days_ago,'default_54',54) RETURNING id INTO r;
- INSERT INTO personal_card_revisions(round_id,revision_number,scores,tee_snapshot,playing_handicap,gross_total,net_total,stableford_points,adjusted_gross,differential)
- VALUES(r,1,'[]','{}',0,72,72,36,72,d) RETURNING id INTO v;
- UPDATE personal_rounds SET current_revision_id=v,status='confirmed' WHERE id=r;
+ INSERT INTO personal_rounds(user_id,tee_id,played_on,handicap_source,handicap_index,entry_deadline_at)
+ VALUES(u,current_setting('t442.tee')::uuid,current_date-days_ago,'default_54',54,personal_entry_deadline(current_date-days_ago,'Europe/Paris')) RETURNING id INTO r;
+ INSERT INTO personal_card_revisions(round_id,revision_number,scores,tee_snapshot,playing_handicap,gross_total,net_total,stableford_points,adjusted_gross,differential,actor_id)
+ VALUES(r,1,'[]','{}',0,72,72,36,72,d,u) RETURNING id INTO v;
+ UPDATE personal_rounds SET current_revision_id=v,status='validated' WHERE id=r;
 END $$;
 DO $$
 DECLARE u uuid:='a4420000-0000-0000-0000-000000000002'; result jsonb; i int;

@@ -51,7 +51,9 @@ export default function NotificationsPage() {
     // requester by design — following the id would dead-end. Read-only.
     if (notif.type === "join_rejected") return
 
-    if (data.match_id) {
+    if (data.round_id) {
+      router.push(`/rounds/${data.round_id}`)
+    } else if (data.match_id) {
       router.push(`/matches/${data.match_id}`)
     } else if (data.game_id) {
       router.push(`/games/${data.game_id}`)
@@ -198,7 +200,7 @@ function NotificationRow({
   const isClickable =
     notification.type !== "join_rejected" &&
     (isJoinRequest ||
-      !!(notification.data?.match_id || notification.data?.game_id))
+      !!(notification.data?.round_id || notification.data?.match_id || notification.data?.game_id))
 
   return (
     <button

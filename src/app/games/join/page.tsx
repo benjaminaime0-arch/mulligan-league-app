@@ -1,5 +1,7 @@
 "use client"
 
+import { normalizeInviteCode, isInviteCode } from "@/lib/inviteCodes"
+
 import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
@@ -28,7 +30,7 @@ function JoinGameContent() {
   const { user, loading: authLoading } = useAuth()
   const t = useT()
 
-  const [code, setCode] = useState(searchParams.get("code")?.toUpperCase().slice(0, 6) || "")
+  const [code, setCode] = useState(normalizeInviteCode(searchParams.get("code") || ""))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [gameId, setGameId] = useState<string | number | null>(null)
@@ -41,7 +43,7 @@ function JoinGameContent() {
     setError(null)
 
     const trimmed = code.trim().toUpperCase()
-    if (trimmed.length !== 6) {
+    if (!isInviteCode(trimmed)) {
       setError(t("games.join.error.length"))
       return
     }
@@ -195,8 +197,8 @@ function JoinGameContent() {
               id="invite-code"
               type="text"
               value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 6))}
-              maxLength={6}
+              onChange={(e) => setCode(normalizeInviteCode(e.target.value))}
+              maxLength={10}
               autoComplete="off"
               className="mx-auto block w-full max-w-xs rounded-xl border border-primary/30 bg-cream px-4 py-3 text-center text-3xl font-mono tracking-[0.4em] text-primary placeholder:text-primary/30 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               placeholder="ABC123"

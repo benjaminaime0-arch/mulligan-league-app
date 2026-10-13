@@ -21,7 +21,6 @@ export function PersonalLeaguePanel({
   const [data, setData] = useState(initial)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [present, setPresent] = useState<Record<string, boolean>>({})
   const refresh = useCallback(async () => {
     const d = personalResult<PersonalLeague | null>(
       await supabase.rpc("get_personal_league", { p_game: initial.game.id }),
@@ -31,24 +30,6 @@ export function PersonalLeaguePanel({
   useEffect(() => {
     setData(initial)
   }, [initial])
-  const attest = async (id: string, approve: boolean) => {
-    setBusy(true)
-    setError(null)
-    try {
-      personalResult(
-        await supabase.rpc("attest_personal_card", {
-          p_submission: id,
-          p_approve: approve,
-          p_present: !!present[id],
-        }),
-      )
-      await refresh()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("personal.loadError"))
-    } finally {
-      setBusy(false)
-    }
-  }
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
       <Link href="/games" className="text-sm underline">
@@ -68,6 +49,7 @@ export function PersonalLeaguePanel({
           ? t("personal.witnessRequired")
           : t("personal.selfDeclared")}
       </p>
+      <p className="mt-3 text-sm font-semibold">{t(`personal.closure.${data.closure_status}`)}</p>
       <GameInviteCode
         inviteCode={data.game.invite_code}
         gameName={data.game.name}
@@ -110,7 +92,7 @@ export function PersonalLeaguePanel({
             </p>
             <p className="mt-1 text-sm">
               {t("personal.confirmedRevision", { n: s.revision_number })} ·{" "}
-              {t(`personal.submission.${s.status}`)}
+              {t(`personal.submission.${s.status}`)} · {t(`personal.status.${s.card_status}`)}
             </p>
             <details className="mt-2 text-sm">
               <summary className="cursor-pointer underline">
@@ -132,36 +114,8 @@ export function PersonalLeaguePanel({
                 {t(`personal.reason.${s.reason}`)}
               </p>
             )}
-            {s.status === "pending" && s.user_id !== userId && (
-              <div className="mt-3">
-                <label className="flex items-start gap-2 text-sm">
-                  <input
-                    className="mt-1"
-                    type="checkbox"
-                    checked={!!present[s.id]}
-                    onChange={(e) =>
-                      setPresent((p) => ({ ...p, [s.id]: e.target.checked }))
-                    }
-                  />
-                  {t("personal.present")}
-                </label>
-                <div className="mt-3 flex gap-2">
-                  <button
-                    disabled={busy || !present[s.id]}
-                    className={personalButton}
-                    onClick={() => void attest(s.id, true)}
-                  >
-                    {t("personal.approve")}
-                  </button>
-                  <button
-                    disabled={busy || !present[s.id]}
-                    className="rounded-lg border border-primary/20 px-4 py-2.5 text-sm disabled:opacity-50"
-                    onClick={() => void attest(s.id, false)}
-                  >
-                    {t("personal.reject")}
-                  </button>
-                </div>
-              </div>
+            {s.status === "pending" && s.validator_id === userId && (
+              <Link href={`/rounds/${s.round_id}`} className="mt-3 block text-sm underline">{t("personal.lifecycle.reviewValidation")}</Link>
             )}
             {s.user_id === userId && (
               <Link

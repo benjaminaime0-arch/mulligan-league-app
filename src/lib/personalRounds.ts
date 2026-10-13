@@ -30,6 +30,9 @@ export type PersonalRevision = {
   net_total: number | null
   stableford_points: number
   differential: number
+  actor_id: string
+  correction_reason: string | null
+  created_at: string
   playing_handicap: number
 }
 export type PersonalRoundSummary = {
@@ -43,7 +46,9 @@ export type PersonalRoundSummary = {
   gross_total: number | null
   stableford_points: number | null
 }
+export type PersonalInboxItem = { id: string; played_on: string; status: string; auto_validation_at: string | null; player_name: string; course_name: string; hole_count: number; tee_name: string }
 export type PersonalOverview = {
+  inbox: PersonalInboxItem[]
   level: PersonalLevel
   official_index: number | null
   tees: PersonalTee[]
@@ -55,6 +60,11 @@ export type PersonalOverview = {
   }[]
 }
 export type PersonalCard = {
+  server_now: string
+  is_owner: boolean
+  revisions: PersonalRevision[]
+  validators: { id: string; name: string }[]
+  events: { id: string; action: string; occurred_at: string; actor_id: string | null; actor_name: string | null; metadata: { reason?: string; method?: string } }[]
   round: {
     id: string
     tee_id: string
@@ -63,6 +73,16 @@ export type PersonalCard = {
     draft_version: number
     handicap_index: number
     handicap_source: string
+    user_id: string
+    validator_id: string | null
+    course_timezone: string
+    entry_deadline_at: string
+    submitted_at: string | null
+    validation_requested_at: string | null
+    auto_validation_at: string | null
+    timer_cancelled_at: string | null
+    validated_at: string | null
+    validation_method: string | null
   }
   tee: PersonalTee
   reference_holes: {
@@ -84,6 +104,7 @@ export type PersonalCard = {
   }[]
 }
 export type PersonalLeague = {
+  closure_status: string
   rules: { tee_id: string; format: string; attestation: string }
   game: {
     id: string
@@ -112,6 +133,9 @@ export type PersonalLeague = {
     played_on: string
     status: string
     reason: string | null
+    card_status: string
+    validator_id: string | null
+    auto_validation_at: string | null
     revision_number: number
     gross_total: number | null
     net_total: number | null
