@@ -32,7 +32,7 @@ BEGIN
     'found', true,
     'name', v_game.name,
     'course_name', v_game.course_name,
-    'format', COALESCE(v_game.format, v_game.game_type, 'stroke_play'),
+    'format', COALESCE((SELECT r.format FROM personal_league_rules r WHERE r.game_id=v_game.id), v_game.format, v_game.game_type, 'stroke_play'),
     'member_count', v_count,
     'max_players', v_game.max_players,
     'status', v_game.status,

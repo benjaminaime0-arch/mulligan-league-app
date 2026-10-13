@@ -15,6 +15,7 @@ DO $$ DECLARE tee uuid; six uuid; ten uuid; code text; p jsonb; BEGIN
  IF (p->>'found')::boolean IS NOT TRUE OR p->>'name'<>'Legacy six-character invite' THEN RAISE EXCEPTION 'Legacy invite lost'; END IF;
  p:=get_invite_preview(lower(code));
  IF (p->>'found')::boolean IS NOT TRUE OR p->>'name'<>'Current ten-character invite' THEN RAISE EXCEPTION 'Full ten-character invite refused'; END IF;
+ IF p->>'format'<>'stroke_net' THEN RAISE EXCEPTION 'Personal league invite advertised wrong scoring format'; END IF;
  IF p ? 'id' OR p ? 'game_id' OR p ? 'invite_code' OR p ? 'members' OR p ? 'scores' THEN RAISE EXCEPTION 'Invite projection leaked private fields'; END IF;
  IF (get_invite_preview(NULL)->>'found')::boolean OR (get_invite_preview('CDE12!')->>'found')::boolean OR (get_invite_preview('CDE12')->>'found')::boolean THEN RAISE EXCEPTION 'Malformed invite accepted'; END IF;
  RESET ROLE;
