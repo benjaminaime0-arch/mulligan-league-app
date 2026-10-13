@@ -10,6 +10,7 @@ on:
       - "src/**"
       - "scripts/test_scoring_ui.cjs"
       - "scripts/tests/signup-flow.cjs"
+      - "scripts/tests/personal-submission-status.cjs"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.json"
@@ -20,6 +21,7 @@ on:
       - "src/**"
       - "scripts/test_scoring_ui.cjs"
       - "scripts/tests/signup-flow.cjs"
+      - "scripts/tests/personal-submission-status.cjs"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.json"
@@ -44,6 +46,7 @@ jobs:
       - run: npx next lint
       - run: node scripts/test_scoring_ui.cjs
       - run: node --test scripts/tests/signup-flow.cjs
+      - run: node --test scripts/tests/personal-submission-status.cjs
       # Locale parity + no undefined t() keys. Both fail silently at runtime:
       # a key missing from fr shows English to French users, and a key missing
       # from both renders the raw key ("games.create.title") on the page.
