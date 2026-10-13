@@ -1,5 +1,7 @@
 "use client"
 
+import { normalizeInviteCode } from "@/lib/inviteCodes"
+
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -45,7 +47,7 @@ export default function InviteLandingPage() {
   const { user, loading: authLoading } = useAuthContext()
   const { t } = useI18n()
 
-  const code = (params?.code || "").toUpperCase().slice(0, 6)
+  const code = normalizeInviteCode(params?.code || "")
   const [preview, setPreview] = useState<Preview | null>(null)
   const [loading, setLoading] = useState(true)
   const [joining, setJoining] = useState(false)

@@ -123,3 +123,12 @@ const unrelatedMember = renderToStaticMarkup(React.createElement(PersonalLeagueP
 assert.ok(!unrelatedMember.includes('Review and validate this card'), 'other members cannot act as validator')
 assert.ok(!witnessLeague.includes('Open my card'), 'witness must not link into the private round editor')
 console.log('PASS: personal card, sharing, rating gate and witness UI')
+
+const { normalizeInviteCode, isInviteCode } = require('../src/lib/inviteCodes.ts')
+assert.equal(normalizeInviteCode(' abc123 '), 'ABC123')
+assert.equal(normalizeInviteCode(' 8vpbv1437d '), '8VPBV1437D', 'current invite links must not truncate the code')
+assert.equal(isInviteCode(normalizeInviteCode('abc123')), true)
+assert.equal(isInviteCode(normalizeInviteCode('8vpbv1437d')), true)
+assert.equal(isInviteCode('8VPBV143'), false)
+assert.equal(isInviteCode('ABC12!'), false)
+console.log('PASS: six-character and ten-character invitation codes')
