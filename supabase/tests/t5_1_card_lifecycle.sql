@@ -1,0 +1,155 @@
+-- Updated normative lifecycle: assertions use real RPCs and explicit identities.
+BEGIN;
+SET LOCAL search_path=public,extensions;
+INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES
+ ('a4510000-0000-0000-0000-000000000001','lifecycle-owner@test.local','{"username":"lifecycle-owner"}'),
+ ('a4510000-0000-0000-0000-000000000002','lifecycle-validator@test.local','{"username":"lifecycle-validator"}'),
+ ('a4510000-0000-0000-0000-000000000003','lifecycle-outsider@test.local','{"username":"lifecycle-outsider"}');
+CREATE FUNCTION pg_temp.login(u uuid) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',u,'role','authenticated')::text,true); END $$;
+DO $$
+DECLARE owner uuid:='a4510000-0000-0000-0000-000000000001'; partner uuid:='a4510000-0000-0000-0000-000000000002'; outsider uuid:='a4510000-0000-0000-0000-000000000003';
+ tee uuid; r uuid; refused uuid; automatic uuid; manual uuid; expired uuid; g1 uuid; g2 uuid; yesterday uuid; rev uuid; corrected uuid; due timestamptz;
+ holes jsonb; changed jsonb; payload jsonb; n int; before_count int; after_count int; dt date:=(clock_timestamp() AT TIME ZONE 'Europe/Paris')::date;
+BEGIN
+ -- Exact civil-day boundaries across spring/fall DST; 72-hour period is elapsed UTC.
+ IF personal_entry_deadline('2026-03-28','Europe/Paris')<>'2026-03-29 22:00:00+00'::timestamptz THEN RAISE EXCEPTION 'Spring deadline drift'; END IF;
+ IF personal_entry_deadline('2026-10-24','Europe/Paris')<>'2026-10-25 23:00:00+00'::timestamptz THEN RAISE EXCEPTION 'Fall deadline drift'; END IF;
+ IF personal_entry_deadline('2026-10-13','America/New_York')<>'2026-10-15 04:00:00+00'::timestamptz THEN RAISE EXCEPTION 'Course timezone ignored'; END IF;
+ SET LOCAL TIME ZONE 'Europe/Paris';
+ IF extract(epoch FROM (('2026-10-24 10:00:00+00'::timestamptz+interval '72 hours')-'2026-10-24 10:00:00+00'::timestamptz))<>259200 THEN RAISE EXCEPTION '72 hours used civil days'; END IF;
+ IF extract(epoch FROM (('2026-03-28 11:00:00+00'::timestamptz+interval '72 hours')-'2026-03-28 11:00:00+00'::timestamptz))<>259200 THEN RAISE EXCEPTION '72 hours spring drift'; END IF;
+ SELECT t.id INTO tee FROM personal_tees t JOIN personal_layouts l ON l.id=t.layout_id JOIN courses c ON c.id=l.course_id
+ WHERE c.name ILIKE '%Rueil%' AND l.hole_count=9 AND t.name='Jaunes — Messieurs';
+ IF tee IS NULL THEN RAISE EXCEPTION 'Missing Rueil fixture'; END IF;
+ PERFORM pg_temp.login(owner); SET LOCAL ROLE authenticated;
+ g1:=(create_personal_league('Lifecycle net',tee,dt-1,dt+1,'stroke_net',1,'peer_required')->>'game_id')::uuid;
+ g2:=(create_personal_league('Lifecycle points',tee,dt-1,dt+1,'stableford_net',1,'self_declared')->>'game_id')::uuid;
+ RESET ROLE;
+ INSERT INTO game_members(game_id,user_id) VALUES(g1,partner),(g2,partner);
+ SELECT jsonb_agg(jsonb_build_object('hole_number',h.hole_number,'completion','completed','strokes',h.par+1) ORDER BY h.hole_number) INTO holes FROM personal_tee_holes h WHERE tee_id=tee;
+ changed:=jsonb_set(holes,'{0,strokes}',to_jsonb((holes->0->>'strokes')::int+1));
+ SET LOCAL ROLE authenticated;
+ BEGIN PERFORM create_personal_round(tee,dt-2); RAISE EXCEPTION 'Backdated entry accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Backdated entry accepted' THEN RAISE; END IF; END;
+ r:=(create_personal_round(tee,dt)->>'id')::uuid;
+ PERFORM save_personal_card(r,holes,0);
+ BEGIN PERFORM request_personal_validation(r,1,owner); RAISE EXCEPTION 'Self validator accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Self validator accepted' THEN RAISE; END IF; END;
+ BEGIN PERFORM request_personal_validation(r,1,outsider); RAISE EXCEPTION 'Unrelated validator accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Unrelated validator accepted' THEN RAISE; END IF; END;
+ rev:=(request_personal_validation(r,1,partner)->>'revision_id')::uuid;
+ payload:=get_personal_card(r);
+ IF payload->'round'->>'status'<>'pending_validation' OR (payload->'level'->>'cards_count')::int<>0 THEN RAISE EXCEPTION 'Pending card counted'; END IF;
+ IF extract(epoch FROM ((payload->'round'->>'auto_validation_at')::timestamptz-(payload->'round'->>'validation_requested_at')::timestamptz))<>259200 THEN RAISE EXCEPTION 'Wrong 72 hour due instant'; END IF;
+ PERFORM submit_personal_card(r,g1); PERFORM submit_personal_card(r,g2);
+ IF EXISTS(SELECT 1 FROM get_leaderboard(g1) WHERE user_id=owner AND rounds_counted<>0) THEN RAISE EXCEPTION 'Pending score ranked'; END IF;
+ BEGIN PERFORM save_personal_card(r,changed,1); RAISE EXCEPTION 'Owner edited pending card';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Owner edited pending card' THEN RAISE; END IF; END;
+ BEGIN PERFORM review_personal_card(r,rev,NULL,NULL,true); RAISE EXCEPTION 'Owner approved own card';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Owner approved own card' THEN RAISE; END IF; END;
+ RESET ROLE;
+ SELECT auto_validation_at INTO due FROM personal_rounds WHERE id=r;
+ IF personal_expire_locked(r,due-interval '1 microsecond') THEN RAISE EXCEPTION 'Early auto validation'; END IF;
+ PERFORM pg_temp.login(outsider); SET LOCAL ROLE authenticated;
+ BEGIN PERFORM get_personal_card(r); RAISE EXCEPTION 'Outsider read validation';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Outsider read validation' THEN RAISE; END IF; END;
+ BEGIN PERFORM auto_validate_personal_cards(); RAISE EXCEPTION 'Browser ran cron'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN PERFORM personal_expire_locked(r,due); RAISE EXCEPTION 'Browser forged validation time'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ RESET ROLE; PERFORM pg_temp.login(partner); SET LOCAL ROLE authenticated;
+ IF (get_personal_card(r)->>'is_owner')::boolean THEN RAISE EXCEPTION 'Validator role mislabeled'; END IF;
+ IF jsonb_array_length(get_personal_overview()->'inbox')<>1 THEN RAISE EXCEPTION 'Missing validator inbox'; END IF;
+ BEGIN PERFORM review_personal_card(r,rev,changed,'Correction',false); RAISE EXCEPTION 'No-presence correction accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='No-presence correction accepted' THEN RAISE; END IF; END;
+ BEGIN PERFORM review_personal_card(r,rev,'[]','Correction',true); RAISE EXCEPTION 'Incomplete correction accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Incomplete correction accepted' THEN RAISE; END IF; END;
+ PERFORM review_personal_card(r,rev,changed,'Hole 1 was one stroke higher',true);
+ payload:=get_personal_card(r); corrected:=(payload->'revision'->>'id')::uuid;
+ IF payload->'round'->>'status'<>'pending_player_confirmation' OR payload->'revision'->>'actor_id'<>partner::text OR payload->'round'->>'timer_cancelled_at' IS NULL THEN RAISE EXCEPTION 'Correction state/audit incorrect'; END IF;
+ BEGIN PERFORM review_personal_card(r,corrected,holes,'Second correction',true); RAISE EXCEPTION 'Validator corrected again';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Validator corrected again' THEN RAISE; END IF; END;
+ RESET ROLE;
+ IF personal_expire_locked(r,due+interval '10 days') THEN RAISE EXCEPTION 'Correction auto accepted'; END IF;
+ IF (SELECT count(*) FROM personal_league_submissions WHERE round_id=r AND status='pending' AND revision_id=corrected)<>2 THEN RAISE EXCEPTION 'Correction lost two league associations'; END IF;
+ IF EXISTS(SELECT 1 FROM personal_league_submissions s JOIN personal_league_submissions old ON old.round_id=s.round_id AND old.game_id=s.game_id AND old.status='superseded' WHERE s.round_id=r AND s.status='pending' AND s.submitted_at<>old.submitted_at) THEN RAISE EXCEPTION 'Correction reset deadline'; END IF;
+ -- Simulate both league seasons closing before owner accepts. Timely requests survive.
+ ALTER TABLE games DISABLE TRIGGER trg_lock_personal_league_rules;
+ UPDATE games SET start_date=dt-3,end_date=dt-1 WHERE id IN(g1,g2);
+ ALTER TABLE games ENABLE TRIGGER trg_lock_personal_league_rules;
+ PERFORM pg_temp.login(owner); SET LOCAL ROLE authenticated;
+ IF jsonb_array_length(get_personal_overview()->'inbox')<>1 THEN RAISE EXCEPTION 'Missing correction inbox'; END IF;
+ IF get_personal_league(g1)->>'closure_status'<>'closed_provisional' THEN RAISE EXCEPTION 'Pending closed season finalized'; END IF;
+ BEGIN PERFORM resolve_personal_correction(r,rev,true); RAISE EXCEPTION 'Stale owner confirmation accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Stale owner confirmation accepted' THEN RAISE; END IF; END;
+ PERFORM resolve_personal_correction(r,corrected,true);
+ IF get_personal_card(r)->'round'->>'status'<>'validated' OR (get_personal_card(r)->'level'->>'cards_count')::int<>1 THEN RAISE EXCEPTION 'Acceptance failed or counted twice'; END IF;
+ IF get_personal_league(g1)->>'closure_status'<>'finalized' THEN RAISE EXCEPTION 'Resolved season not finalized'; END IF;
+ IF EXISTS(SELECT 1 FROM get_leaderboard(g1) WHERE user_id=owner AND rounds_counted<>1) THEN RAISE EXCEPTION 'Timely corrected card not ranked after closure'; END IF;
+ BEGIN PERFORM save_personal_card(r,holes,1); RAISE EXCEPTION 'Validated card editable';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Validated card editable' THEN RAISE; END IF; END;
+ RESET ROLE;
+ -- New open leagues for permanent-dispute and timer scenarios.
+ ALTER TABLE games DISABLE TRIGGER trg_lock_personal_league_rules;
+ UPDATE games SET end_date=dt+1 WHERE id IN(g1,g2);
+ ALTER TABLE games ENABLE TRIGGER trg_lock_personal_league_rules;
+ SET LOCAL ROLE authenticated;
+ refused:=(create_personal_round(tee,dt)->>'id')::uuid; PERFORM save_personal_card(refused,holes,0);
+ rev:=(request_personal_validation(refused,1,partner)->>'revision_id')::uuid;
+ PERFORM submit_personal_card(refused,g1); PERFORM submit_personal_card(refused,g2);
+ RESET ROLE; PERFORM pg_temp.login(partner); SET LOCAL ROLE authenticated;
+ PERFORM review_personal_card(refused,rev,changed,'Hole 1 correction',true);
+ RESET ROLE; PERFORM pg_temp.login(owner); SET LOCAL ROLE authenticated;
+ corrected:=(get_personal_card(refused)->'revision'->>'id')::uuid;
+ PERFORM resolve_personal_correction(refused,corrected,false);
+ IF get_personal_card(refused)->'round'->>'status'<>'disputed' OR (get_personal_card(refused)->'level'->>'cards_count')::int<>1 THEN RAISE EXCEPTION 'Dispute contributed to level'; END IF;
+ IF submit_personal_card(refused,g1)->>'reason'<>'card_disputed' THEN RAISE EXCEPTION 'Disputed card resubmitted'; END IF;
+ BEGIN PERFORM resolve_personal_correction(refused,corrected,true); RAISE EXCEPTION 'Dispute reopened';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Dispute reopened' THEN RAISE; END IF; END;
+ RESET ROLE;
+ IF EXISTS(SELECT 1 FROM personal_league_submissions WHERE round_id=refused AND status IN('accepted','pending')) THEN RAISE EXCEPTION 'Dispute still active in a league'; END IF;
+ BEGIN UPDATE personal_rounds SET status='draft' WHERE id=refused; RAISE EXCEPTION 'Terminal guard bypass';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Terminal guard bypass' THEN RAISE; END IF; END;
+ -- Exact 72-hour boundary, repeated worker/manual attempts remain idempotent.
+ SET LOCAL ROLE authenticated;
+ automatic:=(create_personal_round(tee,dt)->>'id')::uuid; PERFORM save_personal_card(automatic,holes,0);
+ rev:=(request_personal_validation(automatic,1,partner)->>'revision_id')::uuid;
+ PERFORM submit_personal_card(automatic,g1); PERFORM submit_personal_card(automatic,g2);
+ RESET ROLE; SELECT auto_validation_at INTO due FROM personal_rounds WHERE id=automatic;
+ IF NOT personal_expire_locked(automatic,due) OR personal_expire_locked(automatic,due) THEN RAISE EXCEPTION 'Boundary/repeated auto validation incorrect'; END IF;
+ IF (SELECT validation_method FROM personal_rounds WHERE id=automatic)<>'automatic' THEN RAISE EXCEPTION 'Missing automatic method'; END IF;
+ IF (SELECT count(*) FROM personal_card_events WHERE round_id=automatic AND action='validated')<>1 THEN RAISE EXCEPTION 'Auto settlement audited twice'; END IF;
+ PERFORM pg_temp.login(partner); SET LOCAL ROLE authenticated;
+ BEGIN PERFORM review_personal_card(automatic,rev,changed,'Too late',true); RAISE EXCEPTION 'Post-auto correction accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Post-auto correction accepted' THEN RAISE; END IF; END;
+ RESET ROLE; PERFORM pg_temp.login(owner); SET LOCAL ROLE authenticated;
+ manual:=(create_personal_round(tee,dt)->>'id')::uuid; PERFORM save_personal_card(manual,holes,0);
+ rev:=(request_personal_validation(manual,1,partner)->>'revision_id')::uuid;
+ RESET ROLE; PERFORM pg_temp.login(partner); SET LOCAL ROLE authenticated;
+ PERFORM review_personal_card(manual,rev,NULL,NULL,true);
+ RESET ROLE; SELECT auto_validation_at INTO due FROM personal_rounds WHERE id=manual;
+ IF personal_expire_locked(manual,due) THEN RAISE EXCEPTION 'Manual card settled by timer again'; END IF;
+ IF (SELECT validation_method FROM personal_rounds WHERE id=manual)<>'manual' THEN RAISE EXCEPTION 'Manual method missing'; END IF;
+ -- Worker only picks due personal cards; correction and legacy match timers are separate.
+ PERFORM pg_temp.login(owner); SET LOCAL ROLE authenticated;
+ expired:=(create_personal_round(tee,dt)->>'id')::uuid; PERFORM save_personal_card(expired,holes,0);
+ PERFORM request_personal_validation(expired,1,partner);
+ RESET ROLE; UPDATE personal_rounds SET auto_validation_at=clock_timestamp()-interval '1 second' WHERE id=expired;
+ SELECT count(*) INTO before_count FROM matches;
+ n:=auto_validate_personal_cards(); IF n<>1 OR auto_validate_personal_cards()<>0 THEN RAISE EXCEPTION 'Worker not idempotent %',n; END IF;
+ SELECT count(*) INTO after_count FROM matches; IF before_count<>after_count THEN RAISE EXCEPTION 'Card worker changed legacy matches'; END IF;
+ -- Yesterday's round may be personal-confirmed today, but a season ending yesterday has no grace day.
+ SET LOCAL ROLE authenticated;
+ yesterday:=(create_personal_league('No season grace',tee,dt-3,dt-1,'stroke_net')->>'game_id')::uuid;
+ expired:=(create_personal_round(tee,dt-1)->>'id')::uuid; PERFORM save_personal_card(expired,holes,0); PERFORM confirm_personal_card(expired,1);
+ IF submit_personal_card(expired,yesterday)->>'reason'<>'submission_deadline' THEN RAISE EXCEPTION 'League grace day accepted'; END IF;
+ expired:=(create_personal_round(tee,dt)->>'id')::uuid;
+ RESET ROLE; UPDATE personal_rounds SET entry_deadline_at=clock_timestamp()-interval '1 second' WHERE id=expired;
+ SET LOCAL ROLE authenticated;
+ BEGIN PERFORM save_personal_card(expired,holes,0); RAISE EXCEPTION 'Late draft write accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Late draft write accepted' THEN RAISE; END IF; END;
+ BEGIN PERFORM confirm_personal_card(expired,0); RAISE EXCEPTION 'Late confirmation accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Late confirmation accepted' THEN RAISE; END IF; END;
+ RESET ROLE;
+ IF EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace WHERE ns.nspname='public' AND proname IN('personal_build_revision','personal_settle_card','personal_expire_locked','auto_validate_personal_cards') AND has_function_privilege('anon',p.oid,'EXECUTE')) THEN RAISE EXCEPTION 'Private helper exposed'; END IF;
+END $$;
+ROLLBACK;

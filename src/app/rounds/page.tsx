@@ -77,6 +77,10 @@ export default function PersonalRoundsPage() {
       )}
       {data && (
         <>
+          {data.inbox.length > 0 && <section className="my-5 rounded-xl border border-amber-400 p-4">
+            <h2 className="font-semibold">{t("personal.lifecycle.inbox")}</h2>
+            <ul className="mt-3 space-y-2">{data.inbox.map((item) => <li key={item.id}><Link className="block underline" href={`/rounds/${item.id}`}>{item.player_name} · {item.course_name} · {item.played_on} · {t(`personal.status.${item.status}`)}</Link></li>)}</ul>
+          </section>}
           <section className="my-5 rounded-xl border border-primary/15 bg-cream/40 p-4">
             <h2 className="font-semibold">{t("personal.level.title")}</h2>
             <p className="mt-1 text-3xl font-bold">{data.level.value ?? "—"}</p>

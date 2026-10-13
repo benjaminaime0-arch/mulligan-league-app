@@ -57,7 +57,7 @@ BEGIN
  IF result->'round'->>'handicap_source'<>'internal' OR (result->'round'->>'handicap_index')::numeric<>16 THEN RAISE EXCEPTION 'Internal level not used for next round'; END IF;
  IF (get_personal_overview()->>'official_index')::numeric<>18 THEN RAISE EXCEPTION 'Official index was rewritten'; END IF;
  g1:=(create_personal_league('Personal League One',tee,current_date-1,current_date+30,'stroke_net',1,'self_declared')->>'game_id')::uuid;
- g2:=(create_personal_league('Personal League Two',tee,current_date-1,current_date+30,'stableford_net',1,'peer_required')->>'game_id')::uuid;
+ g2:=(create_personal_league('Personal League Two',tee,current_date-1,current_date+30,'stableford_net',1,'self_declared')->>'game_id')::uuid;
  code:=get_personal_league(g2)->'game'->>'invite_code';
  g3:=(create_personal_league('Other tee',other_tee,current_date-1,current_date+30,'stroke_net',1,'self_declared')->>'game_id')::uuid;
  IF (submit_personal_card(r,g1)->>'success')::boolean IS NOT TRUE THEN RAISE EXCEPTION 'First league submission failed'; END IF;
@@ -72,7 +72,7 @@ BEGIN
  RESET ROLE;
  SELECT count(*) INTO v FROM personal_league_submissions WHERE round_id=r AND revision_id=rev;
  IF v<>2 THEN RAISE EXCEPTION 'Submissions duplicated the card: %',v; END IF;
- SELECT count(*) INTO v FROM personal_rounds WHERE user_id=owner AND status='confirmed';
+ SELECT count(*) INTO v FROM personal_rounds WHERE user_id=owner AND status='validated';
  IF v<>3 THEN RAISE EXCEPTION 'League submission duplicated personal round'; END IF;
  -- Witness joins and attests that exact shared revision.
  PERFORM set_config('request.jwt.claims',json_build_object('sub',witness,'role','authenticated')::text,true);
@@ -80,7 +80,6 @@ BEGIN
  result:=join_game_by_code(code)::jsonb;
  IF (result->>'success')::boolean IS NOT TRUE THEN RAISE EXCEPTION 'Witness could not join with shared invite: %',result; END IF;
  IF get_personal_league(g2) IS NULL THEN RAISE EXCEPTION 'Member cannot review league'; END IF;
- PERFORM attest_personal_card(sid,true,true);
  RESET ROLE;
  PERFORM set_config('request.jwt.claims',json_build_object('sub',owner,'role','authenticated')::text,true);
  SET LOCAL ROLE authenticated;
@@ -96,18 +95,11 @@ BEGIN
  IF v<>36 THEN RAISE EXCEPTION 'Net leaderboard incorrect %',v; END IF;
  SELECT total_score::int INTO v FROM get_leaderboard(g2) WHERE user_id=owner;
  IF v<>18 THEN RAISE EXCEPTION 'Stableford leaderboard incorrect %',v; END IF;
- -- A draft correction does not rewrite the current revision or its submissions.
- holes:=jsonb_set(holes,'{0,strokes}','6'); PERFORM save_personal_card(r,holes,2);
- IF get_personal_card(r)->'revision'->>'id'<>rev::text THEN RAISE EXCEPTION 'Draft mutated confirmed card'; END IF;
- result:=confirm_personal_card(r,3);
- IF (result->'level'->>'cards_count')::int<>3 THEN RAISE EXCEPTION 'Correction counted twice for internal level'; END IF;
- SELECT rounds_counted::int INTO v FROM get_leaderboard(g1) WHERE user_id=owner;
- IF v<>0 THEN RAISE EXCEPTION 'Old corrected score stayed in leaderboard'; END IF;
- result:=submit_personal_card(r,g2);
- IF (result->>'success')::boolean IS NOT TRUE THEN RAISE EXCEPTION 'New revision could not be submitted'; END IF;
+ -- Validated cards are now terminal; owner edits cannot supersede them.
+ BEGIN PERFORM save_personal_card(r,jsonb_set(holes,'{0,strokes}','6'),2); RAISE EXCEPTION 'Validated card edited';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM='Validated card edited' THEN RAISE; END IF; END;
+ IF get_personal_card(r)->'revision'->>'id'<>rev::text THEN RAISE EXCEPTION 'Locked revision changed'; END IF;
  RESET ROLE;
- IF (SELECT count(*) FROM personal_league_submissions WHERE round_id=r AND status='superseded')<>2 THEN RAISE EXCEPTION 'Correction retained old attestations'; END IF;
- IF (SELECT attester_id FROM personal_league_submissions WHERE id=(result->>'submission_id')::uuid) IS NOT NULL THEN RAISE EXCEPTION 'Attestation carried to new revision'; END IF;
  IF (SELECT handicap_index FROM personal_rounds WHERE id=r)<>18 THEN RAISE EXCEPTION 'Historical handicap snapshot changed'; END IF;
  BEGIN
   UPDATE personal_card_revisions SET gross_total=1 WHERE id=rev; RAISE EXCEPTION 'Immutable revision changed';

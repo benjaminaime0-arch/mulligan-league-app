@@ -45,3 +45,8 @@ jobs:
             echo "=== $f"
             psql "$PGURL" -v ON_ERROR_STOP=1 -f "$f"
           done
+
+      - name: Race manual validation against two timer workers
+        env:
+          PGURL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test_card_validation_races.sh

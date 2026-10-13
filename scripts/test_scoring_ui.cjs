@@ -80,7 +80,8 @@ assert.equal(cardIsComplete([...holeSet.slice(0, 8), holeSet[0]], 9), false)
 assert.equal(cardIsComplete([{ ...holeSet[0], strokes: 1.5 }, ...holeSet.slice(1)], 9), false)
 assert.equal(cardIsComplete([{ ...holeSet[0], completion: 'picked_up', strokes: null }, ...holeSet.slice(1)], 9), true)
 const cardFixture = {
- round: { id: 'personal', tee_id: 'tee', played_on: '2026-10-13', status: 'confirmed', draft_version: 1, handicap_index: 18, handicap_source: 'declared_official' },
+ server_now: '2026-10-13T10:00:00Z', is_owner: true, revisions: [], events: [], validators: [],
+ round: { id: 'personal', tee_id: 'tee', played_on: '2026-10-13', status: 'validated', draft_version: 1, handicap_index: 18, handicap_source: 'declared_official', course_timezone: 'Europe/Paris', entry_deadline_at: '2026-10-14T22:00:00Z', validated_at: '2026-10-13T10:00:00Z', validation_method: 'self' },
  tee: { id: 'tee', name: 'Yellow', course_name: 'Fixture Nine', layout_name: 'Nine', hole_count: 9, ready: true, course_rating: 36, slope_rating: 113 },
  reference_holes: holeSet.map(h => ({ hole_number: h.hole_number, par: 4, stroke_index: h.hole_number })),
  holes: holeSet,
@@ -95,19 +96,28 @@ const personalHtml = renderPersonalCard(cardFixture)
 assert.equal((personalHtml.match(/>Submit this revision<\/button>/g) || []).length, 2, 'one revision must be offered to both leagues')
 assert.ok(personalHtml.includes('shares this confirmed revision with all members'), 'sharing consent must be visible')
 assert.ok(personalHtml.includes('Nine-hole differential doubled'), 'nine-hole estimate must be explained')
-const unverifiedHtml = renderPersonalCard({ ...cardFixture, tee: { ...cardFixture.tee, ready: false } })
+const unverifiedHtml = renderPersonalCard({ ...cardFixture, round: { ...cardFixture.round, status: 'draft' }, tee: { ...cardFixture.tee, ready: false } })
 const confirmButton = unverifiedHtml.match(/<button([^>]*)>Confirm card<\/button>/)
 assert.ok(confirmButton && /\sdisabled(?:=|\s|$)/.test(confirmButton[1]), 'unverified ratings must prevent confirmation')
 assert.ok(unverifiedHtml.includes('verified rating, slope'), 'missing reference data must be explained')
+assert.ok(!personalHtml.includes('>Confirm card</button>'), 'validated card must have no confirm/edit workflow')
+const reviewHtml = renderPersonalCard({ ...cardFixture, is_owner: false, round: { ...cardFixture.round, status: 'pending_validation', auto_validation_at: '2026-10-16T10:00:00Z' } })
+assert.ok(reviewHtml.includes('Propose corrected scores') && reviewHtml.includes('Attest card'), 'validator must get review/correction actions')
+assert.ok(!reviewHtml.includes('Submit this revision'), 'validator cannot submit owner card')
+const disputeHtml = renderPersonalCard({ ...cardFixture, round: { ...cardFixture.round, status: 'disputed' } })
+assert.ok(disputeHtml.includes('permanently excluded') && !disputeHtml.includes('Submit this revision'), 'disputed cards cannot be reused')
 const leagueFixture = {
+ closure_status: 'closed_provisional',
  rules: { tee_id: 'tee', format: 'stroke_net', attestation: 'peer_required' },
  game: { id: 'one', name: 'League one', start_date: '2026-10-01', end_date: '2026-11-01', scoring_cards_count: 1, invite_code: 'TESTCODE', status: 'active' },
  tee: { name: 'Yellow', course_name: 'Fixture Nine', hole_count: 9 }, board: [],
- submissions: [{ id: 'submission', round_id: 'personal', user_id: 'owner', player_name: 'Owner', played_on: '2026-10-13', status: 'pending', reason: null, revision_number: 1, gross_total: 45, net_total: 36, stableford_points: 18, scores: holeSet }],
+ submissions: [{ id: 'submission', round_id: 'personal', user_id: 'owner', player_name: 'Owner', played_on: '2026-10-13', status: 'pending', card_status: 'pending_validation', validator_id: 'witness', reason: null, revision_number: 1, gross_total: 45, net_total: 36, stableford_points: 18, scores: holeSet }],
 }
 const ownLeague = renderToStaticMarkup(React.createElement(PersonalLeaguePanel, { initial: leagueFixture, userId: 'owner' }))
 assert.ok(!ownLeague.includes('>Attest card</button>'), 'owner must never get a self-attestation control')
 const witnessLeague = renderToStaticMarkup(React.createElement(PersonalLeaguePanel, { initial: leagueFixture, userId: 'witness' }))
-assert.ok(witnessLeague.includes('Attest card'), 'another member can attest the shared revision')
+assert.ok(witnessLeague.includes('Review and validate this card'), 'designated validator can review the shared revision')
+const unrelatedMember = renderToStaticMarkup(React.createElement(PersonalLeaguePanel, { initial: leagueFixture, userId: 'another-member' }))
+assert.ok(!unrelatedMember.includes('Review and validate this card'), 'other members cannot act as validator')
 assert.ok(!witnessLeague.includes('Open my card'), 'witness must not link into the private round editor')
 console.log('PASS: personal card, sharing, rating gate and witness UI')

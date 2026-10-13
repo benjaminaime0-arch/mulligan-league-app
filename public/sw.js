@@ -39,7 +39,9 @@ self.addEventListener("notificationclick", (event) => {
   const data = event.notification.data || {}
   let url = "/notifications"
 
-  if (data.match_id) {
+  if (data.round_id) {
+    url = `/rounds/${data.round_id}`
+  } else if (data.match_id) {
     url = `/matches/${data.match_id}`
   } else if (data.game_id) {
     url = `/games/${data.game_id}`
