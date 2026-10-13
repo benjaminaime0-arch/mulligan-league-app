@@ -8,7 +8,6 @@ BEGIN
 END $$;
 CREATE TRIGGER personal_course_timezone BEFORE INSERT OR UPDATE OF timezone ON courses FOR EACH ROW EXECUTE FUNCTION personal_timezone_valid();
 ALTER TABLE personal_rounds DROP CONSTRAINT personal_rounds_status_check;
-ALTER TABLE personal_rounds ADD CONSTRAINT personal_rounds_status_check CHECK(status IN('draft','pending_validation','pending_player_confirmation','validated','disputed','void')) NOT VALID;
 ALTER TABLE personal_rounds ADD COLUMN course_timezone text NOT NULL DEFAULT 'Europe/Paris',
  ADD COLUMN entry_deadline_at timestamptz,
  ADD COLUMN submitted_at timestamptz,
@@ -26,7 +25,7 @@ LANGUAGE sql STABLE SET search_path=public AS $$ SELECT (p_day+2)::timestamp AT 
 UPDATE personal_rounds r SET course_timezone=c.timezone,entry_deadline_at=personal_entry_deadline(r.played_on,c.timezone)
  FROM personal_tees t JOIN personal_layouts l ON l.id=t.layout_id JOIN courses c ON c.id=l.course_id WHERE r.tee_id=t.id;
 UPDATE personal_rounds SET status='validated',submitted_at=confirmed_at,validated_at=confirmed_at,validation_method='legacy' WHERE status='confirmed';
-ALTER TABLE personal_rounds VALIDATE CONSTRAINT personal_rounds_status_check;
+ALTER TABLE personal_rounds ADD CONSTRAINT personal_rounds_status_check CHECK(status IN('draft','pending_validation','pending_player_confirmation','validated','disputed','void'));
 ALTER TABLE personal_rounds ALTER COLUMN entry_deadline_at SET NOT NULL;
 ALTER TABLE personal_rounds DROP CONSTRAINT personal_rounds_check;
 ALTER TABLE personal_rounds ADD CHECK(played_on <= (created_at AT TIME ZONE course_timezone)::date);

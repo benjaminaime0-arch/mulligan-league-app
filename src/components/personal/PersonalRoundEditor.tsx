@@ -174,10 +174,10 @@ export function PersonalRoundEditor({
               <dd className="font-bold">{data.revision.differential}</dd>
             </div>
           </dl>
-          <p className="mt-3 text-sm">
+          {data.is_owner && <p className="mt-3 text-sm">
             {t("personal.level.title")}: {data.level.value ?? "—"} ·{" "}
             {t(`personal.level.${data.level.status}`)}
-          </p>
+          </p>}
           <p className="mt-2 text-xs text-primary/70">
             {t("personal.lifecycle.lockNotice")}
           </p>

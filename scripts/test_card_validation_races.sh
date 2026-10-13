@@ -10,7 +10,7 @@ INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES
  ('a4530000-0000-0000-0000-000000000002','race-partner@test.local','{"username":"race-partner"}');
 DO $$ DECLARE tee uuid; g uuid; r uuid; holes jsonb; BEGIN
  SELECT t.id INTO tee FROM personal_tees t JOIN personal_layouts l ON l.id=t.layout_id JOIN courses c ON c.id=l.course_id WHERE c.name='Golf de Rueil-Malmaison' AND l.hole_count=9 AND t.name='Jaunes — Messieurs';
- PERFORM set_config('request.jwt.claims','{"sub":"a4530000-0000-0000-000000000001","role":"authenticated"}',true);
+ PERFORM set_config('request.jwt.claims','{"sub":"a4530000-0000-0000-0000-000000000001","role":"authenticated"}',true);
  g:=(create_personal_league('Race fixture',tee,current_date-1,current_date+1,'stroke_net',1,'peer_required')->>'game_id')::uuid;
  INSERT INTO game_members(game_id,user_id) VALUES(g,'a4530000-0000-0000-0000-000000000002');
  SELECT jsonb_agg(jsonb_build_object('hole_number',hole_number,'completion','completed','strokes',par+1) ORDER BY hole_number) INTO holes FROM personal_tee_holes WHERE tee_id=tee;
@@ -47,10 +47,10 @@ wait "$worker2_pid"
 psql "$PGURL" -q -v ON_ERROR_STOP=1 <<'SQL'
 SELECT auto_validate_personal_cards();
 DO $$ BEGIN
- IF (SELECT count(*) FROM personal_rounds WHERE user_id='a4530000-0000-0000-000000000001' AND status='validated' AND validation_method='automatic')<>2 THEN RAISE EXCEPTION 'Concurrent settlements lost a card'; END IF;
- IF (SELECT count(*) FROM personal_card_events e JOIN personal_rounds r ON r.id=e.round_id WHERE r.user_id='a4530000-0000-0000-000000000001' AND e.action='validated')<>2 THEN RAISE EXCEPTION 'Concurrent settlements duplicated an audit'; END IF;
- IF (SELECT count(*) FROM personal_league_submissions WHERE user_id='a4530000-0000-0000-000000000001' AND status='accepted')<>2 THEN RAISE EXCEPTION 'Concurrent settlements duplicated or lost a league contribution'; END IF;
- IF (calculate_personal_level('a4530000-0000-0000-000000000001')->>'cards_count')::int<>2 THEN RAISE EXCEPTION 'Concurrent settlements duplicated level'; END IF;
+ IF (SELECT count(*) FROM personal_rounds WHERE user_id='a4530000-0000-0000-0000-000000000001' AND status='validated' AND validation_method='automatic')<>2 THEN RAISE EXCEPTION 'Concurrent settlements lost a card'; END IF;
+ IF (SELECT count(*) FROM personal_card_events e JOIN personal_rounds r ON r.id=e.round_id WHERE r.user_id='a4530000-0000-0000-0000-000000000001' AND e.action='validated')<>2 THEN RAISE EXCEPTION 'Concurrent settlements duplicated an audit'; END IF;
+ IF (SELECT count(*) FROM personal_league_submissions WHERE user_id='a4530000-0000-0000-0000-000000000001' AND status='accepted')<>2 THEN RAISE EXCEPTION 'Concurrent settlements duplicated or lost a league contribution'; END IF;
+ IF (calculate_personal_level('a4530000-0000-0000-0000-000000000001')->>'cards_count')::int<>2 THEN RAISE EXCEPTION 'Concurrent settlements duplicated level'; END IF;
 END $$;
 SQL
 printf 'PASS: concurrent reviewer and two workers settle exactly once\n'
