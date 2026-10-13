@@ -8,6 +8,7 @@ on:
   pull_request:
     paths:
       - "src/**"
+      - "scripts/test_scoring_ui.cjs"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.json"
@@ -16,6 +17,7 @@ on:
     branches: [main]
     paths:
       - "src/**"
+      - "scripts/test_scoring_ui.cjs"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.json"
@@ -38,6 +40,7 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npx next lint
+      - run: node scripts/test_scoring_ui.cjs
       # Locale parity + no undefined t() keys. Both fail silently at runtime:
       # a key missing from fr shows English to French users, and a key missing
       # from both renders the raw key ("games.create.title") on the page.

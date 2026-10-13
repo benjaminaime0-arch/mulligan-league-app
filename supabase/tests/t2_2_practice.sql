@@ -170,6 +170,7 @@ DECLARE
   v json;
   v_status text;
   v_score scores%ROWTYPE;
+  hole int;
 BEGIN
   SELECT m.id INTO v_match
   FROM matches m JOIN games g ON g.id = m.game_id
@@ -191,6 +192,14 @@ BEGIN
   END IF;
 
   -- The "Terminer la partie" path: sole player approves their own card.
+  -- A partial card must stay a draft. Complete the remaining sixteen holes.
+  v := approve_match_scores(v_match);
+  IF (v->>'success')::boolean IS TRUE THEN
+    RESET ROLE; RAISE EXCEPTION 'T4 FAIL: partial practice card approved';
+  END IF;
+  FOR hole IN 3..18 LOOP
+    PERFORM upsert_score_hole(v_match, 'a2220000-0000-0000-0000-000000000001', hole, 4);
+  END LOOP;
   v := approve_match_scores(v_match);
   RESET ROLE;
   IF (v->>'success')::boolean IS NOT TRUE THEN
@@ -204,8 +213,8 @@ BEGIN
 
   SELECT * INTO v_score FROM scores
   WHERE match_id = v_match AND user_id = 'a2220000-0000-0000-0000-000000000001';
-  IF v_score.status <> 'approved' OR v_score.score <> 9 THEN
-    RAISE EXCEPTION 'T4 FAIL: score row status=% score=% (expected approved / 9 = Σ holes)',
+  IF v_score.status <> 'approved' OR v_score.score <> 73 THEN
+    RAISE EXCEPTION 'T4 FAIL: score row status=% score=% (expected approved / 73 = Σ holes)',
       v_score.status, v_score.score;
   END IF;
 
@@ -246,8 +255,8 @@ BEGIN
   IF (v->>'visible')::boolean IS NOT TRUE OR (v->>'rounds')::int <> 1 THEN
     RAISE EXCEPTION 'T6 FAIL: course stats %, expected visible with 1 round', v;
   END IF;
-  IF (v->>'best_gross')::int <> 9 THEN
-    RAISE EXCEPTION 'T6 FAIL: best_gross %, expected 9', v->>'best_gross';
+  IF (v->>'best_gross')::int <> 73 THEN
+    RAISE EXCEPTION 'T6 FAIL: best_gross %, expected 73', v->>'best_gross';
   END IF;
   RAISE NOTICE 'T6 PASS: practice round counted in course stats';
 END;
@@ -282,7 +291,7 @@ DECLARE
   v_m1 uuid;
   v_m2 uuid;
 BEGIN
-  -- (a) best_score must NOT come from the (completed, approved, score=9)
+  -- (a) best_score must NOT come from the (completed, approved, score=73)
   -- practice round created in T2/T4. The solo user has no competitive
   -- rounds in this fixture, so the record must be NULL. Caller gate:
   -- p_user_id may inspect themselves (shares_game_with is true for self).

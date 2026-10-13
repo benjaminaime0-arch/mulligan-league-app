@@ -363,7 +363,7 @@ export function ScorecardEditor({
     setFinishError(null)
     try {
       await flush()
-      if (queueRef.current.size > 0) {
+      if (queueRef.current.size > 0 || flushFailing) {
         // Writes still stuck (offline / refused) — approving now would
         // finalize a card that's missing the user's last taps.
         setFinishError(t("scorecard.finish.pending"))
@@ -392,9 +392,13 @@ export function ScorecardEditor({
   // Only offer Finish once at least one stroke is on the card — approving
   // an empty card wouldn't complete anything (no scores row to approve)
   // and would just confuse.
-  const hasAnyStrokes = Object.values(strokes).some(
-    (m) => Object.keys(m).length > 0,
-  )
+  const hasAnyStrokes = Object.values(strokes).some((m) => Object.keys(m).length > 0)
+  const cardComplete = !!card && card.players.length > 0 && card.players.every((p) => {
+    const n = p.declared_holes ?? holesCountOf(card)
+    return Array.from({ length: n }, (_, i) => i + 1).every(
+      (h) => strokes[p.user_id]?.[h] != null,
+    )
+  })
 
   // ---- render -------------------------------------------------------------
   if (loadError) {
@@ -610,12 +614,13 @@ export function ScorecardEditor({
           <button
             type="button"
             onClick={handleFinish}
-            disabled={finishing}
+            disabled={finishing || !cardComplete || flushFailing}
             className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
             {finishing ? t("scorecard.finishing") : t("scorecard.finish")}
           </button>
+          {!cardComplete && <p className="mt-2 text-center text-xs text-primary/60">{t("scorecard.finish.incomplete")}</p>}
           {finishError && (
             <p className="mt-2 text-center text-xs text-red-600" role="alert">
               {finishError}

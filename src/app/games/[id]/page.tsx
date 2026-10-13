@@ -17,6 +17,8 @@ import type {
   LeaderboardRow,
   MatchPlayer,
 } from "./types"
+import { PersonalLeaguePanel } from "@/components/personal/PersonalLeaguePanel"
+import { personalResult, type PersonalLeague } from "@/lib/personalRounds"
 import { LeaderboardTable } from "./components/LeaderboardTable"
 import { MatchCalendarSection } from "@/components/match/MatchCalendarSection"
 import { GameInviteCode } from "./components/GameInviteCode"
@@ -136,6 +138,7 @@ export default function GamePage({ params }: GamePageProps) {
     setAutoEdit(false)
   }, [gameId, router, searchParams])
 
+  const [personalLeague, setPersonalLeague] = useState<PersonalLeague | null>(null)
   const [game, setGame] = useState<Game | null>(null)
   const [members, setMembers] = useState<MemberWithProfile[]>([])
   const [currentPeriod, setCurrentPeriod] = useState<GamePeriod | null>(null)
@@ -195,46 +198,31 @@ export default function GamePage({ params }: GamePageProps) {
         setLoading(true)
         setError(null)
 
-        const [
-          gameRes,
-          membersRes,
-          periodRes,
-          leaderboardRes,
-          userGamesRes,
-          badgesRes,
-        ] = await Promise.all([
+        // Personal-card leagues have their own card/submission flow. Detect
+        // that first so their page never requests legacy matches or badges.
+        const [gameRes, personalRes] = await Promise.all([
           supabase.from("games").select("*").eq("id", gameId).single(),
-          // profiles columns listed explicitly: email is not client-readable
-          // since T0.3 (column-level grant), so an embedded * would 42501.
-          supabase
-            .from("game_members")
-            .select(
-              "*, profiles(id, first_name, last_name, club, handicap, avatar_url, town, username)",
-            )
+          supabase.rpc("get_personal_league", { p_game: gameId }),
+        ])
+        if (gameRes.error) throw gameRes.error
+        if (!gameRes.data) throw new Error("games.error.notfound")
+        if (!fresh()) return
+        const personal = personalResult<PersonalLeague | null>(personalRes)
+        setGame(gameRes.data as Game)
+        setPersonalLeague(personal)
+        if (personal) return
+
+        const [membersRes, periodRes, leaderboardRes, userGamesRes, badgesRes] = await Promise.all([
+          supabase.from("game_members")
+            .select("*, profiles(id, first_name, last_name, club, handicap, avatar_url, town, username)")
             .eq("game_id", gameId),
-          supabase
-            .from("game_periods")
-            .select("*")
-            .eq("game_id", gameId)
-            .eq("status", "active")
-            .maybeSingle(),
+          supabase.from("game_periods").select("*").eq("game_id", gameId)
+            .eq("status", "active").maybeSingle(),
           supabase.rpc("get_leaderboard", { p_game_id: gameId }),
-          supabase
-            .from("game_members")
-            .select("game_id, games(id, name)")
-            .eq("user_id", user.id),
+          supabase.from("game_members").select("game_id, games(id, name)").eq("user_id", user.id),
           supabase.rpc("get_game_badges", { p_game_id: gameId }),
         ])
-
-        if (gameRes.error) throw gameRes.error
-        // Message is an i18n key — the error banner runs it through
-        // `t()`, which passes raw Postgrest messages straight through.
-        if (!gameRes.data) throw new Error("games.error.notfound")
-
-        // A newer run superseded this one while awaiting — drop its results.
         if (!fresh()) return
-
-        setGame(gameRes.data as Game)
 
         if (membersRes.error) throw membersRes.error
         setMembers((membersRes.data || []) as MemberWithProfile[])
@@ -726,6 +714,8 @@ export default function GamePage({ params }: GamePageProps) {
   }
 
   const isDraft = game.status !== "active" && game.status !== "completed"
+
+  if (personalLeague) return <PersonalLeaguePanel initial={personalLeague} userId={user.id} />
 
   return (
     <main className="min-h-screen px-4 pb-6 pt-4">

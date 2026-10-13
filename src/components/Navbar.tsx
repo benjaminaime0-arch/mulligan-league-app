@@ -22,6 +22,7 @@ const authFreePrefixes = ["/join/"]
 /** The three "+ New" actions, shared by the desktop menu and mobile FAB. */
 function newActions(t: (k: string) => string) {
   return [
+    { href: "/rounds", label: t("personal.new"), icon: <FlagIcon /> },
     { href: "/matches/create", label: t("nav.new.round"), icon: <FlagIcon /> },
     { href: "/games/create", label: t("nav.new.game"), icon: <PlusCircleIcon /> },
     { href: "/games/join", label: t("nav.new.join"), icon: <JoinIcon /> },
@@ -133,6 +134,7 @@ export function Navbar() {
 
           <nav className="flex items-center gap-6 text-sm font-medium">
             <DesktopLink href="/home" label={t("nav.home")} pathname={pathname} />
+            <DesktopLink href="/rounds" label={t("personal.cards")} pathname={pathname} />
             <DesktopLink href="/games" label={t("nav.games")} pathname={pathname} />
             <DesktopLink href="/players" label={t("nav.players")} pathname={pathname} />
 

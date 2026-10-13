@@ -27,6 +27,7 @@ DECLARE
   v_score int;
   v_status text;
   v_n int;
+  hole int;
 BEGIN
   -- An 18-hole course WITH hole data, so the scorecard has par context.
   SELECT c.id, c.name, c.par INTO v_course
@@ -85,14 +86,16 @@ BEGIN
   END IF;
   RAISE NOTICE 'T1 PASS: batch per-hole entry sums into scores + approval semantics';
 
+  -- Complete Erin's card before testing approval and subsequent edits.
+  FOR hole IN 3..18 LOOP PERFORM upsert_score_hole(v_match,v_erin,hole,4); END LOOP;
   -- ---- T2: editing a hole resets an approved score back to pending ----------
   UPDATE scores SET status = 'approved', approved_by = v_frank, approved_at = now()
   WHERE match_id = v_match AND user_id = v_erin;
 
   v_res := upsert_score_hole(v_match, v_erin, 3, 7);
   SELECT score, status INTO v_score, v_status FROM scores WHERE match_id = v_match AND user_id = v_erin;
-  IF v_score <> 16 OR v_status <> 'pending' THEN
-    RAISE EXCEPTION 'T2 FAIL: after hole edit, aggregate %/% (want 16/pending)', v_score, v_status;
+  IF v_score <> 76 OR v_status <> 'pending' THEN
+    RAISE EXCEPTION 'T2 FAIL: after hole edit, aggregate %/% (want 76/pending)', v_score, v_status;
   END IF;
 
   -- Same-value write is a no-op: approval state must not churn.
@@ -107,8 +110,8 @@ BEGIN
   -- ---- T3: deletion (p_strokes NULL) recomputes -----------------------------
   v_res := upsert_score_hole(v_match, v_erin, 3, NULL);
   SELECT score INTO v_score FROM scores WHERE match_id = v_match AND user_id = v_erin;
-  IF v_score <> 9 OR (v_res->>'thru')::int <> 2 THEN
-    RAISE EXCEPTION 'T3 FAIL: after delete, aggregate % thru % (want 9/2)', v_score, v_res->>'thru';
+  IF v_score <> 69 OR (v_res->>'thru')::int <> 17 THEN
+    RAISE EXCEPTION 'T3 FAIL: after delete, aggregate % thru % (want 69/17)', v_score, v_res->>'thru';
   END IF;
   RAISE NOTICE 'T3 PASS: hole deletion recomputes the sum';
 

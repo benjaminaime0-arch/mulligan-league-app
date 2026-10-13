@@ -156,7 +156,7 @@ BEGIN
 
   PERFORM set_config('request.jwt.claims',
     json_build_object('sub', v_hugo, 'role', 'authenticated')::text, true);
-  v_res := create_game('Net Tie Game', 'Anywhere', 4, current_date, current_date + 27, 3, 5, 'stroke_play', NULL, 'net');
+  v_res := create_game('Net Tie Game', 'Anywhere', 4, current_date, current_date + 27, 1, 5, 'stroke_play', NULL, 'net');
   v_game := (v_res->>'game_id')::uuid;
   PERFORM set_config('request.jwt.claims',
     json_build_object('sub', v_iris, 'role', 'authenticated')::text, true);
@@ -215,7 +215,7 @@ BEGIN
 
   PERFORM set_config('request.jwt.claims',
     json_build_object('sub', v_hugo, 'role', 'authenticated')::text, true);
-  v_res := create_game('Stb Net Game', 'T5 Test Course', 4, current_date, current_date + 27, 3, 5, 'stroke_play', v_course, 'stableford_net');
+  v_res := create_game('Stb Net Game', 'T5 Test Course', 4, current_date, current_date + 27, 1, 5, 'stroke_play', v_course, 'stableford_net');
   v_game := (v_res->>'game_id')::uuid;
   PERFORM set_config('request.jwt.claims',
     json_build_object('sub', v_iris, 'role', 'authenticated')::text, true);

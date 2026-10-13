@@ -17,7 +17,7 @@ const BG = "#E3EDD6"
 const PRIMARY = "#0F3D2E"
 
 type PodiumRow = {
-  position: number
+  position: number | null
   player_name: string
   total_score: number
   rounds_counted: number
@@ -52,7 +52,7 @@ export async function GET(_req: Request, { params }: { params: { gameId: string 
 
   const { data: board } = await supabase.rpc("get_leaderboard", { p_game_id: gameId })
   const podium = ((board ?? []) as PodiumRow[])
-    .filter((r) => Number(r.rounds_counted) > 0)
+    .filter((r) => r.position != null && Number(r.rounds_counted) > 0)
     .slice(0, 3)
 
   const g = game as { name: string; course_name: string | null; start_date: string | null; end_date: string | null }

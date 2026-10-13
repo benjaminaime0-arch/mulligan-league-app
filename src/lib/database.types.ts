@@ -901,6 +901,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           created_at: string | null
+          has_hole_detail: boolean
           holes: number
           id: string
           match_id: string
@@ -913,6 +914,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string | null
+          has_hole_detail?: boolean
           holes?: number
           id?: string
           match_id: string
@@ -925,6 +927,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string | null
+          has_hole_detail?: boolean
           holes?: number
           id?: string
           match_id?: string
@@ -1166,7 +1169,7 @@ export type Database = {
           avatar_url: string
           best_score: number
           player_name: string
-          position: number
+          position: number | null
           rounds_counted: number
           rounds_played: number
           total_score: number

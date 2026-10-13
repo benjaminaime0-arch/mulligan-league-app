@@ -8,6 +8,7 @@ import { todayLocalIso } from "@/lib/date"
 import { loadHomeData, type HomeData, type HomeMatch } from "@/lib/home"
 import { useI18n } from "@/lib/i18n"
 import { track } from "@/lib/analytics"
+import { PersonalLevelCard } from "@/components/personal/PersonalLevelCard"
 import { MulliganRankingCard } from "@/components/home/MulliganRankingCard"
 
 function formatMatchDate(iso: string | null, locale = "fr"): string {
@@ -89,6 +90,8 @@ export default function HomePage() {
           {error}
         </div>
       )}
+
+      <PersonalLevelCard />
 
       {/* ── Action strip — the core-loop surface ─────────────────── */}
       {hasActions ? (

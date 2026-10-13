@@ -1,0 +1,113 @@
+/* Render regression checks without a browser or network. Uses the existing
+ * TypeScript compiler to load the two client components in Node. */
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+const Module = require('node:module')
+const ts = require('typescript')
+const React = require('react')
+const { renderToStaticMarkup } = require('react-dom/server')
+const root = path.resolve(__dirname, '..')
+const originalResolve = Module._resolveFilename
+Module._resolveFilename = function (request, ...args) {
+  return originalResolve.call(this, request.startsWith('@/')
+    ? path.join(root, 'src', request.slice(2)) : request, ...args)
+}
+for (const ext of ['.ts', '.tsx']) {
+  require.extensions[ext] = (mod, filename) => mod._compile(ts.transpileModule(
+    fs.readFileSync(filename, 'utf8'),
+    { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX,
+      esModuleInterop: true, target: ts.ScriptTarget.ES2020 } },
+  ).outputText, filename)
+}
+process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co'
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'ui-test-dummy'
+const { LeaderboardTable } = require('../src/app/games/[id]/components/LeaderboardTable.tsx')
+const { ScorecardEditor } = require('../src/components/match/ScorecardEditor.tsx')
+const html = renderToStaticMarkup(React.createElement(LeaderboardTable, {
+  scoringCardsCount: 2,
+  leaderboard: [
+    { user_id: 'partial', player_name: 'Partial', position: null, total_score: 90, rounds_counted: 1, rounds_played: 1 },
+    { user_id: 'qualified', player_name: 'Qualified', position: 1, total_score: 150, rounds_counted: 2, rounds_played: 2 },
+  ],
+}))
+assert.ok(html.indexOf('Qualified') < html.indexOf('Partial'), 'qualified row must appear first')
+const partialRow = html.match(/<tr[^>]*>(?:(?!<\/tr>).)*Partial(?:(?!<\/tr>).)*<\/tr>/s)?.[0]
+assert.ok(partialRow, 'provisional player must remain visible')
+assert.ok(partialRow.includes('Provisional'), 'provisional position must be announced')
+assert.ok(!partialRow.includes('aria-label="Position 2"'), 'never invent a rank from array order')
+assert.ok(!partialRow.includes('ahead'), 'never compare partial and qualified totals')
+console.log('PASS: provisional leaderboard rendering')
+
+const originalState = React.useState
+function renderCard(holes, entered) {
+  let state = 0
+  React.useState = (initial) => {
+    const index = state++
+    const card = { success: true, match_id: 'fixture', match_status: 'scheduled',
+      course_name: 'Test', course: null, editable: true,
+      players: [{ user_id: 'solo', display_name: 'Solo', avatar_url: null,
+        score_status: 'pending', total: null, declared_holes: holes, thru: entered.length,
+        holes: entered.map(n => ({ n, strokes: 4 })) }] }
+    return [index === 0 ? card : index === 2 ? { solo: Object.fromEntries(entered.map(n => [n, 4])) }
+      : typeof initial === 'function' ? initial() : initial, () => {}]
+  }
+  try {
+    return renderToStaticMarkup(React.createElement(ScorecardEditor, {
+      matchId: 'fixture', onClose: () => {}, finishable: true,
+    }))
+  } finally { React.useState = originalState }
+}
+function finishDisabled(html) {
+  const button = html.match(/<button([^>]*)>(?:(?!<\/button>).)*?Finish round/s)
+  assert.ok(button, 'finish control must exist')
+  return /\sdisabled(?:=|\s|$)/.test(button[1])
+}
+assert.equal(finishDisabled(renderCard(9, [1])), true)
+assert.equal(finishDisabled(renderCard(9, [1, 2, 3, 4, 5, 6, 7, 8])), true)
+assert.equal(finishDisabled(renderCard(9, [1, 2, 3, 4, 5, 6, 7, 8, 9])), false)
+assert.equal(finishDisabled(renderCard(18, Array.from({ length: 17 }, (_, i) => i + 1))), true)
+assert.equal(finishDisabled(renderCard(18, Array.from({ length: 18 }, (_, i) => i + 1))), false)
+console.log('PASS: finish controls require complete 9/18-hole cards')
+
+const { PersonalRoundEditor } = require('../src/components/personal/PersonalRoundEditor.tsx')
+const { PersonalLeaguePanel } = require('../src/components/personal/PersonalLeaguePanel.tsx')
+const { cardIsComplete } = require('../src/lib/personalRounds.ts')
+const holeSet = Array.from({ length: 9 }, (_, i) => ({ hole_number: i + 1, completion: 'completed', strokes: 5 }))
+assert.equal(cardIsComplete(holeSet, 9), true)
+assert.equal(cardIsComplete(holeSet.slice(0, 8), 9), false)
+assert.equal(cardIsComplete([...holeSet.slice(0, 8), holeSet[0]], 9), false)
+assert.equal(cardIsComplete([{ ...holeSet[0], strokes: 1.5 }, ...holeSet.slice(1)], 9), false)
+assert.equal(cardIsComplete([{ ...holeSet[0], completion: 'picked_up', strokes: null }, ...holeSet.slice(1)], 9), true)
+const cardFixture = {
+ round: { id: 'personal', tee_id: 'tee', played_on: '2026-10-13', status: 'confirmed', draft_version: 1, handicap_index: 18, handicap_source: 'declared_official' },
+ tee: { id: 'tee', name: 'Yellow', course_name: 'Fixture Nine', layout_name: 'Nine', hole_count: 9, ready: true, course_rating: 36, slope_rating: 113 },
+ reference_holes: holeSet.map(h => ({ hole_number: h.hole_number, par: 4, stroke_index: h.hole_number })),
+ holes: holeSet,
+ revision: { id: 'revision', revision_number: 1, scores: holeSet, gross_total: 45, net_total: 36, stableford_points: 18, differential: 18, playing_handicap: 9 },
+ level: { value: 18, status: 'provisional', cards_count: 1, cards_used: 1, revision_ids: ['revision'] },
+ leagues: ['one', 'two'].map(id => ({ id, name: `League ${id}`, reason: null, attestation: 'self_declared', format: 'stroke_net', submission_status: null, submission_id: null })),
+}
+function renderPersonalCard(card) {
+ return renderToStaticMarkup(React.createElement(PersonalRoundEditor, { data: card, onReload: async () => {} }))
+}
+const personalHtml = renderPersonalCard(cardFixture)
+assert.equal((personalHtml.match(/>Submit this revision<\/button>/g) || []).length, 2, 'one revision must be offered to both leagues')
+assert.ok(personalHtml.includes('shares this confirmed revision with all members'), 'sharing consent must be visible')
+assert.ok(personalHtml.includes('Nine-hole differential doubled'), 'nine-hole estimate must be explained')
+const unverifiedHtml = renderPersonalCard({ ...cardFixture, tee: { ...cardFixture.tee, ready: false } })
+const confirmButton = unverifiedHtml.match(/<button([^>]*)>Confirm card<\/button>/)
+assert.ok(confirmButton && /\sdisabled(?:=|\s|$)/.test(confirmButton[1]), 'unverified ratings must prevent confirmation')
+assert.ok(unverifiedHtml.includes('verified rating, slope'), 'missing reference data must be explained')
+const leagueFixture = {
+ rules: { tee_id: 'tee', format: 'stroke_net', attestation: 'peer_required' },
+ game: { id: 'one', name: 'League one', start_date: '2026-10-01', end_date: '2026-11-01', scoring_cards_count: 1, invite_code: 'TESTCODE', status: 'active' },
+ tee: { name: 'Yellow', course_name: 'Fixture Nine', hole_count: 9 }, board: [],
+ submissions: [{ id: 'submission', round_id: 'personal', user_id: 'owner', player_name: 'Owner', played_on: '2026-10-13', status: 'pending', reason: null, revision_number: 1, gross_total: 45, net_total: 36, stableford_points: 18, scores: holeSet }],
+}
+const ownLeague = renderToStaticMarkup(React.createElement(PersonalLeaguePanel, { initial: leagueFixture, userId: 'owner' }))
+assert.ok(!ownLeague.includes('>Attest card</button>'), 'owner must never get a self-attestation control')
+const witnessLeague = renderToStaticMarkup(React.createElement(PersonalLeaguePanel, { initial: leagueFixture, userId: 'witness' }))
+assert.ok(witnessLeague.includes('Attest card'), 'another member can attest the shared revision')
+assert.ok(!witnessLeague.includes('Open my card'), 'witness must not link into the private round editor')
+console.log('PASS: personal card, sharing, rating gate and witness UI')

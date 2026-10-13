@@ -1,5 +1,6 @@
 "use client"
 
+import { PersonalLevelCard } from "@/components/personal/PersonalLevelCard"
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -664,6 +665,7 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen px-4 pb-6 pt-4">
+      <div className="mx-auto max-w-2xl"><PersonalLevelCard /></div>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         {error && (
           <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

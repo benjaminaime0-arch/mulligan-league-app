@@ -154,8 +154,8 @@ export function LeaderboardTable({
             </thead>
             <tbody>
               {rows.map((row, idx) => {
-                const position = row.position ?? idx + 1
-                const medal = getMedal(position)
+                const position = row.position ?? null
+                const medal = getMedal(position ?? 0)
                 const isMe = !!currentUserId && row.user_id === currentUserId
                 const isLeader = position === 1
                 // Gap to the next ACTIVE row below. Skipping inactive
@@ -172,7 +172,7 @@ export function LeaderboardTable({
                 // `> 0` guard below works for both stroke and
                 // stableford without per-format branches here.
                 const hasCountedRounds = (r: LeaderboardRow | undefined) =>
-                  !!r && (r.rounds_counted ?? 0) > 0
+                  !!r && r.position != null && (r.rounds_counted ?? 0) > 0
                 const nextActive = hasCountedRounds(row)
                   ? rows
                       .slice(idx + 1)
@@ -184,17 +184,8 @@ export function LeaderboardTable({
                   gameFormat,
                 )
 
-                // "Race to finish" provisional chip. Only when a
-                // `scoring_cards_count` rule is in play AND this row
-                // has at least one counted round but not enough to
-                // fill the scoring set. In that window, their total
-                // is likely to *drop* (they'll replace their worst
-                // counted score) so showing +N to go keeps the
-                // leaderboard honest — a leader with 1 of 3 counted
-                // rounds deserves a different visual cue than one
-                // who's locked in. Zero-round members are signaled by
-                // position alone (bottom of board); chip would be
-                // noise there.
+                // Partial totals stay visible, but the server returns no
+                // rank until the required scoring set is complete.
                 const counted = row.rounds_counted ?? 0
                 const toGoForRank =
                   scoringCardsCount != null &&
@@ -223,11 +214,9 @@ export function LeaderboardTable({
                     <td className="py-3 pl-1 pr-2">
                       <span
                         className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${medal.className}`}
-                        aria-label={t("games.standings.position", {
-                          n: position,
-                        })}
+                        aria-label={position == null ? t("games.standings.provisional") : t("games.standings.position", { n: position })}
                       >
-                        {medal.content ?? position}
+                        {medal.content ?? position ?? "–"}
                       </span>
                     </td>
 
