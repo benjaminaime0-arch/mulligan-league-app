@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useT } from "@/lib/i18n"
 import { supabase } from "@/lib/supabase"
+import { personalSubmissionStatusKey } from "@/lib/personalSubmissionStatus"
 import {
   personalResult,
   personalButton,
@@ -92,7 +93,7 @@ export function PersonalLeaguePanel({
             </p>
             <p className="mt-1 text-sm">
               {t("personal.confirmedRevision", { n: s.revision_number })} ·{" "}
-              {t(`personal.submission.${s.status}`)} · {t(`personal.status.${s.card_status}`)}
+              {t(personalSubmissionStatusKey(s.status, s.card_status))} · {t(`personal.status.${s.card_status}`)}
             </p>
             <details className="mt-2 text-sm">
               <summary className="cursor-pointer underline">

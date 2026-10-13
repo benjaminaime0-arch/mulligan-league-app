@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ValidationTimer } from "./ValidationTimer"
+import { personalSubmissionStatusKey } from "@/lib/personalSubmissionStatus"
 import { useT } from "@/lib/i18n"
 import { supabase } from "@/lib/supabase"
 import { toLocalIso } from "@/lib/date"
@@ -354,14 +355,10 @@ export function PersonalRoundEditor({
                   {g.name}
                 </Link>
                 {g.submission_status ? (
-                  <p className="mt-1 text-sm">{t(`personal.submission.${g.submission_status}`)}</p>
+                  <p className="mt-1 text-sm">{t(personalSubmissionStatusKey(g.submission_status, data.round.status))}</p>
                 ) : g.reason ? (
                   <p className="mt-1 text-xs text-amber-800">
                     {t(`personal.reason.${g.reason}`)}
-                  </p>
-                ) : g.submission_status ? (
-                  <p className="mt-1 text-sm">
-                    {t(`personal.submission.${g.submission_status}`)}
                   </p>
                 ) : (
                   <>
