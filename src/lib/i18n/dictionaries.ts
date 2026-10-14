@@ -58,6 +58,7 @@ export const en: Dict = {
   "personal.ui.state": "Status",
   "personal.ui.strokes": "Strokes",
   "personal.ui.hole": "Hole",
+  "personal.ui.index": "Index",
   "personal.ui.close": "Close",
   "personal.ui.rules": "Rules and deadlines",
 
@@ -1022,6 +1023,7 @@ export const fr: Dict = {
   "personal.ui.state": "État",
   "personal.ui.strokes": "Coups",
   "personal.ui.hole": "Trou",
+  "personal.ui.index": "Index",
   "personal.ui.close": "Fermer",
   "personal.ui.rules": "Règles et délais",
 
