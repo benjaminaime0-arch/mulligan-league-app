@@ -56,10 +56,10 @@ BEGIN
  result:=get_personal_card(future);
  IF result->'round'->>'handicap_source'<>'internal' OR (result->'round'->>'handicap_index')::numeric<>16 THEN RAISE EXCEPTION 'Internal level not used for next round'; END IF;
  IF (get_personal_overview()->>'official_index')::numeric<>18 THEN RAISE EXCEPTION 'Official index was rewritten'; END IF;
- g1:=(create_personal_league('Personal League One',tee,current_date-1,current_date+30,'stroke_net',1,'self_declared')->>'game_id')::uuid;
- g2:=(create_personal_league('Personal League Two',tee,current_date-1,current_date+30,'stableford_net',1,'self_declared')->>'game_id')::uuid;
+ g1:=(create_calendar_league('Personal League One',tee,current_date-1,1,'stroke_net',1,'self_declared')->>'game_id')::uuid;
+ g2:=(create_calendar_league('Personal League Two',tee,current_date-1,1,'stableford_net',1,'self_declared')->>'game_id')::uuid;
  code:=get_personal_league(g2)->'game'->>'invite_code';
- g3:=(create_personal_league('Other tee',other_tee,current_date-1,current_date+30,'stroke_net',1,'self_declared')->>'game_id')::uuid;
+ g3:=(create_calendar_league('Other tee',other_tee,current_date-1,1,'stroke_net',1,'self_declared')->>'game_id')::uuid;
  IF (submit_personal_card(r,g1)->>'success')::boolean IS NOT TRUE THEN RAISE EXCEPTION 'First league submission failed'; END IF;
  result:=submit_personal_card(r,g2);sid:=(result->>'submission_id')::uuid;
  IF (result->>'success')::boolean IS NOT TRUE THEN RAISE EXCEPTION 'Second league submission failed'; END IF;
@@ -83,7 +83,7 @@ BEGIN
  RESET ROLE;
  PERFORM set_config('request.jwt.claims',json_build_object('sub',owner,'role','authenticated')::text,true);
  SET LOCAL ROLE authenticated;
- qualification:=(create_personal_league('Qualification',tee,current_date-1,current_date+30,'stroke_net',2,'self_declared')->>'game_id')::uuid;
+ qualification:=(create_calendar_league('Qualification',tee,current_date-1,1,'stroke_net',2,'self_declared')->>'game_id')::uuid;
  PERFORM submit_personal_card(second,qualification);
  IF EXISTS(SELECT 1 FROM get_leaderboard(qualification) WHERE user_id=owner AND "position" IS NOT NULL) THEN
   RAISE EXCEPTION 'Personal league ranked a player below its required card count';

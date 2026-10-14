@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { useT } from "@/lib/i18n"
+import { OfficialIndexEditor } from "@/components/personal/OfficialIndexEditor"
 import { todayLocalIso } from "@/lib/date"
 import { supabase } from "@/lib/supabase"
 import {
@@ -20,7 +21,7 @@ export default function PersonalRoundsPage() {
   const [data, setData] = useState<PersonalOverview | null>(null)
   const [tee, setTee] = useState("")
   const [date, setDate] = useState(todayLocalIso)
-  const [index, setIndex] = useState("")
+  const [courseFilter, setCourseFilter] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const reload = useCallback(async () => {
@@ -35,15 +36,12 @@ export default function PersonalRoundsPage() {
       .then((d) => {
         if (active) {
           setData(d)
-          const requested = new URLSearchParams(window.location.search).get(
-            "tee",
-          )
-          setTee(
-            d.tees.find((x) => x.id === requested)?.id ||
-              d.tees.find((x) => x.ready)?.id ||
-              d.tees[0]?.id ||
-              "",
-          )
+          const params = new URLSearchParams(window.location.search)
+          const requested = params.get("tee")
+          const course = params.get("course") ?? ""
+          setCourseFilter(course)
+          const choices = course ? d.tees.filter(x => x.course_id === course) : d.tees
+          setTee(choices.find(x => x.id === requested)?.id || choices.find(x => x.ready)?.id || choices[0]?.id || "")
         }
       })
       .catch((e) => {
@@ -91,37 +89,7 @@ export default function PersonalRoundsPage() {
             <p className="mt-2 text-xs text-primary/70">
               {t("personal.level.explanation")}
             </p>
-            <form
-              className="mt-4 flex flex-wrap items-end gap-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                void run(async () => {
-                  await supabase
-                    .rpc("declare_personal_index", { p_index: Number(index) })
-                    .then(personalResult)
-                  setIndex("")
-                  await reload()
-                })
-              }}
-            >
-              <label className="flex-1 text-sm">
-                {t("personal.official")} ({data.official_index ?? "—"})
-                <input
-                  aria-label={t("personal.official")}
-                  type="number"
-                  step="0.1"
-                  min="-10"
-                  max="54"
-                  required
-                  value={index}
-                  onChange={(e) => setIndex(e.target.value)}
-                  className={personalInput}
-                />
-              </label>
-              <button className={personalButton} disabled={busy}>
-                {t("personal.updateIndex")}
-              </button>
-            </form>
+            <OfficialIndexEditor value={data.official_index} onSaved={async () => { await reload() }} />
             {data.history.length > 0 && (
               <details className="mt-4 text-sm">
                 <summary className="cursor-pointer">
@@ -163,7 +131,7 @@ export default function PersonalRoundsPage() {
                 required
                 className={personalInput}
               >
-                {data.tees.map((x) => (
+                {data.tees.filter(x => !courseFilter || x.course_id === courseFilter).map((x) => (
                   <option key={x.id} value={x.id}>
                     {x.course_name} · {x.hole_count} · {x.name}
                     {!x.ready ? ` (${t("personal.ratingPending")})` : ""}

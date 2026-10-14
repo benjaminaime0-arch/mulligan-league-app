@@ -5,7 +5,6 @@ import { ValidationTimer } from "./ValidationTimer"
 import { personalSubmissionStatusKey } from "@/lib/personalSubmissionStatus"
 import { useT } from "@/lib/i18n"
 import { supabase } from "@/lib/supabase"
-import { toLocalIso } from "@/lib/date"
 import {
   cardIsComplete,
   holesAsJson,
@@ -44,15 +43,6 @@ export function PersonalRoundEditor({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const [name, setName] = useState("")
-  const [format, setFormat] = useState("stableford_net")
-  const [cards, setCards] = useState(1)
-  const [witness, setWitness] = useState(false)
-  const [end, setEnd] = useState(() => {
-    const d = new Date(`${data.round.played_on}T12:00:00`)
-    d.setDate(d.getDate() + 30)
-    return toLocalIso(d)
-  })
   useEffect(() => {
     setHoles(
       data.reference_holes.map(
@@ -65,7 +55,6 @@ export function PersonalRoundEditor({
       ),
     )
     setVersion(data.round.draft_version)
-    if (data.revision?.gross_total === null) setFormat("stableford_net")
   }, [data])
   const run = async (fn: () => Promise<void>) => {
     setBusy(true)
@@ -394,113 +383,7 @@ export function PersonalRoundEditor({
               </li>
             ))}
           </ul>
-          <details className="mt-5 rounded-xl border border-primary/15 p-4">
-            <summary className="cursor-pointer font-semibold">
-              {t("personal.createLeague")}
-            </summary>
-            <form
-              className="mt-4 space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault()
-                void run(async () => {
-                  if (ownerDraft) await save()
-                  const g = personalResult<{ game_id: string }>(
-                    await supabase.rpc("create_personal_league", {
-                      p_name: name,
-                      p_tee: data.round.tee_id,
-                      p_start: data.round.played_on,
-                      p_end: end,
-                      p_format: format,
-                      p_cards: cards,
-                      p_attestation: witness
-                        ? "peer_required"
-                        : "self_declared",
-                    }),
-                  )
-                  if (data.revision) {
-                    const res = personalResult<{ success: boolean; reason?: string }>(await supabase.rpc("submit_personal_card", { p_round: data.round.id, p_game: g.game_id }))
-                    await onReload()
-                    if (!res.success) throw new Error(t(`personal.reason.${res.reason}`))
-                  } else await onReload()
-                  setName("")
-                  setNotice(t(ownerDraft ? "personal.lifecycle.draftLeagueCreated" : "personal.leagueCreated"))
-                })
-              }}
-            >
-              <label className="block text-sm">
-                {t("personal.leagueName")}
-                <input
-                  required
-                  maxLength={80}
-                  className={personalInput}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </label>
-              <label className="block text-sm">
-                {t("personal.format")}
-                <select
-                  aria-label={t("personal.format")}
-                  className={personalInput}
-                  value={format}
-                  onChange={(e) => setFormat(e.target.value)}
-                >
-                  {["stroke_gross", "stroke_net", "stableford_net"].map((f) => (
-                    <option
-                      key={f}
-                      value={f}
-                      disabled={
-                        data.revision?.gross_total === null &&
-                        f !== "stableford_net"
-                      }
-                    >
-                      {t(`personal.format.${f}`)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-sm">
-                {t("personal.endsOn")}
-                <input
-                  type="date"
-                  className={personalInput}
-                  required
-                  value={end}
-                  onChange={(e) => setEnd(e.target.value)}
-                />
-              </label>
-              <label className="block text-sm">
-                {t("personal.requiredCards")}
-                <input
-                  type="number"
-                  className={personalInput}
-                  min={1}
-                  max={20}
-                  required
-                  value={cards}
-                  onChange={(e) => setCards(Number(e.target.value))}
-                />
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={witness}
-                  disabled={!ownerDraft && !data.round.validator_id}
-                  onChange={(e) => setWitness(e.target.checked)}
-                />
-                {t("personal.witnessRequired")}
-              </label>
-              <p className="text-xs text-primary/70">
-                {t("personal.leagueRules")}
-              </p>
-              <button
-                disabled={busy || !data.tee.ready}
-                className={personalButton}
-              >
-                {t(ownerDraft ? "personal.lifecycle.createLeagueOnly" : "personal.createAndSubmit")}
-              </button>
-            </form>
-          </details>
+          <Link className="mt-5 inline-block min-h-[44px] py-3 text-sm underline" href={`/games/create?tee=${data.round.tee_id}&start=${data.round.played_on}`}>{t("personal.createLeague")}</Link>
         </section>
       )}
     </main>

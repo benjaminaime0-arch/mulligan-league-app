@@ -11,7 +11,7 @@ INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES
 DO $$ DECLARE tee uuid; g uuid; r uuid; holes jsonb; BEGIN
  SELECT t.id INTO tee FROM personal_tees t JOIN personal_layouts l ON l.id=t.layout_id JOIN courses c ON c.id=l.course_id WHERE c.name='Golf de Rueil-Malmaison' AND l.hole_count=9 AND t.name='Jaunes — Messieurs';
  PERFORM set_config('request.jwt.claims','{"sub":"a4530000-0000-0000-0000-000000000001","role":"authenticated"}',true);
- g:=(create_personal_league('Race fixture',tee,current_date-1,current_date+1,'stroke_net',1,'peer_required')->>'game_id')::uuid;
+ g:=(create_calendar_league('Race fixture',tee,current_date-1,1,'stroke_net',1,'peer_required')->>'game_id')::uuid;
  INSERT INTO game_members(game_id,user_id) VALUES(g,'a4530000-0000-0000-0000-000000000002');
  SELECT jsonb_agg(jsonb_build_object('hole_number',hole_number,'completion','completed','strokes',par+1) ORDER BY hole_number) INTO holes FROM personal_tee_holes WHERE tee_id=tee;
  FOR i IN 1..2 LOOP
@@ -40,7 +40,7 @@ psql "$PGURL" -q -v ON_ERROR_STOP=1 -c 'SET ROLE service_role; SELECT auto_valid
 worker2_pid=$!
 # A worker may settle after inbox loading; stale manual reviews must fail safely.
 if ! wait "$manual_pid"; then
-  if ! rg -q 'no longer awaiting your validation' "$fixture_dir/manual.log"; then cat "$fixture_dir/manual.log"; exit 1; fi
+  if ! grep -Fq 'no longer awaiting your validation' "$fixture_dir/manual.log"; then cat "$fixture_dir/manual.log"; exit 1; fi
 fi
 wait "$worker1_pid"
 wait "$worker2_pid"

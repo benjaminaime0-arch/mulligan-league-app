@@ -4,8 +4,8 @@ DO $$ DECLARE tee uuid; six uuid; ten uuid; code text; p jsonb; BEGIN
  SELECT t.id INTO tee FROM personal_tees t JOIN personal_layouts l ON l.id=t.layout_id WHERE l.hole_count=9 AND personal_reference_ready(t.id) LIMIT 1;
  PERFORM set_config('request.jwt.claims','{"sub":"a4540000-0000-4000-8000-000000000001","role":"authenticated"}',true);
  SET LOCAL ROLE authenticated;
- six:=(create_personal_league('Legacy six-character invite',tee,current_date-1,current_date+1,'stroke_net')->>'game_id')::uuid;
- ten:=(create_personal_league('Current ten-character invite',tee,current_date-1,current_date+1,'stroke_net')->>'game_id')::uuid;
+ six:=(create_calendar_league('Legacy six-character invite',tee,current_date-1,1,'stroke_net')->>'game_id')::uuid;
+ ten:=(create_calendar_league('Current ten-character invite',tee,current_date-1,1,'stroke_net')->>'game_id')::uuid;
  code:=get_personal_league(ten)->'game'->>'invite_code';
  IF length(code)<>10 THEN RAISE EXCEPTION 'Current creator did not produce ten-character code'; END IF;
  RESET ROLE;

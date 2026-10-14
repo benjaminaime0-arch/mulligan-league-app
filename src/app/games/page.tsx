@@ -5,12 +5,12 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { Avatar } from "@/components/Avatar"
-import { todayLocalIso } from "@/lib/date"
 import { useI18n } from "@/lib/i18n"
+import { supabase } from "@/lib/supabase"
+import { personalResult, type PersonalLeagueSummary } from "@/lib/personalRounds"
 import {
   loadUserGames,
   loadMyStandings,
-  loadNextMatches,
   loadPendingReviewRequests,
   sectionForStatus,
   type EnrichedGame,
@@ -21,23 +21,13 @@ import {
 
 type HubGame = EnrichedGame & {
   standing: LeaderboardStanding
-  nextMatchDate: string | null
   section: HubSection
+  personal?: PersonalLeagueSummary
 }
 
 function formatGameType(type: string | null | undefined): string {
   if (!type) return "Standard"
   return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-function formatDateShort(iso: string | null | undefined, locale = "fr"): string {
-  if (!iso) return "—"
-  // Parse as a local date to avoid a UTC day shift.
-  const [y, m, d] = iso.split("-").map(Number)
-  return new Date(y, (m ?? 1) - 1, d ?? 1).toLocaleDateString(locale, {
-    month: "short",
-    day: "numeric",
-  })
 }
 
 const SECTION_KEY: Record<HubSection, string> = {
@@ -49,7 +39,7 @@ const SECTION_KEY: Record<HubSection, string> = {
 export default function GamesHubPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
 
   const [games, setGames] = useState<HubGame[]>([])
   const [invites, setInvites] = useState<PendingInvite[]>([])
@@ -60,7 +50,6 @@ export default function GamesHubPage() {
   useEffect(() => {
     if (authLoading || !user) return
     let cancelled = false
-    const today = todayLocalIso()
 
     const init = async () => {
       try {
@@ -71,21 +60,26 @@ export default function GamesHubPage() {
         if (cancelled) return
 
         const ids = enriched.map((g) => g.id)
-        const [standings, nextMatches, pending] = await Promise.all([
+        const [standings, pending, personal] = await Promise.all([
           loadMyStandings(ids, user.id),
-          loadNextMatches(ids, user.id, today),
           loadPendingReviewRequests(user.id),
+          supabase.rpc("get_personal_leagues").then(r => personalResult<PersonalLeagueSummary[]>(r)),
         ])
         if (cancelled) return
 
         setGames(
-          enriched.map((g) => ({
-            ...g,
-            standing:
-              standings.get(String(g.id)) ?? { position: null, roundsCounted: null },
-            nextMatchDate: nextMatches.get(String(g.id)) ?? null,
-            section: sectionForStatus(g.status),
-          })),
+          enriched.map((g): HubGame => {
+            const details = personal.find(p => p.id === g.id)
+            const section = details
+              ? ({ upcoming: "upcoming", active: "active", closed_provisional: "completed", finalized: "completed" } as const)[details.lifecycle_state]
+              : sectionForStatus(g.status)
+            return {
+              ...g,
+              standing: standings.get(String(g.id)) ?? { position: null, roundsCounted: null },
+              section,
+              personal: details,
+            }
+          }),
         )
         setInvites(pending)
       } catch (err) {
@@ -216,7 +210,6 @@ export default function GamesHubPage() {
                 section={section}
                 games={grouped[section]}
                 t={t}
-                locale={locale}
                 onOpen={(id) => router.push(`/games/${id}`)}
               />
             ) : null,
@@ -244,7 +237,6 @@ export default function GamesHubPage() {
                       key={g.id}
                       game={g}
                       t={t}
-                      locale={locale}
                       onOpen={() => router.push(`/games/${g.id}`)}
                     />
                   ))}
@@ -279,13 +271,11 @@ function GameSection({
   games,
   onOpen,
   t,
-  locale,
 }: {
   section: HubSection
   games: HubGame[]
   onOpen: (id: string) => void
   t: (k: string, v?: Record<string, string | number>) => string
-  locale: string
 }) {
   return (
     <section>
@@ -296,7 +286,7 @@ function GameSection({
       </div>
       <div className="flex flex-col gap-3">
         {games.map((g) => (
-          <GameCard key={g.id} game={g} t={t} locale={locale} onOpen={() => onOpen(String(g.id))} />
+          <GameCard key={g.id} game={g} t={t} onOpen={() => onOpen(String(g.id))} />
         ))}
       </div>
     </section>
@@ -322,12 +312,10 @@ function GameCard({
   game,
   onOpen,
   t,
-  locale,
 }: {
   game: HubGame
   onOpen: () => void
   t: (k: string, v?: Record<string, string | number>) => string
-  locale: string
 }) {
   const isCompleted = game.section === "completed"
   const cap = game.total_cards_count
@@ -354,8 +342,9 @@ function GameCard({
             <StatusChip section={game.section} t={t} />
           </div>
           <p className="mt-0.5 truncate text-xs text-primary/50">
-            {game.course_name || t("games.card.nocourse")} · {formatGameType(game.game_type)}
+            {game.course_name || t("games.card.nocourse")} · {game.personal ? `${game.personal.hole_count} · ${game.personal.tee_name} · ${t(`personal.format.${game.personal.format}`)}` : formatGameType(game.game_type)}
           </p>
+          {game.personal && <p className="mt-1 text-xs text-primary/70">{game.personal.start_date} → {game.personal.end_date} · {game.personal.duration_months ? t("personal.calendar.months", { n: game.personal.duration_months }) : t("personal.calendar.historical")}</p>}
         </div>
         {position && (
           <span className="shrink-0 rounded-lg bg-primary/5 px-2 py-1 text-sm font-bold text-primary">
@@ -388,17 +377,13 @@ function GameCard({
           )}
         </div>
 
-        {/* progress + next match */}
+        {/* Card progress, without a match-planning path. */}
         <div className="flex items-center gap-3 text-xs text-primary/60">
           {cardsProgress && <span>{cardsProgress}</span>}
-          {!isCompleted && game.nextMatchDate ? (
-            <span className="rounded-md bg-primary/5 px-2 py-1 font-medium text-primary">
-              {t("games.card.next", { date: formatDateShort(game.nextMatchDate, locale) })}
-            </span>
-          ) : isCompleted ? (
-            <span className="text-primary/40">{t("games.card.final")}</span>
+          {isCompleted ? (
+            <span className="text-primary/60">{t(game.personal?.lifecycle_state === "closed_provisional" ? "personal.closure.closed_provisional" : "games.card.final")}</span>
           ) : (
-            <span className="text-primary/40">{t("games.card.nomatch")}</span>
+            <span className="text-primary/60">{t("games.create.scoringcards")} · {counted ?? 0}</span>
           )}
         </div>
       </div>

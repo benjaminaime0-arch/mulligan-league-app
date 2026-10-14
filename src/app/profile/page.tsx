@@ -22,7 +22,6 @@ import {
   type UserHonorRow,
 } from "@/components/profile/MyHonorsCard"
 import { ConquestCard } from "@/components/profile/ConquestCard"
-import { MatchCalendarSection } from "@/components/match/MatchCalendarSection"
 import type { Game as SharedGame, Match as SharedMatch, MatchPlayer as SharedMatchPlayer } from "@/components/match/types"
 import { ScoreTrendCard } from "@/components/profile/ScoreTrendCard"
 import { LeaderboardTable } from "@/app/games/[id]/components/LeaderboardTable"
@@ -305,7 +304,6 @@ export default function ProfilePage() {
   const [editFirstName, setEditFirstName] = useState("")
   const [editLastName, setEditLastName] = useState("")
   const [editTown, setEditTown] = useState("")
-  const [editHandicap, setEditHandicap] = useState("")
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [cropFile, setCropFile] = useState<File | null>(null)
@@ -520,7 +518,6 @@ export default function ProfilePage() {
     setEditFirstName(profile?.first_name || (user?.user_metadata?.first_name as string) || "")
     setEditLastName(profile?.last_name || (user?.user_metadata?.last_name as string) || "")
     setEditTown(profile?.town || "")
-    setEditHandicap(profile?.handicap != null ? String(profile.handicap) : "")
     setEditing(true)
   }
 
@@ -533,7 +530,6 @@ export default function ProfilePage() {
       const firstName = editFirstName.trim()
       const lastName = editLastName.trim()
       const town = editTown.trim()
-      const handicapNum = editHandicap.trim() ? parseInt(editHandicap.trim(), 10) : null
 
       if (!username) {
         setError(t("profile.username.required"))
@@ -553,15 +549,6 @@ export default function ProfilePage() {
         return
       }
 
-      if (
-        handicapNum != null &&
-        (Number.isNaN(handicapNum) || handicapNum < 0 || handicapNum > 54)
-      ) {
-        setError(t("profile.handicap.range"))
-        setSaving(false)
-        return
-      }
-
       const { error: updateError } = await supabase
         .from("profiles")
         .update({
@@ -571,7 +558,6 @@ export default function ProfilePage() {
           first_name: firstName || undefined,
           last_name: lastName || null,
           town: town || null,
-          handicap: handicapNum,
         })
         .eq("id", user.id)
 
@@ -665,7 +651,7 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen px-4 pb-6 pt-4">
-      <div className="mx-auto max-w-2xl"><PersonalLevelCard /></div>
+      <div className="mx-auto max-w-2xl"><PersonalLevelCard editableIndex onIndexChange={value => setProfile(p => p ? { ...p, handicap: value } : p)} /></div>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         {error && (
           <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -703,11 +689,7 @@ export default function ProfilePage() {
                 <input id="edit-town" type="text" value={editTown} onChange={(e) => setEditTown(e.target.value)} disabled={saving}
                   className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder={t("profile.town.placeholder")} />
               </div>
-              <div>
-                <label htmlFor="edit-handicap" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">{t("profile.handicap")}</label>
-                <input id="edit-handicap" type="number" step="1" min="0" max="54" value={editHandicap} onChange={(e) => setEditHandicap(e.target.value)} disabled={saving}
-                  className="w-32 rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder={t("profile.handicap.placeholder")} />
-              </div>
+
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={handleSaveProfile} disabled={saving}
                   className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-cream hover:bg-primary/90 disabled:opacity-60">
@@ -784,14 +766,6 @@ export default function ProfilePage() {
                   {t("profile.hcp")} <strong className="text-primary/80 tabular-nums">{profile?.handicap != null ? profile.handicap : "\u2013"}</strong>
                 </span>
                 <span className="text-primary/30">·</span>
-                {/* The count lives INSIDE the translated string, not beside
-                    it — plural rules and word order differ per language. */}
-                <span className="tabular-nums">
-                  {matchesPlayed === 1
-                    ? t("profile.stat.matches.one")
-                    : t("profile.stat.matches", { n: matchesPlayed })}
-                </span>
-                <span className="text-primary/30">·</span>
                 {/* myGames, not memberships: the raw membership rows
                     include the hidden practice container. */}
                 <span className="tabular-nums">
@@ -806,22 +780,6 @@ export default function ProfilePage() {
 
         {/* 2. Score trajectory — sparkline + trend arrow */}
         <ScoreTrendCard handicap={profile?.handicap ?? null} />
-
-        {/* 3. My calendar — horizontal day strip + inline MatchDetailCard
-            for the selected day. Shared with game page via
-            `MatchCalendarSection`. Full list still one tap away via
-            the "My calendar →" link in the section header. */}
-        {user && (
-          <MatchCalendarSection
-            matches={calendarMatches}
-            matchPlayersMap={calendarPlayersMap}
-            currentUserId={user.id}
-            resolveGame={(m) =>
-              calendarGamesById.get(String(m.game_id)) ?? null
-            }
-            onRefresh={handleMatchRefresh}
-          />
-        )}
 
         {/* 3. Records — best round, top rival, longest streak */}
         <RecordsCard records={records} />
