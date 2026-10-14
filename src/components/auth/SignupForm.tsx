@@ -26,7 +26,6 @@ export function SignupForm() {
     password: "",
     confirmPassword: "",
     club: "",
-    handicap: "",
   })
 
   const validate = () => {
@@ -47,12 +46,6 @@ export function SignupForm() {
     }
     if (formData.password && formData.confirmPassword !== formData.password) {
       errors.confirmPassword = t("auth.error.password.mismatch")
-    }
-    if (formData.handicap) {
-      const h = parseFloat(formData.handicap)
-      if (isNaN(h) || h < 0 || h > 54) {
-        errors.handicap = t("auth.error.handicap.range")
-      }
     }
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
@@ -77,7 +70,6 @@ export function SignupForm() {
             first_name: formData.firstName.trim(),
             last_name: formData.lastName.trim(),
             club: formData.club.trim() || undefined,
-            handicap: formData.handicap ? parseFloat(formData.handicap) : undefined,
           },
         },
       })
@@ -283,27 +275,6 @@ export function SignupForm() {
           placeholder="Pebble Beach Golf Links"
           disabled={loading}
         />
-      </div>
-
-      <div>
-        <label htmlFor="signup-handicap" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
-          {t("auth.handicap")} <span className="font-normal normal-case tracking-normal text-primary/70">{t("auth.handicap.optional")}</span>
-        </label>
-        <input
-          id="signup-handicap"
-          type="number"
-          min={0}
-          max={54}
-          step={0.1}
-          value={formData.handicap}
-          onChange={(e) => setFormData((p) => ({ ...p, handicap: e.target.value }))}
-          className="w-full rounded-[10px] border border-primary/20 bg-white px-3.5 py-2.5 text-base text-charcoal placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          placeholder="18"
-          disabled={loading}
-        />
-        {fieldErrors.handicap && (
-          <p className="mt-1 text-sm text-red-600">{fieldErrors.handicap}</p>
-        )}
       </div>
 
       <button
