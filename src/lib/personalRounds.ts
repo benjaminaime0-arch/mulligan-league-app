@@ -197,6 +197,6 @@ export function cardIsComplete(holes: PersonalHole[], count: number): boolean {
   )
 }
 export const personalInput =
-  "w-full rounded-lg border border-primary/20 bg-white px-3 py-2.5 text-sm disabled:opacity-50"
+  "mt-1 min-h-[48px] w-full min-w-0 rounded-xl border border-primary/20 bg-white px-3 py-2.5 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:opacity-50"
 export const personalButton =
-  "rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-cream disabled:opacity-50"
+  "inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-bold text-cream transition-colors hover:bg-primary-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50"

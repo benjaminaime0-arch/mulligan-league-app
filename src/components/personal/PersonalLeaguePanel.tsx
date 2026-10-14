@@ -45,14 +45,9 @@ export function PersonalLeaguePanel({
         {t(`personal.format.${data.rules.format}`)}
       </p>
       <p className="mt-1 text-xs text-primary/70">{data.rules.duration_months
-        ? t("personal.calendar.months", { n: data.rules.duration_months })
+        ? t(data.rules.duration_months === 1 ? "personal.calendar.monthOne" : "personal.calendar.months", { n: data.rules.duration_months })
         : t("personal.calendar.historical")} · {data.rules.timezone ?? "Europe/Paris"}</p>
-      <p className="mt-2 text-xs text-primary/70">
-        {t("personal.leagueRules")} ·{" "}
-        {data.rules.attestation === "peer_required"
-          ? t("personal.witnessRequired")
-          : t("personal.selfDeclared")}
-      </p>
+      <details className="mt-2 text-sm"><summary className="cursor-pointer py-2 text-primary/70">{t("personal.ui.rules")}</summary><p className="text-xs leading-relaxed text-primary/70">{t("personal.leagueRules")} · {data.rules.attestation === "peer_required" ? t("personal.witnessRequired") : t("personal.selfDeclared")}</p></details>
       <p className="mt-3 text-sm font-semibold">{t(`personal.closure.${data.closure_status}`)}</p>
       <GameInviteCode
         inviteCode={data.game.invite_code}
@@ -69,7 +64,7 @@ export function PersonalLeaguePanel({
         <button
           className="text-sm underline"
           disabled={busy}
-          onClick={() => void refresh().catch((e) => setError(e.message))}
+          onClick={() => { setBusy(true); setError(null); void refresh().catch((e) => setError(e.message)).finally(() => setBusy(false)) }}
         >
           {t("personal.refresh")}
         </button>
@@ -90,7 +85,7 @@ export function PersonalLeaguePanel({
       <h2 className="mb-3 mt-6 font-semibold">{t("personal.leagueCards")}</h2>
       <ul className="space-y-3">
         {data.submissions.map((s) => (
-          <li key={s.id} className="rounded-xl border border-primary/15 p-4">
+          <li key={s.id} className="rounded-2xl border border-primary/10 bg-white p-4">
             <p className="font-semibold">
               {s.player_name} · {s.played_on}
             </p>

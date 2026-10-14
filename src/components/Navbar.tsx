@@ -22,7 +22,7 @@ const authFreePrefixes = ["/join/"]
 /** The MVP actions share the same card and league entry points. */
 function newActions(t: (k: string) => string) {
   return [
-    { href: "/rounds", label: t("personal.new"), icon: <FlagIcon /> },
+    { href: "/rounds?new=1", label: t("personal.new"), icon: <FlagIcon /> },
     { href: "/games/create", label: t("nav.new.game"), icon: <PlusCircleIcon /> },
     { href: "/games/join", label: t("nav.new.join"), icon: <JoinIcon /> },
   ]
@@ -54,6 +54,13 @@ export function Navbar() {
   const [showAvatar, setShowAvatar] = useState(false) // desktop avatar menu
   const newRef = useRef<HTMLDivElement>(null)
   const avatarRef = useRef<HTMLDivElement>(null)
+  const actionDialog = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    const dialog = actionDialog.current
+    if (!dialog) return
+    if (showActions && !dialog.open) dialog.showModal()
+    if (!showActions && dialog.open) dialog.close()
+  }, [showActions])
 
   // Fetch the avatar once per authenticated user — not per route change.
   useEffect(() => {
@@ -225,10 +232,15 @@ export function Navbar() {
         </div>
       </header>
 
-      {/* Mobile top-right bell */}
-      <div className="fixed right-3 top-3 z-40 md:hidden">
+      {/* Stable mobile header keeps notifications clear of page actions. */}
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-primary/10 bg-bone/95 px-4 backdrop-blur md:hidden">
+        <Link href="/home" className="flex min-h-[44px] items-center gap-2 font-bold" aria-label={`Mulligan — ${t("nav.home")}`}><Logo mark size={28} /><span>Mulligan</span></Link>
         <NotificationBell />
-      </div>
+      </header>
+      <dialog ref={actionDialog} id="new-actions" aria-label={t("nav.new")} onCancel={() => setShowActions(false)} onClose={() => setShowActions(false)} onClick={e => { if (e.target === e.currentTarget) setShowActions(false) }} className="fixed inset-x-4 top-auto bottom-[calc(5rem+env(safe-area-inset-bottom))] m-auto w-[calc(100%_-_2rem)] max-w-sm rounded-2xl border border-primary/10 bg-white p-3 text-primary shadow-xl backdrop:bg-black/30">
+        <div className="flex items-center justify-between px-3"><p className="font-bold">{t("nav.new")}</p><button type="button" onClick={() => setShowActions(false)} className="min-h-[44px] px-3 text-sm">{t("personal.ui.close")}</button></div>
+        {NEW_ACTIONS.map(a => <ActionMenuItem key={a.href} href={a.href} label={a.label} icon={a.icon} onClick={() => setShowActions(false)} />)}
+      </dialog>
 
       {/* Mobile bottom nav: Home · Cards · [+] · Leagues · Profile */}
       <nav className="mobile-nav-safe fixed bottom-0 left-0 right-0 z-40 border-t border-primary/10 bg-white/95 backdrop-blur md:hidden">
@@ -238,30 +250,14 @@ export function Navbar() {
 
           {/* Center FAB */}
           <div className="relative flex flex-col items-center justify-end" style={{ minWidth: 56 }}>
-            {showActions && (
-              <>
-                <div
-                  className="animate-fade-in fixed inset-0 z-40 bg-black/20"
-                  onClick={() => setShowActions(false)}
-                />
-                <div className="animate-slide-up absolute bottom-14 z-50 flex flex-col gap-1 rounded-2xl border border-primary/10 bg-white p-2 shadow-xl">
-                  {NEW_ACTIONS.map((a) => (
-                    <ActionMenuItem
-                      key={a.href}
-                      href={a.href}
-                      label={a.label}
-                      icon={a.icon}
-                      onClick={() => setShowActions(false)}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
             <button
               type="button"
               onClick={() => setShowActions((v) => !v)}
               className="mb-0.5 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-cream shadow-lg shadow-primary/25 transition-transform active:scale-95"
               aria-label={showActions ? t("nav.closeMenu") : t("nav.new")}
+              aria-expanded={showActions}
+              aria-controls="new-actions"
+              aria-haspopup="dialog"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -286,6 +282,7 @@ export function Navbar() {
           {/* Profile tab (avatar) */}
           <Link
             href="/profile"
+            aria-current={isActive("/profile") ? "page" : undefined}
             className="relative flex min-h-[44px] min-w-[52px] flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1"
           >
             <span
@@ -294,7 +291,7 @@ export function Navbar() {
               }`}
             />
             <Avatar src={avatarUrl} alt="Profile" size={22} fallback={avatarFallback} />
-            <span className={`text-[10px] font-medium ${isActive("/profile") ? "text-primary" : "text-primary/40"}`}>
+            <span className={`text-xs font-medium ${isActive("/profile") ? "text-primary" : "text-primary/70"}`}>
               {t("nav.profile")}
             </span>
           </Link>
@@ -354,6 +351,7 @@ function MobileNavTab({
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       className="relative flex min-h-[44px] min-w-[52px] flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 transition-colors active:bg-primary/5"
     >
       <span
@@ -362,7 +360,7 @@ function MobileNavTab({
         }`}
       />
       <span className="flex h-6 w-6 items-center justify-center">{active ? activeIcon : icon}</span>
-      <span className={`text-[10px] font-medium ${active ? "text-primary" : "text-primary/40"}`}>
+      <span className={`text-xs font-medium ${active ? "text-primary" : "text-primary/70"}`}>
         {label}
       </span>
     </Link>
@@ -384,7 +382,7 @@ function ActionMenuItem({
     <Link
       href={href}
       onClick={onClick}
-      className="flex items-center gap-3 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-cream active:bg-cream"
+      className="flex min-h-[48px] items-center gap-3 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-cream active:bg-cream"
     >
       <span className="flex h-5 w-5 items-center justify-center text-primary/60">{icon}</span>
       {label}
@@ -400,6 +398,7 @@ function DesktopLink({ href, label, pathname }: { href: string; label: string; p
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       className={`border-b-2 pb-0.5 transition-colors ${
         active
           ? "border-primary text-primary"

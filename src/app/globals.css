@@ -200,3 +200,16 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Authenticated Mulligan screens: warm surfaces, clear keyboard focus. */
+.mulligan-app :is(a, button, summary):focus-visible {
+  outline: 2px solid #003800;
+  outline-offset: 4px;
+}
+.mulligan-app summary { min-height: 44px; }
+@media (prefers-reduced-motion: reduce) {
+  .mulligan-app *, .mulligan-app *::before, .mulligan-app *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
