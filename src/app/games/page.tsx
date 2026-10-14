@@ -383,7 +383,7 @@ function GameCard({
           {isCompleted ? (
             <span className="text-primary/60">{t(game.personal?.lifecycle_state === "closed_provisional" ? "personal.closure.closed_provisional" : "games.card.final")}</span>
           ) : (
-            <span className="text-primary/60">{t("personal.leagueCards")} · {counted ?? 0}</span>
+            <span className="text-primary/60">{t("games.create.scoringcards")} · {counted ?? 0}</span>
           )}
         </div>
       </div>
