@@ -193,7 +193,7 @@ export function PersonalRoundEditor({
             <h3 className="bg-primary/5 px-3 py-3 text-sm font-bold">{t("personal.ui.hole")} {start + 1}–{Math.min(start + 9, data.tee.hole_count)}</h3>
             {editable ? <fieldset disabled={busy}>
               <legend className="sr-only">{t("personal.ui.hole")} {start + 1}–{start + 9}</legend>
-              <div aria-hidden="true" className="grid grid-cols-[28px_40px_1fr_60px] items-center gap-2 border-b border-primary/10 px-3 py-2 text-[11px] text-primary/70"><span>{t("personal.ui.hole")}</span><span>Par / SI</span><span>{t("personal.ui.state")}</span><span>{t("personal.ui.strokes")}</span></div>
+              <div aria-hidden="true" className="grid grid-cols-[28px_40px_1fr_60px] items-center gap-2 border-b border-primary/10 px-3 py-2 text-[11px] text-primary/70"><span>{t("personal.ui.hole")}</span><span>Par /<br />{t("personal.ui.index")}</span><span>{t("personal.ui.state")}</span><span>{t("personal.ui.strokes")}</span></div>
               {data.reference_holes.slice(start, start + 9).map(ref => {
                 const h = holes.find(x => x.hole_number === ref.hole_number)!
                 return <div key={ref.hole_number} className="grid grid-cols-[28px_40px_1fr_60px] items-center gap-2 border-b border-primary/5 px-3 py-2 last:border-0">
@@ -209,7 +209,7 @@ export function PersonalRoundEditor({
               })}
             </fieldset> : <table className="w-full text-left text-sm">
               <caption className="sr-only">{t("personal.ui.scores")} · {t("personal.ui.hole")} {start + 1}–{start + 9}</caption>
-              <thead className="text-xs text-primary/70"><tr><th scope="col" className="px-3 py-2">{t("personal.ui.hole")}</th><th scope="col">Par</th><th scope="col">SI</th><th scope="col" className="pr-3 text-right">{t("personal.ui.strokes")}</th></tr></thead>
+              <thead className="text-xs text-primary/70"><tr><th scope="col" className="px-3 py-2">{t("personal.ui.hole")}</th><th scope="col">Par</th><th scope="col">{t("personal.ui.index")}</th><th scope="col" className="pr-3 text-right">{t("personal.ui.strokes")}</th></tr></thead>
               <tbody>{data.reference_holes.slice(start, start + 9).map(ref => {
                 const h = holes.find(x => x.hole_number === ref.hole_number)!
                 return <tr key={ref.hole_number} className="border-t border-primary/5"><th scope="row" className="px-3 py-2 font-semibold">{ref.hole_number}</th><td>{ref.par}</td><td>{ref.stroke_index ?? "—"}</td><td className="pr-3 text-right font-bold">{h.completion === "completed" ? h.strokes ?? "—" : t(`personal.hole.${h.completion}`)}</td></tr>

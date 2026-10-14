@@ -104,6 +104,7 @@ assert.ok(confirmButton && /\sdisabled(?:=|\s|$)/.test(confirmButton[1]), 'unver
 assert.ok(unverifiedHtml.includes('verified rating, slope'), 'missing reference data must be explained')
 assert.ok(!personalHtml.includes('>Confirm card</button>'), 'validated card must have no confirm/edit workflow')
 const reviewHtml = renderPersonalCard({ ...cardFixture, is_owner: false, round: { ...cardFixture.round, status: 'pending_validation', auto_validation_at: '2026-10-16T10:00:00Z' } })
+assert.ok(reviewHtml.includes('Par /<br/>Index') && !reviewHtml.includes('Par / SI'), 'validator score grid uses Index');
 assert.ok(reviewHtml.includes('Propose corrected scores') && reviewHtml.includes('Attest card'), 'validator must get review/correction actions')
 assert.ok(!reviewHtml.includes('Submit this revision'), 'validator cannot submit owner card')
 const disputeHtml = renderPersonalCard({ ...cardFixture, round: { ...cardFixture.round, status: 'disputed' } })
@@ -139,10 +140,12 @@ for (const course_name of ['Golf de Rueil-Malmaison', 'Golf du Haras de Jardy'])
   const scores = Array.from({length:count},(_,i)=>({hole_number:i+1,completion:i===count-1?'picked_up':'completed',strokes:i===count-1?null:5}));
   const fixture = {...cardFixture,tee:{...cardFixture.tee,course_name,hole_count:count},holes:scores,reference_holes:scores.map(h=>({hole_number:h.hole_number,par:4,stroke_index:h.hole_number})),revision:{...cardFixture.revision,scores}};
   const locked = renderPersonalCard(fixture);
+  assert.ok(locked.includes('>Index</th>') && !locked.includes('>SI</th>'), 'locked score grid uses Index');
   assert.equal((locked.match(/scope="row"/g)||[]).length,count,`${course_name}: all ${count} scores visible`);
   assert.ok(locked.includes('Picked up'), 'picked-up score remains readable');
   assert.ok(!locked.includes('<input')&&!locked.includes('<select'), 'locked cards expose no score controls');
   const draft=renderPersonalCard({...fixture,revision:null,round:{...fixture.round,status:'draft'}});
+  assert.ok(draft.includes('Par /<br/>Index') && !draft.includes('Par / SI'), 'draft score grid uses Index');
   assert.equal((draft.match(/aria-label="Status of hole \d+"/g)||[]).length,count,'draft keeps a completion control for each hole');
   assert.ok(cardIsComplete(scores,count),'picked-up holes count toward completeness');
   assert.equal(cardIsComplete([...scores.slice(0,-1),{...scores.at(-1),completion:'not_played'}],count),false,'unplayed final hole cannot be confirmed');

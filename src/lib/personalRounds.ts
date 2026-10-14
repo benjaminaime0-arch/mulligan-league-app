@@ -45,6 +45,7 @@ export type PersonalRoundSummary = {
   hole_count: number
   differential: number | null
   gross_total: number | null
+  net_total: number | null
   stableford_points: number | null
 }
 export type PersonalInboxItem = { id: string; played_on: string; status: string; auto_validation_at: string | null; player_name: string; course_name: string; hole_count: number; tee_name: string }
