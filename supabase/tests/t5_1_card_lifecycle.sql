@@ -76,7 +76,8 @@ BEGIN
  IF EXISTS(SELECT 1 FROM personal_league_submissions s JOIN personal_league_submissions old ON old.round_id=s.round_id AND old.game_id=s.game_id AND old.status='superseded' WHERE s.round_id=r AND s.status='pending' AND s.submitted_at<>old.submitted_at) THEN RAISE EXCEPTION 'Correction reset deadline'; END IF;
  -- Simulate both league seasons closing before owner accepts. Timely requests survive.
  ALTER TABLE games DISABLE TRIGGER trg_lock_personal_league_rules;
- UPDATE games SET start_date=dt-3,end_date=dt-1 WHERE id IN(g1,g2);
+ UPDATE games SET start_date=(dt-interval '2 months')::date,
+  end_date=personal_calendar_end((dt-interval '2 months')::date,1) WHERE id IN(g1,g2);
  ALTER TABLE games ENABLE TRIGGER trg_lock_personal_league_rules;
  PERFORM pg_temp.login(owner); SET LOCAL ROLE authenticated;
  IF jsonb_array_length(get_personal_overview()->'inbox')<>1 THEN RAISE EXCEPTION 'Missing correction inbox'; END IF;
@@ -92,7 +93,7 @@ BEGIN
  RESET ROLE;
  -- New open leagues for permanent-dispute and timer scenarios.
  ALTER TABLE games DISABLE TRIGGER trg_lock_personal_league_rules;
- UPDATE games SET end_date=dt+1 WHERE id IN(g1,g2);
+ UPDATE games SET start_date=dt-1,end_date=personal_calendar_end(dt-1,1) WHERE id IN(g1,g2);
  ALTER TABLE games ENABLE TRIGGER trg_lock_personal_league_rules;
  SET LOCAL ROLE authenticated;
  refused:=(create_personal_round(tee,dt)->>'id')::uuid; PERFORM save_personal_card(refused,holes,0);
