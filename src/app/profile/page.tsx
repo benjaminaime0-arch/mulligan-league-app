@@ -766,14 +766,6 @@ export default function ProfilePage() {
                   {t("profile.hcp")} <strong className="text-primary/80 tabular-nums">{profile?.handicap != null ? profile.handicap : "\u2013"}</strong>
                 </span>
                 <span className="text-primary/30">·</span>
-                {/* The count lives INSIDE the translated string, not beside
-                    it — plural rules and word order differ per language. */}
-                <span className="tabular-nums">
-                  {matchesPlayed === 1
-                    ? t("profile.stat.matches.one")
-                    : t("profile.stat.matches", { n: matchesPlayed })}
-                </span>
-                <span className="text-primary/30">·</span>
                 {/* myGames, not memberships: the raw membership rows
                     include the hidden practice container. */}
                 <span className="tabular-nums">
