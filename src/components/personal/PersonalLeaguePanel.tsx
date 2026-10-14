@@ -44,6 +44,9 @@ export function PersonalLeaguePanel({
         {data.game.start_date} → {data.game.end_date} ·{" "}
         {t(`personal.format.${data.rules.format}`)}
       </p>
+      <p className="mt-1 text-xs text-primary/70">{data.rules.duration_months
+        ? t("personal.calendar.months", { n: data.rules.duration_months })
+        : t("personal.calendar.historical")} · {data.rules.timezone ?? "Europe/Paris"}</p>
       <p className="mt-2 text-xs text-primary/70">
         {t("personal.leagueRules")} ·{" "}
         {data.rules.attestation === "peer_required"

@@ -2,15 +2,22 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useT } from "@/lib/i18n"
+import { OfficialIndexEditor } from "./OfficialIndexEditor"
 import {
   loadPersonalOverview,
   type PersonalOverview,
 } from "@/lib/personalRounds"
-export function PersonalLevelCard() {
+export function PersonalLevelCard({ overview, editableIndex = false, onIndexChange }: {
+  overview?: PersonalOverview
+  editableIndex?: boolean
+  onIndexChange?: (value: number | null) => void
+}) {
   const t = useT()
-  const [data, setData] = useState<PersonalOverview | null>(null)
+  const [loaded, setData] = useState<PersonalOverview | null>(null)
+  const data = overview ?? loaded
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
+    if (overview) return
     let active = true
     loadPersonalOverview()
       .then((d) => {
@@ -22,7 +29,7 @@ export function PersonalLevelCard() {
     return () => {
       active = false
     }
-  }, [])
+  }, [overview])
   return (
     <section className="mb-5 rounded-xl border border-primary/15 bg-cream/40 p-4">
       <div className="flex items-center justify-between gap-3">
@@ -49,6 +56,10 @@ export function PersonalLevelCard() {
           <p className="mt-2 text-sm">
             {t("personal.official")}: {data.official_index ?? "—"}
           </p>
+          {editableIndex && <OfficialIndexEditor value={data.official_index} onSaved={async value => {
+            setData(await loadPersonalOverview())
+            onIndexChange?.(value)
+          }} />}
         </>
       ) : (
         <p className="mt-2 text-sm">{t("common.loading")}</p>

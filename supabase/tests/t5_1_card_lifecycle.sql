@@ -23,8 +23,8 @@ BEGIN
  WHERE c.name ILIKE '%Rueil%' AND l.hole_count=9 AND t.name='Jaunes — Messieurs';
  IF tee IS NULL THEN RAISE EXCEPTION 'Missing Rueil fixture'; END IF;
  PERFORM pg_temp.login(owner); SET LOCAL ROLE authenticated;
- g1:=(create_personal_league('Lifecycle net',tee,dt-1,dt+1,'stroke_net',1,'peer_required')->>'game_id')::uuid;
- g2:=(create_personal_league('Lifecycle points',tee,dt-1,dt+1,'stableford_net',1,'self_declared')->>'game_id')::uuid;
+ g1:=(create_calendar_league('Lifecycle net',tee,dt-1,1,'stroke_net',1,'peer_required')->>'game_id')::uuid;
+ g2:=(create_calendar_league('Lifecycle points',tee,dt-1,1,'stableford_net',1,'self_declared')->>'game_id')::uuid;
  RESET ROLE;
  INSERT INTO game_members(game_id,user_id) VALUES(g1,partner),(g2,partner);
  SELECT jsonb_agg(jsonb_build_object('hole_number',h.hole_number,'completion','completed','strokes',h.par+1) ORDER BY h.hole_number) INTO holes FROM personal_tee_holes h WHERE tee_id=tee;
@@ -42,7 +42,7 @@ BEGIN
  payload:=get_personal_card(r);
  IF payload->'round'->>'status'<>'pending_validation' OR (payload->'level'->>'cards_count')::int<>0 THEN RAISE EXCEPTION 'Pending card counted'; END IF;
  IF extract(epoch FROM ((payload->'round'->>'auto_validation_at')::timestamptz-(payload->'round'->>'validation_requested_at')::timestamptz))<>259200 THEN RAISE EXCEPTION 'Wrong 72 hour due instant'; END IF;
- nonpartner_league:=(create_personal_league('Validator membership gate',tee,dt-1,dt+1,'stroke_net',1,'peer_required')->>'game_id')::uuid;
+ nonpartner_league:=(create_calendar_league('Validator membership gate',tee,dt-1,1,'stroke_net',1,'peer_required')->>'game_id')::uuid;
  IF submit_personal_card(r,nonpartner_league)->>'reason'<>'validator_required' THEN RAISE EXCEPTION 'Validator outside league attested a peer-required submission'; END IF;
  PERFORM submit_personal_card(r,g1); PERFORM submit_personal_card(r,g2);
  IF EXISTS(SELECT 1 FROM get_leaderboard(g1) WHERE user_id=owner AND rounds_counted<>0) THEN RAISE EXCEPTION 'Pending score ranked'; END IF;
@@ -141,7 +141,11 @@ BEGIN
  SELECT count(*) INTO after_count FROM matches; IF before_count<>after_count THEN RAISE EXCEPTION 'Card worker changed legacy matches'; END IF;
  -- Yesterday's round may be personal-confirmed today, but a season ending yesterday has no grace day.
  SET LOCAL ROLE authenticated;
- yesterday:=(create_personal_league('No season grace',tee,dt-3,dt-1,'stroke_net')->>'game_id')::uuid;
+ -- This legacy fixture retains its historical dates; new leagues use calendar months.
+ RESET ROLE;
+ yesterday:=(create_game('No season grace','Lifecycle fixture',10,dt-3,dt-1,1,NULL,'stroke_play',NULL,'net',false)->>'game_id')::uuid;
+ INSERT INTO personal_league_rules(game_id,tee_id,format,attestation) VALUES(yesterday,tee,'stroke_net','self_declared');
+ SET LOCAL ROLE authenticated;
  expired:=(create_personal_round(tee,dt-1)->>'id')::uuid; PERFORM save_personal_card(expired,holes,0); PERFORM confirm_personal_card(expired,1);
  IF submit_personal_card(expired,yesterday)->>'reason'<>'submission_deadline' THEN RAISE EXCEPTION 'League grace day accepted'; END IF;
  expired:=(create_personal_round(tee,dt)->>'id')::uuid;

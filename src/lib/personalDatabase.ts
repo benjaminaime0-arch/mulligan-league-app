@@ -7,9 +7,11 @@ type PersonalFunctions = {
   resolve_personal_correction: { Args: { p_round: string; p_revision: string; p_accept: boolean }; Returns: Json }
 
   get_personal_overview: { Args: never; Returns: Json }
+  get_personal_leagues: { Args: never; Returns: Json }
   get_personal_card: { Args: { p_round: string }; Returns: Json }
   get_personal_league: { Args: { p_game: string }; Returns: Json }
-  declare_personal_index: { Args: { p_index: number }; Returns: Json }
+  declare_personal_index: { Args: { p_index: number | null }; Returns: Json }
+  create_calendar_league: { Args: { p_name: string; p_tee: string; p_start: string; p_duration_months: number; p_format: string; p_cards?: number; p_attestation?: string }; Returns: Json }
   create_personal_round: {
     Args: { p_tee: string; p_played_on: string }
     Returns: Json

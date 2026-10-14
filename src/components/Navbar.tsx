@@ -19,11 +19,10 @@ import { supabase } from "@/lib/supabase"
 const authFreeRoutes = ["/", "/auth/callback", "/welcome"]
 const authFreePrefixes = ["/join/"]
 
-/** The three "+ New" actions, shared by the desktop menu and mobile FAB. */
+/** The MVP actions share the same card and league entry points. */
 function newActions(t: (k: string) => string) {
   return [
     { href: "/rounds", label: t("personal.new"), icon: <FlagIcon /> },
-    { href: "/matches/create", label: t("nav.new.round"), icon: <FlagIcon /> },
     { href: "/games/create", label: t("nav.new.game"), icon: <PlusCircleIcon /> },
     { href: "/games/join", label: t("nav.new.join"), icon: <JoinIcon /> },
   ]
@@ -136,7 +135,7 @@ export function Navbar() {
             <DesktopLink href="/home" label={t("nav.home")} pathname={pathname} />
             <DesktopLink href="/rounds" label={t("personal.cards")} pathname={pathname} />
             <DesktopLink href="/games" label={t("nav.games")} pathname={pathname} />
-            <DesktopLink href="/players" label={t("nav.players")} pathname={pathname} />
+            <DesktopLink href="/profile" label={t("nav.profile")} pathname={pathname} />
 
             {/* + New menu */}
             <div ref={newRef} className="relative">
@@ -184,7 +183,6 @@ export function Navbar() {
               {showAvatar && (
                 <div className="animate-slide-up absolute right-0 top-12 z-50 w-56 rounded-2xl border border-primary/10 bg-white p-1.5 shadow-xl">
                   <MenuLink href="/profile" icon={<UserIcon />} label={t("nav.menu.profile")} />
-                  <MenuLink href="/profile/matches" icon={<CalendarIcon />} label={t("nav.menu.calendar")} />
                   <MenuLink href="/notifications" icon={<BellSmallIcon />} label={t("nav.menu.notifications")} />
                   <div className="my-1 border-t border-primary/5" />
                   {/* Language switcher (T1.7) — FR default, EN fallback */}
@@ -232,11 +230,11 @@ export function Navbar() {
         <NotificationBell />
       </div>
 
-      {/* Mobile bottom nav: Home · Games · [+] · Players · Profile */}
+      {/* Mobile bottom nav: Home · Cards · [+] · Leagues · Profile */}
       <nav className="mobile-nav-safe fixed bottom-0 left-0 right-0 z-40 border-t border-primary/10 bg-white/95 backdrop-blur md:hidden">
         <div className="mx-auto flex max-w-md items-end justify-between px-2 pt-1.5">
           <MobileNavTab href="/home" label={t("nav.home")} active={isActive("/home")} icon={<HomeIcon />} activeIcon={<HomeIconFilled />} />
-          <MobileNavTab href="/games" label={t("nav.games")} active={isActive("/games")} icon={<TrophyIcon />} activeIcon={<TrophyIconFilled />} />
+          <MobileNavTab href="/rounds" label={t("nav.cards")} active={isActive("/rounds")} icon={<FlagIcon />} activeIcon={<FlagIcon />} />
 
           {/* Center FAB */}
           <div className="relative flex flex-col items-center justify-end" style={{ minWidth: 56 }}>
@@ -263,7 +261,7 @@ export function Navbar() {
               type="button"
               onClick={() => setShowActions((v) => !v)}
               className="mb-0.5 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-cream shadow-lg shadow-primary/25 transition-transform active:scale-95"
-              aria-label={showActions ? "Close menu" : "Create new"}
+              aria-label={showActions ? t("nav.closeMenu") : t("nav.new")}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -283,7 +281,7 @@ export function Navbar() {
             </button>
           </div>
 
-          <MobileNavTab href="/players" label={t("nav.players")} active={isActive("/players")} icon={<PlayersIcon />} activeIcon={<PlayersIconFilled />} />
+          <MobileNavTab href="/games" label={t("nav.games")} active={isActive("/games")} icon={<TrophyIcon />} activeIcon={<TrophyIconFilled />} />
 
           {/* Profile tab (avatar) */}
           <Link

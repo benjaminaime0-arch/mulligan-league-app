@@ -10,8 +10,8 @@ BEGIN
  FOR t IN SELECT pt.*,l.hole_count,c.name course_name FROM personal_tees pt JOIN personal_layouts l ON l.id=pt.layout_id JOIN courses c ON c.id=l.course_id
  WHERE c.name IN('Golf de Rueil-Malmaison','Golf du Haras de Jardy') AND pt.name='Jaunes — Messieurs' LOOP
   PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',owner,'role','authenticated')::text,true); SET LOCAL ROLE authenticated;
-  g1:=(create_personal_league('Pilot lifecycle net',t.id,current_date-1,current_date+1,'stroke_net',1,'peer_required')->>'game_id')::uuid;
-  g2:=(create_personal_league('Pilot lifecycle points',t.id,current_date-1,current_date+1,'stableford_net')->>'game_id')::uuid;
+  g1:=(create_calendar_league('Pilot lifecycle net',t.id,current_date-1,1,'stroke_net',1,'peer_required')->>'game_id')::uuid;
+  g2:=(create_calendar_league('Pilot lifecycle points',t.id,current_date-1,1,'stableford_net')->>'game_id')::uuid;
   RESET ROLE; INSERT INTO game_members(game_id,user_id) VALUES(g1,partner),(g2,partner);
   SELECT jsonb_agg(jsonb_build_object('hole_number',hole_number,'completion','completed','strokes',par+1) ORDER BY hole_number) INTO holes FROM personal_tee_holes WHERE tee_id=t.id;
   SET LOCAL ROLE authenticated; r:=(create_personal_round(t.id,current_date)->>'id')::uuid; PERFORM save_personal_card(r,holes,0);

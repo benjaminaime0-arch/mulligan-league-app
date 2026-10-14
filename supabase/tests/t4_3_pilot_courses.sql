@@ -50,8 +50,8 @@ BEGIN
     RAISE EXCEPTION 'Rueil half-slope normalization failed %',card;
    END IF;
    rev:=(result->>'revision_id')::uuid;
-   g1:=(create_personal_league('Rueil pilot net',reference.id,current_date-1,current_date+7,'stroke_net')->>'game_id')::uuid;
-   g2:=(create_personal_league('Rueil pilot points',reference.id,current_date-1,current_date+7,'stableford_net')->>'game_id')::uuid;
+   g1:=(create_calendar_league('Rueil pilot net',reference.id,current_date-1,1,'stroke_net')->>'game_id')::uuid;
+   g2:=(create_calendar_league('Rueil pilot points',reference.id,current_date-1,1,'stableford_net')->>'game_id')::uuid;
    PERFORM submit_personal_card(r,g1); PERFORM submit_personal_card(r,g2);
   END IF;
   RESET ROLE;

@@ -9,6 +9,7 @@ export type PersonalLevel = {
 }
 export type PersonalTee = {
   id: string
+  course_id: string
   name: string
   course_name: string
   layout_name: string
@@ -105,7 +106,7 @@ export type PersonalCard = {
 }
 export type PersonalLeague = {
   closure_status: string
-  rules: { tee_id: string; format: string; attestation: string }
+  rules: { tee_id: string; format: string; attestation: string; duration_months?: number | null; timezone?: string }
   game: {
     id: string
     name: string
@@ -142,6 +143,21 @@ export type PersonalLeague = {
     stableford_points: number
     scores: PersonalHole[]
   }[]
+}
+export type PersonalLeagueSummary = {
+  id: string
+  name: string
+  course_name: string
+  hole_count: number
+  tee_name: string
+  start_date: string
+  end_date: string
+  duration_months: number | null
+  timezone: string
+  format: string
+  attestation: string
+  pending_cards: number
+  lifecycle_state: "upcoming" | "active" | "closed_provisional" | "finalized"
 }
 export function personalResult<T>(result: {
   data: unknown
