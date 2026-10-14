@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { useT } from "@/lib/i18n"
 
 interface ConfirmModalProps {
   open: boolean
@@ -18,13 +19,14 @@ export function ConfirmModal({
   open,
   title,
   message,
-  confirmLabel = "Continue",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  cancelLabel,
   loading = false,
   destructive = false,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const t = useT()
   const cancelRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -72,7 +74,7 @@ export function ConfirmModal({
                 : "bg-primary text-cream hover:bg-primary/90"
             }`}
           >
-            {loading ? "Working…" : confirmLabel}
+            {loading ? t("common.loading") : confirmLabel ?? t("common.continue")}
           </button>
           <button
             ref={cancelRef}
@@ -81,7 +83,7 @@ export function ConfirmModal({
             disabled={loading}
             className="flex-1 rounded-lg border border-primary/20 bg-white px-4 py-2.5 text-sm font-medium text-primary transition-all hover:bg-primary/5 active:scale-[0.98]"
           >
-            {cancelLabel}
+            {cancelLabel ?? t("common.cancel")}
           </button>
         </div>
       </div>

@@ -1,5 +1,6 @@
 "use client"
 
+import { useI18n } from "@/lib/i18n"
 import Link from "next/link"
 import { Avatar } from "@/components/Avatar"
 
@@ -33,13 +34,14 @@ interface RecordsCardProps {
 }
 
 export function RecordsCard({ records, loading = false }: RecordsCardProps) {
+  const { t, locale } = useI18n()
   const hasAnyRecord =
     !!records &&
     (records.best_score || records.top_rival || records.longest_streak_weeks > 0)
 
   return (
     <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-sm font-semibold text-primary">Records</h2>
+      <h2 className="mb-4 text-sm font-semibold text-primary">{t("profile.records.title")}</h2>
 
       {loading ? (
         <div className="flex items-center justify-center py-4">
@@ -47,7 +49,7 @@ export function RecordsCard({ records, loading = false }: RecordsCardProps) {
         </div>
       ) : !hasAnyRecord ? (
         <p className="text-center text-xs text-primary/50">
-          Play a few rounds and your personal records will appear here.
+          {t("profile.records.empty")}
         </p>
       ) : (
         <div className="flex flex-col divide-y divide-primary/5">
@@ -56,18 +58,18 @@ export function RecordsCard({ records, loading = false }: RecordsCardProps) {
               icon={<TrophyIcon />}
               iconBg="bg-amber-50"
               iconColor="text-amber-600"
-              label="Best round"
+              label={t("profile.records.best")}
               value={
                 <span className="flex items-baseline gap-1">
                   <span className="text-lg font-bold tabular-nums text-primary">
                     {records.best_score.score}
                   </span>
                   <span className="text-[10px] font-medium text-primary/40">
-                    · {records.best_score.holes} holes
+                    · {t("personal.picker.holeCount", { n: records.best_score.holes })}
                   </span>
                 </span>
               }
-              sub={formatBestRoundMeta(records.best_score)}
+              sub={formatBestRoundMeta(records.best_score, locale, t("profile.records.best"))}
               href={`/matches/${records.best_score.match_id}`}
             />
           )}
@@ -84,19 +86,19 @@ export function RecordsCard({ records, loading = false }: RecordsCardProps) {
               }
               iconBg=""
               iconColor=""
-              label={`Top rival: ${records.top_rival.name}`}
+              label={t("profile.records.rival", { name: records.top_rival.name })}
               value={
                 <span className="inline-flex items-baseline gap-2 text-sm">
                   <span className="font-semibold text-emerald-600 tabular-nums">
-                    W {records.top_rival.wins}
+                    {t("profile.records.wins")} {records.top_rival.wins}
                   </span>
                   <span className="text-primary/30">·</span>
                   <span className="font-semibold text-red-500 tabular-nums">
-                    L {records.top_rival.losses}
+                    {t("profile.records.losses")} {records.top_rival.losses}
                   </span>
                 </span>
               }
-              sub={`${records.top_rival.total} round${records.top_rival.total === 1 ? "" : "s"} head-to-head`}
+              sub={t("profile.records.duels", { n: records.top_rival.total })}
               href={`/players/${records.top_rival.user_id}`}
             />
           )}
@@ -106,16 +108,16 @@ export function RecordsCard({ records, loading = false }: RecordsCardProps) {
               icon={<FlameIcon />}
               iconBg="bg-orange-50"
               iconColor="text-orange-500"
-              label="Longest streak"
+              label={t("profile.records.streak")}
               value={
                 <span className="text-lg font-bold tabular-nums text-primary">
                   {records.longest_streak_weeks}
                   <span className="ml-1 text-[10px] font-medium text-primary/40">
-                    week{records.longest_streak_weeks === 1 ? "" : "s"}
+                    {t("profile.records.weeks")}
                   </span>
                 </span>
               }
-              sub="consecutive weeks with a match"
+              sub={t("profile.records.consecutive")}
             />
           )}
         </div>
@@ -175,18 +177,18 @@ function RecordRow({
 
 /* ── Helpers ──────────────────────────────────────────── */
 
-function formatBestRoundMeta(best: BestRound): string {
+function formatBestRoundMeta(best: BestRound, locale: string, fallback: string): string {
   const parts: string[] = []
   if (best.course_name) parts.push(best.course_name)
   if (best.match_date) {
     parts.push(
-      new Date(best.match_date).toLocaleDateString("en-US", {
+      new Date(best.match_date).toLocaleDateString(locale, {
         month: "short",
         day: "numeric",
       }),
     )
   }
-  return parts.join(" · ") || "Personal best"
+  return parts.join(" · ") || fallback
 }
 
 /* ── Icons ────────────────────────────────────────────── */

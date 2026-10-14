@@ -777,17 +777,10 @@ export default function ProfilePage() {
           )}
         </section>
 
-        {/* 3. Records — best round, top rival, longest streak */}
-        <RecordsCard records={records} />
-
-        {/* 3b. Your honors — cross-game trophy shelf. Renders its
-            own empty state, so we always include it; loading flag is
-            driven by the null sentinel while the RPC is in flight. */}
-        <MyHonorsCard honors={honors ?? []} loading={honors === null} />
-
-        {/* 3c. Parcours conquis — department grid (Phase F). Renders
-            nothing until the player has verified-course rounds. */}
-        <ConquestCard userId={user.id} />
+        <details className="rounded-2xl border border-primary/10 bg-white p-4">
+          <summary className="cursor-pointer py-2 font-semibold">{t("profile.moreStats")}</summary>
+          <div className="mt-3 space-y-3"><RecordsCard records={records} /><MyHonorsCard honors={honors ?? []} loading={honors === null} /><ConquestCard userId={user.id} /></div>
+        </details>
 
         {/* Activity feed retired here — each game page now owns
             its own scoped feed (see GameActivityCard). */}
@@ -826,6 +819,7 @@ export default function ProfilePage() {
           title={t("profile.logout.title")}
           message={t("profile.logout.confirm")}
           confirmLabel={t("nav.menu.logout")}
+          cancelLabel={t("common.cancel")}
           loading={logoutLoading}
           destructive
           onConfirm={handleLogout}
