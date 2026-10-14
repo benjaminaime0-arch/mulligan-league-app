@@ -40,7 +40,7 @@ psql "$PGURL" -q -v ON_ERROR_STOP=1 -c 'SET ROLE service_role; SELECT auto_valid
 worker2_pid=$!
 # A worker may settle after inbox loading; stale manual reviews must fail safely.
 if ! wait "$manual_pid"; then
-  if ! rg -q 'no longer awaiting your validation' "$fixture_dir/manual.log"; then cat "$fixture_dir/manual.log"; exit 1; fi
+  if ! grep -Fq 'no longer awaiting your validation' "$fixture_dir/manual.log"; then cat "$fixture_dir/manual.log"; exit 1; fi
 fi
 wait "$worker1_pid"
 wait "$worker2_pid"
