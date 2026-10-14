@@ -4,7 +4,7 @@ import "./globals.css"
 import { AuthProvider } from "@/components/AuthProvider"
 import { I18nProvider } from "@/lib/i18n"
 import { ConsentBanner } from "@/components/ConsentBanner"
-import { Navbar } from "@/components/Navbar"
+import { AppShell } from "@/components/AppShell"
 
 // NEXT_PUBLIC_* values are inlined at build time exactly as stored in the
 // env store — including any stray whitespace (a trailing newline in the
@@ -116,8 +116,7 @@ export default function RootLayout({
       >
         <I18nProvider>
           <AuthProvider>
-            <Navbar />
-            <div className="pb-[4.5rem] md:pb-0">{children}</div>
+            <AppShell>{children}</AppShell>
             {/* GA is loaded from inside the banner, only after consent
                 (CNIL) — never on first paint. */}
             <ConsentBanner measurementId={GA_MEASUREMENT_ID} />

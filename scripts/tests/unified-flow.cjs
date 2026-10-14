@@ -57,7 +57,7 @@ test('the shared official-index form displays decimals rather than an integer-on
   assert.ok(html.includes('value="11.4"'));
   assert.ok(html.includes('inputMode="decimal"'));
   assert.ok(html.includes('Index officiel déclaré'));
-  assert.ok(html.includes('Laisser vide pour le retirer'));
+  assert.ok(html.includes('Laisser vide pour retirer l’index'));
 });
 test('home inbox sends each actor to the card and never assigns a correction a new timer', () => {
   const items=['pending_validation','pending_player_confirmation'].map((status,i)=>({id:`card${i}`,course_name:'Rueil',hole_count:9,played_on:'2026-10-14',player_name:'Player',status,auto_validation_at:'2026-10-17T12:00:00Z'}));

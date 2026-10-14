@@ -1,4 +1,5 @@
 "use client"
+import { CourseTeePicker } from "./CourseTeePicker"
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -34,7 +35,7 @@ export function CalendarLeagueCreator() {
     <Link href="/games" className="text-sm underline">← {t("nav.games")}</Link>
     <h1 className="mt-3 text-2xl font-bold">{t("personal.createLeague")}</h1>
     <p className="mt-2 text-sm text-primary/70">{t("personal.calendar.intro")}</p>
-    <form className="mt-5 space-y-4" onSubmit={async e => {
+    <form className="mt-5 space-y-4 rounded-2xl border border-primary/10 bg-white p-5" onSubmit={async e => {
       e.preventDefault(); if (!end) return
       setBusy(true); setError(null)
       try {
@@ -46,15 +47,13 @@ export function CalendarLeagueCreator() {
       } catch (e) { setError(e instanceof Error ? e.message : t("common.error.generic")); setBusy(false) }
     }}>
       <label className="block text-sm">{t("personal.leagueName")}<input aria-label={t("personal.leagueName")} className={personalInput} required maxLength={80} value={name} onChange={e => setName(e.target.value)} disabled={busy} /></label>
-      <label className="block text-sm">{t("personal.tee")}<select aria-label={t("personal.tee")} className={personalInput} required value={tee} onChange={e => setTee(e.target.value)} disabled={busy}>
-        {!tees.length && <option value="">{t("common.loading")}</option>}{tees.map(x => <option key={x.id} value={x.id}>{x.course_name} · {x.hole_count} · {x.name}</option>)}
-      </select></label>
+      <CourseTeePicker tees={tees} value={tee} onChange={setTee} disabled={busy} />
       <div className="grid grid-cols-2 gap-3">
         <label className="block text-sm">{t("personal.calendar.start")}<input aria-label={t("personal.calendar.start")} className={personalInput} type="date" required value={start} onChange={e => setStart(e.target.value)} disabled={busy} /></label>
-        <label className="block text-sm">{t("personal.calendar.duration")}<select aria-label={t("personal.calendar.duration")} className={personalInput} value={months} onChange={e => setMonths(Number(e.target.value))} disabled={busy}>{[1,2,3].map(n => <option key={n} value={n}>{t("personal.calendar.months", { n })}</option>)}</select></label>
+        <label className="block text-sm">{t("personal.calendar.duration")}<select aria-label={t("personal.calendar.duration")} className={personalInput} value={months} onChange={e => setMonths(Number(e.target.value))} disabled={busy}>{[1,2,3].map(n => <option key={n} value={n}>{t(n === 1 ? "personal.calendar.monthOne" : "personal.calendar.months", { n })}</option>)}</select></label>
       </div>
       <p className="rounded-xl bg-cream p-3 text-sm" role="status">{t("personal.calendar.end", { date: end ?? "—" })}</p>
-      <p className="text-xs text-primary/70">{t("personal.calendar.convention")}</p>
+      <details className="text-sm text-primary/70"><summary className="cursor-pointer py-2">{t("personal.ui.rules")}</summary><p className="mt-1 text-xs leading-relaxed">{t("personal.calendar.convention")}</p></details>
       <label className="block text-sm">{t("personal.format")}<select aria-label={t("personal.format")} className={personalInput} value={format} onChange={e => setFormat(e.target.value)} disabled={busy}>{["stroke_gross", "stroke_net", "stableford_net"].map(f => <option key={f} value={f}>{t(`personal.format.${f}`)}</option>)}</select></label>
       <details className="rounded-xl border border-primary/15 p-3"><summary className="cursor-pointer text-sm">{t("personal.calendar.options")}</summary>
         <label className="mt-3 block text-sm">{t("personal.requiredCards")}<input aria-label={t("personal.requiredCards")} className={personalInput} type="number" min={1} max={20} required value={cards} onChange={e => setCards(Number(e.target.value))} disabled={busy} /></label>

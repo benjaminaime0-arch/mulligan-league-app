@@ -112,7 +112,7 @@ export function PersonalRoundEditor({
         {t("personal.handicapSnapshot")}: {data.round.handicap_index} (
         {t(`personal.source.${data.round.handicap_source}`)})
       </p>
-      <section className="my-4 rounded-xl border border-primary/20 p-4" aria-label={t("personal.lifecycle.title")}>
+      <section className="my-4 rounded-2xl border border-primary/15 bg-white p-4" aria-label={t("personal.lifecycle.title")}>
         <h2 className="font-semibold">{t(`personal.status.${data.round.status}`)}</h2>
         <p className="mt-2 text-sm">{t("personal.lifecycle.deadline")}: {displayTime(data.round.entry_deadline_at)} ({data.round.course_timezone})</p>
         {data.round.status === "pending_validation" && data.round.auto_validation_at && (
@@ -140,7 +140,7 @@ export function PersonalRoundEditor({
         </p>
       )}
       {data.revision && (
-        <section className="my-4 rounded-xl border border-primary/15 bg-cream/40 p-4">
+        <section className="my-4 rounded-2xl border border-primary/10 bg-white p-4">
           <h2 className="font-semibold">
             {t("personal.confirmedRevision", {
               n: data.revision.revision_number,
@@ -183,84 +183,41 @@ export function PersonalRoundEditor({
           {notice}
         </p>
       )}
-      <fieldset disabled={busy || !editable} className="mt-5 space-y-3">
-        <legend className="mb-3 font-semibold">
-          {t("personal.enterScores")}
-        </legend>
-        {data.reference_holes.map((ref) => {
-          const h = holes.find((x) => x.hole_number === ref.hole_number)!
-          return (
-            <div
-              key={ref.hole_number}
-              className="rounded-xl border border-primary/15 p-3"
-            >
-              <p className="mb-2 text-sm font-semibold">
-                {t("personal.hole", { n: ref.hole_number })} · Par {ref.par} ·
-                Index {ref.stroke_index ?? "—"}
-              </p>
-              <div className="flex gap-2">
-                <label className="flex-1">
-                  <span className="sr-only">
-                    {t("personal.holeState", { n: ref.hole_number })}
-                  </span>
-                  <select
-                    aria-label={t("personal.holeState", { n: ref.hole_number })}
-                    className={personalInput}
-                    value={h.completion}
-                    onChange={(e) =>
-                      change(ref.hole_number, {
-                        completion: e.target
-                          .value as PersonalHole["completion"],
-                        strokes:
-                          e.target.value === "completed"
-                            ? (h.strokes ?? ref.par)
-                            : null,
-                      })
-                    }
-                  >
-                    <option value="not_played">
-                      {t("personal.hole.not_played")}
-                    </option>
-                    <option value="completed">
-                      {t("personal.hole.completed")}
-                    </option>
-                    <option value="picked_up">
-                      {t("personal.hole.picked_up")}
-                    </option>
+      <section className="mt-5" aria-label={t("personal.ui.scores")}>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="font-bold">{t(editable ? "personal.enterScores" : "personal.ui.scores")}</h2>
+          {editable && <p className="text-xs text-primary/70" role="status">{t("personal.ui.progress", { n: holes.filter(h => h.completion === "picked_up" || (h.completion === "completed" && Number.isInteger(h.strokes) && h.strokes! >= 1 && h.strokes! <= 30)).length, total: data.tee.hole_count })}</p>}
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {[0, ...(data.tee.hole_count === 18 ? [9] : [])].map(start => <div key={start} className="overflow-hidden rounded-2xl border border-primary/10 bg-white">
+            <h3 className="bg-primary/5 px-3 py-3 text-sm font-bold">{t("personal.ui.hole")} {start + 1}–{Math.min(start + 9, data.tee.hole_count)}</h3>
+            {editable ? <fieldset disabled={busy}>
+              <legend className="sr-only">{t("personal.ui.hole")} {start + 1}–{start + 9}</legend>
+              <div aria-hidden="true" className="grid grid-cols-[28px_40px_1fr_60px] items-center gap-2 border-b border-primary/10 px-3 py-2 text-[11px] text-primary/70"><span>{t("personal.ui.hole")}</span><span>Par / SI</span><span>{t("personal.ui.state")}</span><span>{t("personal.ui.strokes")}</span></div>
+              {data.reference_holes.slice(start, start + 9).map(ref => {
+                const h = holes.find(x => x.hole_number === ref.hole_number)!
+                return <div key={ref.hole_number} className="grid grid-cols-[28px_40px_1fr_60px] items-center gap-2 border-b border-primary/5 px-3 py-2 last:border-0">
+                  <span className="text-sm font-bold">{ref.hole_number}</span>
+                  <span className="text-xs text-primary/70">{ref.par} / {ref.stroke_index ?? "—"}</span>
+                  <select aria-label={t("personal.holeState", { n: ref.hole_number })} className={`${personalInput} !mt-0 !px-2`} value={h.completion} onChange={e => change(ref.hole_number, { completion: e.target.value as PersonalHole["completion"], strokes: e.target.value === "completed" ? h.strokes ?? ref.par : null })}>
+                    <option value="not_played">{t("personal.hole.not_played")}</option>
+                    <option value="completed">{t("personal.hole.completed")}</option>
+                    <option value="picked_up">{t("personal.hole.picked_up")}</option>
                   </select>
-                </label>
-                {h.completion === "completed" && (
-                  <label className="w-24">
-                    <span className="sr-only">
-                      {t("personal.holeScore", { n: ref.hole_number })}
-                    </span>
-                    <input
-                      aria-label={t("personal.holeScore", {
-                        n: ref.hole_number,
-                      })}
-                      className={personalInput}
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      max="30"
-                      step="1"
-                      value={h.strokes ?? ""}
-                      onChange={(e) =>
-                        change(ref.hole_number, {
-                          strokes:
-                            e.target.value === ""
-                              ? null
-                              : Number(e.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </fieldset>
+                  {h.completion === "completed" ? <input aria-label={t("personal.holeScore", { n: ref.hole_number })} className={`${personalInput} !mt-0 !px-2 text-center`} type="number" inputMode="numeric" min="1" max="30" step="1" value={h.strokes ?? ""} onChange={e => change(ref.hole_number, { strokes: e.target.value === "" ? null : Number(e.target.value) })} /> : <span className="text-center text-primary/40">—</span>}
+                </div>
+              })}
+            </fieldset> : <table className="w-full text-left text-sm">
+              <caption className="sr-only">{t("personal.ui.scores")} · {t("personal.ui.hole")} {start + 1}–{start + 9}</caption>
+              <thead className="text-xs text-primary/70"><tr><th scope="col" className="px-3 py-2">{t("personal.ui.hole")}</th><th scope="col">Par</th><th scope="col">SI</th><th scope="col" className="pr-3 text-right">{t("personal.ui.strokes")}</th></tr></thead>
+              <tbody>{data.reference_holes.slice(start, start + 9).map(ref => {
+                const h = holes.find(x => x.hole_number === ref.hole_number)!
+                return <tr key={ref.hole_number} className="border-t border-primary/5"><th scope="row" className="px-3 py-2 font-semibold">{ref.hole_number}</th><td>{ref.par}</td><td>{ref.stroke_index ?? "—"}</td><td className="pr-3 text-right font-bold">{h.completion === "completed" ? h.strokes ?? "—" : t(`personal.hole.${h.completion}`)}</td></tr>
+              })}</tbody>
+            </table>}
+          </div>)}
+        </div>
+      </section>
       {ownerDraft && <div className="mt-4 flex flex-wrap gap-2">
         <button
           className={personalButton}
@@ -335,7 +292,7 @@ export function PersonalRoundEditor({
             {data.leagues.map((g) => (
               <li
                 key={g.id}
-                className="rounded-xl border border-primary/15 p-3"
+                className="rounded-2xl border border-primary/10 bg-white p-4"
               >
                 <Link
                   href={`/games/${g.id}`}

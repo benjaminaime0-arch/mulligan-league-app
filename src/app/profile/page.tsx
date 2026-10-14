@@ -23,7 +23,6 @@ import {
 } from "@/components/profile/MyHonorsCard"
 import { ConquestCard } from "@/components/profile/ConquestCard"
 import type { Game as SharedGame, Match as SharedMatch, MatchPlayer as SharedMatchPlayer } from "@/components/match/types"
-import { ScoreTrendCard } from "@/components/profile/ScoreTrendCard"
 import { LeaderboardTable } from "@/app/games/[id]/components/LeaderboardTable"
 import type { LeaderboardRow } from "@/app/games/[id]/types"
 import { resolveFormat } from "@/lib/gameFormat"
@@ -651,7 +650,7 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen px-4 pb-6 pt-4">
-      <div className="mx-auto max-w-2xl"><PersonalLevelCard editableIndex onIndexChange={value => setProfile(p => p ? { ...p, handicap: value } : p)} /></div>
+      <div className="mx-auto max-w-2xl"><PersonalLevelCard editableIndex showHistory onIndexChange={value => setProfile(p => p ? { ...p, handicap: value } : p)} /></div>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         {error && (
           <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -777,9 +776,6 @@ export default function ProfilePage() {
             </>
           )}
         </section>
-
-        {/* 2. Score trajectory — sparkline + trend arrow */}
-        <ScoreTrendCard handicap={profile?.handicap ?? null} />
 
         {/* 3. Records — best round, top rival, longest streak */}
         <RecordsCard records={records} />

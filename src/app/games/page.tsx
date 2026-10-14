@@ -120,21 +120,20 @@ export default function GamesHubPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-4 pb-10 pt-6 md:pt-8">
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-primary">{t("games.title")}</h1>
-          <p className="text-sm text-primary/60">{t("games.subtitle")}</p>
+          <h1 className="text-3xl font-bold text-primary">{t("games.title")}</h1>
         </div>
-        <div className="hidden gap-2 sm:flex">
+        <div className="flex gap-2">
           <Link
             href="/games/join"
-            className="rounded-lg border border-primary/30 bg-white px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/5"
+            className="inline-flex min-h-[48px] items-center rounded-xl border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5"
           >
             {t("games.join")}
           </Link>
           <Link
             href="/games/create"
-            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-cream hover:bg-primary/90"
+            className="inline-flex min-h-[48px] items-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-cream hover:bg-primary/90"
           >
             {t("games.create")}
           </Link>
@@ -247,21 +246,6 @@ export default function GamesHubPage() {
         </div>
       )}
 
-      {/* Mobile create/join */}
-      <div className="mt-8 flex gap-2 sm:hidden">
-        <Link
-          href="/games/create"
-          className="flex flex-1 items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream"
-        >
-          {t("games.create.full")}
-        </Link>
-        <Link
-          href="/games/join"
-          className="flex flex-1 items-center justify-center rounded-lg border border-primary/30 bg-cream px-4 py-2.5 text-sm font-medium text-primary"
-        >
-          {t("games.join.full")}
-        </Link>
-      </div>
     </main>
   )
 }
@@ -344,7 +328,7 @@ function GameCard({
           <p className="mt-0.5 truncate text-xs text-primary/50">
             {game.course_name || t("games.card.nocourse")} · {game.personal ? `${game.personal.hole_count} · ${game.personal.tee_name} · ${t(`personal.format.${game.personal.format}`)}` : formatGameType(game.game_type)}
           </p>
-          {game.personal && <p className="mt-1 text-xs text-primary/70">{game.personal.start_date} → {game.personal.end_date} · {game.personal.duration_months ? t("personal.calendar.months", { n: game.personal.duration_months }) : t("personal.calendar.historical")}</p>}
+          {game.personal && <p className="mt-1 text-xs text-primary/70">{game.personal.start_date} → {game.personal.end_date} · {game.personal.duration_months ? t(game.personal.duration_months === 1 ? "personal.calendar.monthOne" : "personal.calendar.months", { n: game.personal.duration_months }) : t("personal.calendar.historical")}</p>}
         </div>
         {position && (
           <span className="shrink-0 rounded-lg bg-primary/5 px-2 py-1 text-sm font-bold text-primary">

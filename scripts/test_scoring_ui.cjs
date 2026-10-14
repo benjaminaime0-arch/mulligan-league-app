@@ -96,7 +96,7 @@ const firstDraftHtml = renderPersonalCard({ ...cardFixture, revision: null, leag
 assert.ok(firstDraftHtml.includes('/games/create?tee=tee') && firstDraftHtml.includes('Create a league'), 'first draft must reach the shared league creator before permanently locking scores')
 const personalHtml = renderPersonalCard(cardFixture)
 assert.equal((personalHtml.match(/>Submit this revision<\/button>/g) || []).length, 2, 'one revision must be offered to both leagues')
-assert.ok(personalHtml.includes('shares this confirmed revision with all members'), 'sharing consent must be visible')
+assert.ok(personalHtml.includes('Revision visible to league members'), 'sharing consent must be visible')
 assert.ok(personalHtml.includes('Nine-hole differential doubled'), 'nine-hole estimate must be explained')
 const unverifiedHtml = renderPersonalCard({ ...cardFixture, round: { ...cardFixture.round, status: 'draft' }, tee: { ...cardFixture.tee, ready: false } })
 const confirmButton = unverifiedHtml.match(/<button([^>]*)>Confirm card<\/button>/)
@@ -107,7 +107,7 @@ const reviewHtml = renderPersonalCard({ ...cardFixture, is_owner: false, round: 
 assert.ok(reviewHtml.includes('Propose corrected scores') && reviewHtml.includes('Attest card'), 'validator must get review/correction actions')
 assert.ok(!reviewHtml.includes('Submit this revision'), 'validator cannot submit owner card')
 const disputeHtml = renderPersonalCard({ ...cardFixture, round: { ...cardFixture.round, status: 'disputed' } })
-assert.ok(disputeHtml.includes('permanently excluded') && !disputeHtml.includes('Submit this revision'), 'disputed cards cannot be reused')
+assert.ok(disputeHtml.toLowerCase().includes('permanently excluded') && !disputeHtml.includes('Submit this revision'), 'disputed cards cannot be reused')
 const leagueFixture = {
  closure_status: 'closed_provisional',
  rules: { tee_id: 'tee', format: 'stroke_net', attestation: 'peer_required' },
@@ -118,9 +118,9 @@ const leagueFixture = {
 const ownLeague = renderToStaticMarkup(React.createElement(PersonalLeaguePanel, { initial: leagueFixture, userId: 'owner' }))
 assert.ok(!ownLeague.includes('>Attest card</button>'), 'owner must never get a self-attestation control')
 const witnessLeague = renderToStaticMarkup(React.createElement(PersonalLeaguePanel, { initial: leagueFixture, userId: 'witness' }))
-assert.ok(witnessLeague.includes('Review and validate this card'), 'designated validator can review the shared revision')
+assert.ok(witnessLeague.includes('Review card'), 'designated validator can review the shared revision')
 const unrelatedMember = renderToStaticMarkup(React.createElement(PersonalLeaguePanel, { initial: leagueFixture, userId: 'another-member' }))
-assert.ok(!unrelatedMember.includes('Review and validate this card'), 'other members cannot act as validator')
+assert.ok(!unrelatedMember.includes('Review card'), 'other members cannot act as validator')
 assert.ok(!witnessLeague.includes('Open my card'), 'witness must not link into the private round editor')
 console.log('PASS: personal card, sharing, rating gate and witness UI')
 
@@ -132,3 +132,20 @@ assert.equal(isInviteCode(normalizeInviteCode('8vpbv1437d')), true)
 assert.equal(isInviteCode('8VPBV143'), false)
 assert.equal(isInviteCode('ABC12!'), false)
 console.log('PASS: six-character and ten-character invitation codes')
+
+// Compact score views still expose every hole and never unlock a submitted card.
+for (const course_name of ['Golf de Rueil-Malmaison', 'Golf du Haras de Jardy']) {
+ for (const count of [9,18]) {
+  const scores = Array.from({length:count},(_,i)=>({hole_number:i+1,completion:i===count-1?'picked_up':'completed',strokes:i===count-1?null:5}));
+  const fixture = {...cardFixture,tee:{...cardFixture.tee,course_name,hole_count:count},holes:scores,reference_holes:scores.map(h=>({hole_number:h.hole_number,par:4,stroke_index:h.hole_number})),revision:{...cardFixture.revision,scores}};
+  const locked = renderPersonalCard(fixture);
+  assert.equal((locked.match(/scope="row"/g)||[]).length,count,`${course_name}: all ${count} scores visible`);
+  assert.ok(locked.includes('Picked up'), 'picked-up score remains readable');
+  assert.ok(!locked.includes('<input')&&!locked.includes('<select'), 'locked cards expose no score controls');
+  const draft=renderPersonalCard({...fixture,revision:null,round:{...fixture.round,status:'draft'}});
+  assert.equal((draft.match(/aria-label="Status of hole \d+"/g)||[]).length,count,'draft keeps a completion control for each hole');
+  assert.ok(cardIsComplete(scores,count),'picked-up holes count toward completeness');
+  assert.equal(cardIsComplete([...scores.slice(0,-1),{...scores.at(-1),completion:'not_played'}],count),false,'unplayed final hole cannot be confirmed');
+ }
+}
+console.log('PASS: Rueil / Jardy 9 / 18 score grids, read-only cards and completeness');
