@@ -14,6 +14,7 @@
  * badge list (the `get_game_badges` RPC) already lives in SQL.
  */
 
+import { useT } from "@/lib/i18n"
 import Link from "next/link"
 import type { GameFormat } from "@/components/match/types"
 import { formatCopy } from "@/lib/gameFormat"
@@ -40,12 +41,13 @@ interface MyHonorsCardProps {
 }
 
 export function MyHonorsCard({ honors, loading = false }: MyHonorsCardProps) {
+  const t = useT()
   // Group by game — one block per game, rows = badges held in it.
-  const byGame = groupByGame(honors)
+  const byGame = groupByGame(honors, t("nav.games"))
 
   return (
     <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-sm font-semibold text-primary">Your honors</h2>
+      <h2 className="mb-4 text-sm font-semibold text-primary">{t("profile.honors.title")}</h2>
 
       {loading ? (
         <div className="flex items-center justify-center py-4">
@@ -53,7 +55,7 @@ export function MyHonorsCard({ honors, loading = false }: MyHonorsCardProps) {
         </div>
       ) : byGame.length === 0 ? (
         <p className="py-2 text-center text-xs text-primary/50">
-          Keep playing — your first honor will land soon.
+          {t("profile.honors.empty")}
         </p>
       ) : (
         <div className="flex flex-col gap-4">
@@ -130,9 +132,10 @@ function GameGroup({ group }: { group: GameGroupShape }) {
 /* ── Row primitive ────────────────────────────────────── */
 
 function HonorRow({ row }: { row: UserHonorRow }) {
+  const t = useT()
   const format: GameFormat =
     row.game_format === "stableford" ? "stableford" : "stroke_play"
-  const meta = badgeMeta(row.badge_key, format)
+  const meta = badgeMeta(row.badge_key, format, t)
   return (
     <div className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5">
       <div
@@ -167,7 +170,7 @@ function HonorRow({ row }: { row: UserHonorRow }) {
 
 /* ── Helpers ──────────────────────────────────────────── */
 
-function groupByGame(rows: UserHonorRow[]): GameGroupShape[] {
+function groupByGame(rows: UserHonorRow[], fallback: string): GameGroupShape[] {
   const map = new Map<string, GameGroupShape>()
   for (const r of rows) {
     const key = String(r.game_id ?? r.game_name ?? "_")
@@ -177,7 +180,7 @@ function groupByGame(rows: UserHonorRow[]): GameGroupShape[] {
     } else {
       map.set(key, {
         gameId: r.game_id ? String(r.game_id) : null,
-        gameName: r.game_name || "Game",
+        gameName: r.game_name || fallback,
         rows: [r],
       })
     }
@@ -203,26 +206,26 @@ type BadgeMeta = {
   valueSuffix?: (r: UserHonorRow) => string
 }
 
-function badgeMeta(key: string, format: GameFormat): BadgeMeta {
+function badgeMeta(key: string, format: GameFormat, t: (key: string) => string): BadgeMeta {
   switch (key) {
     case "best_round":
       return {
-        label: formatCopy(format).bestRoundLabel,
+        label: t(format === "stableford" ? "profile.honors.best" : "profile.honors.lowest"),
         icon: <TargetIcon />,
         iconBg: "bg-amber-50",
         iconColor: "text-amber-600",
       }
     case "most_active":
       return {
-        label: "Most active",
+        label: t("profile.honors.active"),
         icon: <BoltIcon />,
         iconBg: "bg-orange-50",
         iconColor: "text-orange-500",
-        valueSuffix: (r) => (Number(r.value) === 1 ? "round" : "rounds"),
+        valueSuffix: (r) => t(Number(r.value) === 1 ? "profile.honors.round" : "profile.honors.rounds"),
       }
     case "most_consistent":
       return {
-        label: "Most consistent",
+        label: t("profile.honors.consistent"),
         icon: <EqualizerIcon />,
         iconBg: "bg-primary/5",
         iconColor: "text-primary",
