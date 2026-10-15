@@ -1,12 +1,49 @@
 // Mulligan League — Push Notification Service Worker
 
-// Take control ASAP on install/activate so users don't run stale SW versions.
-self.addEventListener("install", (event) => {
-  event.waitUntil(self.skipWaiting())
+// Only generic client-rendered card shells and immutable assets are cached.
+// Supabase, API routes, POSTs, leagues and server data never enter Cache Storage.
+const CARD_CACHE = "mulligan-card-shell-v1"
+const cardPath = path => path === "/rounds" || /^\/rounds\/[0-9a-f-]{36}$/.test(path)
+const assetPath = path => path.startsWith("/_next/static/") || ["/logo-mark.png", "/logo-mark-white.png", "/offline.html"].includes(path)
+self.addEventListener("install", event => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(CARD_CACHE)
+    await cache.addAll(["/offline.html", "/logo-mark.png"])
+    // Updates wait for the user or the last open tab to close. Never reload an editor.
+    if (!self.registration.active) await self.skipWaiting()
+  })())
 })
-
-self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim())
+self.addEventListener("activate", event => { event.waitUntil(self.clients.claim()) })
+async function warmShell(path) {
+  const cache = await caches.open(CARD_CACHE)
+  for (const route of new Set(["/rounds", path])) {
+    if (!cardPath(route)) continue
+    const response = await fetch(route, { cache: "no-cache" })
+    if (!response.ok || !response.headers.get("content-type")?.includes("text/html")) throw new Error("Shell unavailable")
+    await cache.put(route, response.clone())
+    const html = await response.text()
+    const urls = [...html.matchAll(/(?:src|href)="([^" ]+)"/g)].map(match => new URL(match[1].replace(/&amp;/g, "&"), self.location.origin)).filter(url => url.origin === self.location.origin && assetPath(url.pathname))
+    await Promise.all(urls.map(async url => { if (await cache.match(url.href)) return; const asset = await fetch(url.href); if (asset.ok) await cache.put(url.href, asset) }))
+  }
+}
+self.addEventListener("message", event => {
+  if (event.data?.type === "ACTIVATE_UPDATE") { event.waitUntil(self.skipWaiting()); return }
+  if (event.data?.type === "WARM_CARD_SHELL" && cardPath(event.data.path)) {
+    event.waitUntil(warmShell(event.data.path).then(() => event.source?.postMessage({ type: "CARD_SHELL_READY", path: event.data.path })).catch(() => {}))
+  }
+})
+self.addEventListener("fetch", event => {
+  const request = event.request, url = new URL(request.url)
+  if (request.method !== "GET" || url.origin !== self.location.origin) return
+  if (assetPath(url.pathname)) {
+    event.respondWith((async () => { const cache = await caches.open(CARD_CACHE); const cached = await cache.match(request); if (cached) return cached; const response = await fetch(request); if (response.ok) await cache.put(request, response.clone()); return response })())
+  } else if (request.mode === "navigate" && cardPath(url.pathname)) {
+    event.respondWith((async () => {
+      const cache = await caches.open(CARD_CACHE)
+      try { const response = await fetch(request); if (response.ok) { await cache.put(url.pathname, response.clone()); return response } } catch { /* network unavailable */ }
+      return (await cache.match(url.pathname)) || (await cache.match("/offline.html"))
+    })())
+  }
 })
 
 self.addEventListener("push", (event) => {

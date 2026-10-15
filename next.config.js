@@ -18,6 +18,7 @@ const nextConfig = {
   // Force a no-store revalidate on the few files that actually change in place.
   async headers() {
     return [
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }] },
       {
         source: "/:asset(logo|logo-mark|favicon)\\.:ext(png|ico)",
         headers: [

@@ -10,6 +10,8 @@ import { NotificationReadSync } from "@/components/NotificationReadSync"
 import { useAuthContext } from "@/components/AuthProvider"
 import { useI18n } from "@/lib/i18n"
 import { supabase } from "@/lib/supabase"
+import { clearCardOfflineData, pendingCards } from "@/lib/cardOffline"
+import { stopCardDrafts } from "@/lib/cardDraftManager"
 
 /**
  * Routes that render their own full-screen shell and must not show the app
@@ -117,6 +119,8 @@ export function Navbar() {
 
   const handleLogout = async () => {
     setShowAvatar(false)
+    if (user && pendingCards(user.id).length && !window.confirm(t("personal.offline.logoutWarning"))) return
+    if (user) { stopCardDrafts(user.id); clearCardOfflineData(user.id) }
     await supabase.auth.signOut()
     router.replace("/")
   }

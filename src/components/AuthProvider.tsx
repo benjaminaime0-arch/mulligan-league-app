@@ -9,6 +9,8 @@ import {
 } from "react"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { offlineOwner, setOfflineOwner } from "@/lib/cardOffline"
+import { setCardDraftOwner, stopCardDrafts } from "@/lib/cardDraftManager"
 
 /**
  * Single source of session truth for the whole app.
@@ -36,23 +38,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return
-      setState({ user: data.session?.user ?? null, loading: false })
-    })
+    // This identity only unlocks this device's own cached scores while offline.
+    // It is never used to authorize an RPC; Supabase still validates every request.
+    const restoreOffline = () => {
+      const id = offlineOwner()
+      if (!navigator.onLine && id) { setCardDraftOwner(id); setState({ user: { id } as User, loading: false }); return true }
+      return false
+    }
+    restoreOffline()
+    const checkSession = () => {
+      void supabase.auth.getSession().then(({ data }) => {
+        if (!active || (!data.session && restoreOffline())) return
+        if (data.session) { setOfflineOwner(data.session.user.id); setCardDraftOwner(data.session.user.id) }
+        setState({ user: data.session?.user ?? null, loading: false })
+      }).catch(() => { if (active && !restoreOffline()) setState({ user: null, loading: false }) })
+    }
+    checkSession()
+    window.addEventListener("online", checkSession)
 
     // Fires on SIGNED_IN / SIGNED_OUT / TOKEN_REFRESHED / USER_UPDATED.
     // Keeps the whole tree in sync with a single subscription.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return
+      const previous = offlineOwner()
+      if (!session && restoreOffline()) return
+      if (previous && (!session || previous !== session.user.id)) stopCardDrafts(previous)
+      if (session) { setOfflineOwner(session.user.id); setCardDraftOwner(session.user.id) }
+      else if (event === "SIGNED_OUT") setOfflineOwner(null)
       setState({ user: session?.user ?? null, loading: false })
     })
 
     return () => {
       active = false
       subscription.unsubscribe()
+      window.removeEventListener("online", checkSession)
     }
   }, [])
 
