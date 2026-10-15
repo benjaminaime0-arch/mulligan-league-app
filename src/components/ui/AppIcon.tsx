@@ -1,6 +1,6 @@
 import type { SVGProps } from "react"
 
-export type AppIconName = "arrow" | "flag" | "trophy" | "cards" | "plus" | "close" | "clock" | "edit" | "join" | "check"
+export type AppIconName = "arrow" | "flag" | "trophy" | "cards" | "plus" | "close" | "clock" | "edit" | "join" | "check" | "user" | "bell" | "camera" | "refresh"
 const paths: Record<AppIconName, React.ReactNode> = {
   arrow: <><path d="M5 12h14M13 6l6 6-6 6" /></>,
   flag: <><path d="M5 21V4m0 0c5-4 9 4 14 0v10c-5 4-9-4-14 0" /></>,
@@ -12,6 +12,10 @@ const paths: Record<AppIconName, React.ReactNode> = {
   edit: <><path d="m15 4 5 5M4 20l5-1L20 8a2 2 0 0 0-5-5L4 14l-1 7Z" /></>,
   join: <><path d="M14 4h5v16h-5M3 12h12m-5-5 5 5-5 5" /></>,
   check: <path d="m5 12 4 4L19 6" />,
+  user: <><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></>,
+  bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></>,
+  camera: <><path d="m9 4-2 3H3v13h18V7h-4l-2-3Z" /><circle cx="12" cy="13" r="4" /></>,
+  refresh: <><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6 6a8 8 0 0 1 13 3M5 15a8 8 0 0 0 13 3" /></>,
 }
 
 export function AppIcon({ name, ...props }: SVGProps<SVGSVGElement> & { name: AppIconName }) {

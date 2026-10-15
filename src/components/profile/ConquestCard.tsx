@@ -47,7 +47,7 @@ export function ConquestCard({ userId }: { userId: string }) {
   if (!rows || totalPlayed === 0) return null
 
   return (
-    <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
+    <section className="app-surface p-4 sm:p-5">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-primary">{t("profile.conquest.title")}</h2>
         <span className="text-[11px] text-primary/50">

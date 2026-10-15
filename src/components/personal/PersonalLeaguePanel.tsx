@@ -1,7 +1,11 @@
 "use client"
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { useT } from "@/lib/i18n"
+import { AppIcon } from "@/components/ui/AppIcon"
+import { Avatar } from "@/components/Avatar"
+import { ScoreSummary } from "./ScoreSummary"
+import { leagueDays } from "@/lib/leaguePresentation"
+import { useI18n } from "@/lib/i18n"
 import { supabase } from "@/lib/supabase"
 import { personalSubmissionStatusKey } from "@/lib/personalSubmissionStatus"
 import {
@@ -18,7 +22,7 @@ export function PersonalLeaguePanel({
   initial: PersonalLeague
   userId: string
 }) {
-  const t = useT()
+  const { t, locale } = useI18n()
   const [data, setData] = useState(initial)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,50 +35,35 @@ export function PersonalLeaguePanel({
   useEffect(() => {
     setData(initial)
   }, [initial])
+  const mine = data.board.find(row => row.user_id === userId)
+  const ranked = mine?.position != null && mine.rounds_counted > 0
+  const remaining = leagueDays(data.game.end_date, data.rules.timezone)
+  const date = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })
   return (
-    <main className="mx-auto max-w-2xl px-4 py-6">
-      <Link href="/games" className="text-sm underline">
-        ← {t("nav.games")}
-      </Link>
-      <h1 className="mt-3 text-2xl font-bold">{data.game.name}</h1>
-      <p className="mt-2 text-sm">
-        {data.tee.course_name} · {data.tee.hole_count} · {data.tee.name}
-      </p>
-      <p className="mt-1 text-sm">
-        {data.game.start_date} → {data.game.end_date} ·{" "}
-        {t(`personal.format.${data.rules.format}`)}
-      </p>
-      <p className="mt-1 text-xs text-primary/70">{data.rules.duration_months
-        ? t(data.rules.duration_months === 1 ? "personal.calendar.monthOne" : "personal.calendar.months", { n: data.rules.duration_months })
-        : t("personal.calendar.historical")} · {data.rules.timezone ?? "Europe/Paris"}</p>
-      <details className="mt-2 text-sm"><summary className="cursor-pointer py-2 text-primary/70">{t("personal.ui.rules")}</summary><p className="text-xs leading-relaxed text-primary/70">{t("personal.leagueRules")} · {data.rules.attestation === "peer_required" ? t("personal.witnessRequired") : t("personal.selfDeclared")}</p></details>
-      <p className="mt-3 text-sm font-semibold">{t(`personal.closure.${data.closure_status}`)}</p>
-      <GameInviteCode
-        inviteCode={data.game.invite_code}
-        gameName={data.game.name}
-        variant="bottom"
-      />
-      <div className="my-4 flex gap-3">
-        <Link
-          href={`/rounds?tee=${data.rules.tee_id}`}
-          className={personalButton}
-        >
-          {t("personal.addOrSubmit")}
-        </Link>
-        <button
-          className="text-sm underline"
-          disabled={busy}
-          onClick={() => { setBusy(true); setError(null); void refresh().catch((e) => setError(e.message)).finally(() => setBusy(false)) }}
-        >
-          {t("personal.refresh")}
-        </button>
+    <main className="app-page">
+      <Link href="/games" className="inline-flex min-h-[44px] items-center text-xs font-semibold text-primary/70">← {t("nav.games")}</Link>
+      <section className="mt-2 rounded-[20px] bg-primary p-5 text-white">
+        <div className="mb-3 flex items-center justify-between gap-3"><AppIcon name="trophy" className="text-sage" /><span className="app-pill bg-white/10 text-sage">{t(`personal.closure.${data.closure_status}`)}</span></div>
+        <h1 className="break-words text-2xl font-bold leading-tight tracking-tight">{data.game.name}</h1>
+        <p className="mt-2 text-xs leading-relaxed text-sage">{data.tee.course_name} · {t("personal.picker.holeCount", { n: data.tee.hole_count })} · {data.tee.name}</p>
+        <div className="mt-5 flex items-end justify-between gap-3 border-t border-white/15 pt-4">
+          <div><div className="mb-1.5 flex items-center" aria-hidden="true">{data.board.slice(0, 4).map((row, i) => <span key={row.user_id} className={`rounded-full border-2 border-primary ${i ? "-ml-2" : ""}`}><Avatar src={row.avatar_url} alt="" fallback={row.player_name} size={32} className="!bg-sage !text-primary" /></span>)}</div><p className="text-xs text-sage">{t(data.board.length === 1 ? "app.playerOne" : "app.players", { n: data.board.length })}</p></div>
+          <div className="text-right"><p className="text-xs text-sage">{t("home.standings")}</p><p className="mt-1 text-[40px] font-bold leading-none tabular-nums">{ranked ? <>{mine!.position}<span className="ml-1 text-sm font-medium text-sage">/ {data.board.length}</span></> : <span className="text-base">{t("app.unranked")}</span>}</p></div>
+        </div>
+        {data.closure_status === "open" && remaining != null && remaining >= 0 && <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-sage"><AppIcon name="clock" className="h-3.5 w-3.5" />{t(remaining === 0 ? "app.lastDay" : "app.daysLeft", { n: remaining + 1 })}</p>}
+      </section>
+      <div className="my-4 flex items-center gap-2"><Link href={`/rounds?tee=${data.rules.tee_id}`} className={`${personalButton} flex-1 gap-2`}><AppIcon name="plus" className="h-4 w-4" />{t("personal.addOrSubmit")}</Link><button aria-label={t("personal.refresh")} title={t("personal.refresh")} className="app-surface flex h-12 w-12 shrink-0 items-center justify-center disabled:opacity-50" disabled={busy} onClick={() => { setBusy(true); setError(null); void refresh().catch(e => setError(e.message)).finally(() => setBusy(false)) }}><AppIcon name="refresh" className={busy ? "animate-spin" : ""} /></button></div>
+      <div className="app-surface mb-5 px-4">
+        <details><summary className="cursor-pointer py-3 text-sm font-semibold">{t("personal.ui.rules")}</summary><div className="space-y-2 pb-4 text-xs leading-relaxed text-primary/70"><p>{date(data.game.start_date)} → {date(data.game.end_date)} · {data.rules.timezone ?? "Europe/Paris"}</p><p>{t(`personal.format.${data.rules.format}`)} · {data.rules.duration_months ? t(data.rules.duration_months === 1 ? "personal.calendar.monthOne" : "personal.calendar.months", { n: data.rules.duration_months }) : t("personal.calendar.historical")}</p><p>{t("personal.leagueRules")} · {data.rules.attestation === "peer_required" ? t("personal.witnessRequired") : t("personal.selfDeclared")}</p></div></details>
+        <details className="border-t border-primary/10"><summary className="cursor-pointer py-3 text-sm font-semibold">{t("detail.invite")}</summary><div className="pb-4"><GameInviteCode inviteCode={data.game.invite_code} gameName={data.game.name} variant="bottom" /></div></details>
       </div>
+      <nav aria-label={t("detail.leagueSections")} className="mb-4 flex flex-wrap gap-2"><a href="#league-standings" className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-primary px-4 text-xs font-semibold text-white"><AppIcon name="trophy" className="h-4 w-4" />{t("games.standings.title")}</a><a href="#league-cards" className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-primary/10 bg-white px-4 text-xs font-semibold"><AppIcon name="cards" className="h-4 w-4" />{t("personal.leagueCards")} <span className="text-primary/60">{data.submissions.length}</span></a></nav>
       {error && (
         <p role="alert" className="mb-3 text-sm text-red-700">
           {error}
         </p>
       )}
-      <LeaderboardTable
+      <div id="league-standings" className="scroll-mt-20"><LeaderboardTable
         leaderboard={data.board}
         currentUserId={userId}
         scoringCardsCount={data.game.scoring_cards_count}
@@ -82,24 +71,24 @@ export function PersonalLeaguePanel({
           data.rules.format === "stableford_net" ? "stableford" : "stroke_play"
         }
       />
-      <h2 className="mb-3 mt-6 font-semibold">{t("personal.leagueCards")}</h2>
+      </div><h2 id="league-cards" className="mb-3 mt-6 scroll-mt-20 font-bold">{t("personal.leagueCards")}</h2>
+      {data.submissions.length === 0 && <p className="app-surface p-5 text-sm text-primary/70">{t("personal.empty")}</p>}
       <ul className="space-y-3">
         {data.submissions.map((s) => (
-          <li key={s.id} className="rounded-2xl border border-primary/10 bg-white p-4">
-            <p className="font-semibold">
-              {s.player_name} · {s.played_on}
-            </p>
-            <p className="mt-1 text-sm">
+          <li key={s.id} className="app-surface p-4">
+            <div className="mb-3 flex items-center gap-2"><Avatar src={data.board.find(row => row.user_id === s.user_id)?.avatar_url} alt="" fallback={s.player_name} size={36} /><div className="min-w-0"><p className="break-words text-sm font-bold">{s.player_name}</p><p className="mt-0.5 text-xs text-primary/70">{date(s.played_on)}</p></div></div>
+            <p className="app-pill bg-sage/25">
               {t("personal.confirmedRevision", { n: s.revision_number })} ·{" "}
               {t(personalSubmissionStatusKey(s.status, s.card_status))} · {t(`personal.status.${s.card_status}`)}
             </p>
+            <div className="my-4 border-y border-primary/10 py-3"><ScoreSummary gross={s.gross_total} net={s.net_total} stableford={s.stableford_points} /></div>
             <details className="mt-2 text-sm">
-              <summary className="cursor-pointer underline">
+              <summary className="cursor-pointer py-2 text-xs font-semibold">
                 {t("personal.reviewCard")}
               </summary>
-              <ol className="mt-2 space-y-1">
+              <ol className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
                 {s.scores.map((h) => (
-                  <li key={h.hole_number}>
+                  <li key={h.hole_number} className="rounded-xl bg-primary/5 p-2 text-center text-xs">
                     {t("personal.hole", { n: h.hole_number })}:{" "}
                     {h.completion === "picked_up"
                       ? t("personal.hole.picked_up")
@@ -114,14 +103,14 @@ export function PersonalLeaguePanel({
               </p>
             )}
             {s.status === "pending" && s.validator_id === userId && (
-              <Link href={`/rounds/${s.round_id}`} className="mt-3 block text-sm underline">{t("personal.lifecycle.reviewValidation")}</Link>
+              <Link href={`/rounds/${s.round_id}`} className="mt-3 inline-flex min-h-[44px] items-center text-xs font-bold underline">{t("personal.lifecycle.reviewValidation")}</Link>
             )}
             {s.user_id === userId && (
               <Link
                 href={`/rounds/${s.round_id}`}
-                className="mt-2 block text-sm underline"
+                className="mt-2 inline-flex min-h-[44px] items-center gap-2 text-xs font-bold"
               >
-                {t("personal.openCard")}
+                {t("personal.openCard")} <AppIcon name="arrow" className="h-4 w-4" />
               </Link>
             )}
           </li>

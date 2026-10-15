@@ -1,7 +1,9 @@
 "use client"
 
+import { AppIcon } from "@/components/ui/AppIcon"
+import { personalInput, personalButton } from "@/lib/personalRounds"
 import { PersonalLevelCard } from "@/components/personal/PersonalLevelCard"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -15,7 +17,6 @@ import { useT } from "@/lib/i18n"
 // fetchMatchPlayers + MatchPlayer types used to feed the old
 // MatchCarousel/PastMatchCarousel components — those were replaced by
 // MatchCalendarSection (fetches full rosters inline) and removed.
-import { LoadingSpinner } from "@/components/LoadingSpinner"
 import AvatarCropModal from "@/components/AvatarCropModal"
 import { ConfirmModal } from "@/components/ConfirmModal"
 import { RecordsCard, type RecordsData } from "@/components/profile/RecordsCard"
@@ -308,6 +309,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [cropFile, setCropFile] = useState<File | null>(null)
+  const avatarInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (authLoading || !user) return
@@ -571,11 +573,12 @@ export default function ProfilePage() {
         throw new Error(updateError.message || t("profile.error.update"))
       }
 
-      const { data: refreshed } = await supabase
+      const { data: refreshed, error: refreshError } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, first_name, last_name, handicap, avatar_url, town, username")
         .eq("id", user.id)
         .maybeSingle()
+      if (refreshError) throw refreshError
       setProfile((refreshed || null) as Profile | null)
       setEditing(false)
     } catch (err) {
@@ -640,9 +643,8 @@ export default function ProfilePage() {
     }
   }
 
-  if (authLoading) return <LoadingSpinner message={t("auth.checking")} />
+  if (authLoading || (user && loading)) return <main className="app-page space-y-4" role="status"><span className="sr-only">{t("profile.loading")}</span><div className="app-surface h-28 animate-pulse" /><div className="h-64 animate-pulse rounded-[20px] bg-sage/30" /><div className="app-surface h-24 animate-pulse" /></main>
   if (!user) return null
-  if (loading) return <LoadingSpinner message={t("profile.loading")} />
 
   const displayName =
     profile?.username ||
@@ -653,9 +655,9 @@ export default function ProfilePage() {
     t("common.player")
 
   return (
-    <main className="min-h-screen px-4 pb-6 pt-4">
-      <div className="mx-auto max-w-2xl"><PersonalLevelCard editableIndex showHistory onIndexChange={value => setProfile(p => p ? { ...p, handicap: value } : p)} /></div>
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+    <main className="app-page">
+      <p className="mb-4 inline-flex items-center gap-2 text-sm font-bold"><AppIcon name="user" className="h-4 w-4" />{t("nav.profile")}</p>
+      <div className="flex w-full flex-col gap-5">
         {error && (
           <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
@@ -663,7 +665,7 @@ export default function ProfilePage() {
         )}
 
         {/* 1. Profile */}
-        <section className="rounded-2xl border border-primary/15 bg-white p-5 shadow-sm">
+        <section className="app-surface p-5">
           {editing ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -672,34 +674,34 @@ export default function ProfilePage() {
               <div>
                 <label htmlFor="edit-username" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">{t("onboarding.username")}</label>
                 <input id="edit-username" type="text" value={editUsername} onChange={(e) => setEditUsername(e.target.value.replace(/[^a-zA-Z0-9]/g, ""))} disabled={saving}
-                  className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder={t("profile.username.placeholder")} maxLength={30} />
+                  className={personalInput} placeholder={t("profile.username.placeholder")} maxLength={30} />
                 <p className="mt-1 text-[10px] text-primary/40">{t("profile.username.hint")}</p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label htmlFor="edit-first" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">{t("profile.firstname")}</label>
                   <input id="edit-first" type="text" value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} disabled={saving}
-                    className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder={t("profile.firstname.placeholder")} />
+                    className={personalInput} placeholder={t("profile.firstname.placeholder")} />
                 </div>
                 <div>
                   <label htmlFor="edit-last" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">{t("profile.lastname")}</label>
                   <input id="edit-last" type="text" value={editLastName} onChange={(e) => setEditLastName(e.target.value)} disabled={saving}
-                    className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder={t("profile.lastname.placeholder")} />
+                    className={personalInput} placeholder={t("profile.lastname.placeholder")} />
                 </div>
               </div>
               <div>
                 <label htmlFor="edit-town" className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/60">{t("onboarding.town")}</label>
                 <input id="edit-town" type="text" value={editTown} onChange={(e) => setEditTown(e.target.value)} disabled={saving}
-                  className="w-full rounded-lg border border-primary/20 bg-cream px-3 py-2 text-sm text-primary placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" placeholder={t("profile.town.placeholder")} />
+                  className={personalInput} placeholder={t("profile.town.placeholder")} />
               </div>
 
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={handleSaveProfile} disabled={saving}
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-cream hover:bg-primary/90 disabled:opacity-60">
+                  className={personalButton}>
                   {saving ? t("profile.saving") : t("common.save")}
                 </button>
                 <button type="button" onClick={() => { setEditing(false); setError(null) }} disabled={saving}
-                  className="rounded-lg border border-primary/20 bg-white px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5">
+                  className="min-h-[48px] rounded-xl border border-primary/20 bg-white px-4 py-2 text-sm font-semibold">
                   {t("common.cancel")}
                 </button>
               </div>
@@ -708,18 +710,18 @@ export default function ProfilePage() {
             <>
               {/* Identity row: avatar + username (vertically centered) + Edit */}
               <div className="flex items-center gap-3">
-                <label className="group relative cursor-pointer shrink-0" htmlFor="avatar-upload">
+                <div className="relative shrink-0"><button type="button" className="group relative block rounded-full focus-visible:ring-2 focus-visible:ring-primary" onClick={() => avatarInput.current?.click()} disabled={uploadingAvatar} aria-label={t("detail.avatar")}>
                   {profile?.avatar_url ? (
                     <Image
                       src={profile.avatar_url}
                       alt={displayName}
-                      width={48}
-                      height={48}
-                      className="h-12 w-12 rounded-full object-cover"
+                      width={64}
+                      height={64}
+                      className="h-16 w-16 rounded-full object-cover"
                       unoptimized={!profile.avatar_url.includes("supabase.co")}
                     />
                   ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-semibold text-cream">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-sage/40 text-2xl font-bold text-primary">
                       {displayName.charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -734,7 +736,9 @@ export default function ProfilePage() {
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     </div>
                   )}
-                  <input
+                  </button><span aria-hidden="true" className="pointer-events-none absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-white bg-primary p-1.5 text-white"><AppIcon name="camera" className="h-3 w-3" /></span><input
+                    ref={avatarInput}
+                    aria-label={t("detail.avatar")}
                     id="avatar-upload"
                     type="file"
                     accept="image/*"
@@ -742,16 +746,17 @@ export default function ProfilePage() {
                     onChange={handleAvatarSelect}
                     disabled={uploadingAvatar}
                   />
-                </label>
-                <h1 className="min-w-0 flex-1 truncate text-2xl font-bold text-primary">
+                </div>
+                <h1 className="min-w-0 flex-1 break-words text-xl font-bold leading-tight tracking-tight text-primary [overflow-wrap:anywhere]">
                   {displayName}
                 </h1>
                 <button
                   type="button"
                   onClick={startEditing}
-                  className="shrink-0 text-xs font-medium text-primary underline-offset-4 hover:underline"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/5"
+                  aria-label={t("common.edit")}
                 >
-                  {t("common.edit")}
+                  <AppIcon name="edit" className="h-4 w-4" />
                 </button>
               </div>
 
@@ -763,10 +768,6 @@ export default function ProfilePage() {
                     <circle cx="12" cy="10" r="3" />
                   </svg>
                   {profile?.town || t("profile.notown")}
-                </span>
-                <span className="text-primary/30">·</span>
-                <span>
-                  {t("profile.hcp")} <strong className="text-primary/80 tabular-nums">{profile?.handicap != null ? profile.handicap : "\u2013"}</strong>
                 </span>
                 <span className="text-primary/30">·</span>
                 {/* myGames, not memberships: the raw membership rows
@@ -781,7 +782,11 @@ export default function ProfilePage() {
           )}
         </section>
 
-        <details className="rounded-2xl border border-primary/10 bg-white p-4">
+        <PersonalLevelCard editableIndex showHistory onIndexChange={value => setProfile(p => p ? { ...p, handicap: value } : p)} />
+        <nav aria-label={t("detail.profileLinks")} className="grid grid-cols-3 gap-2">{([
+          ["/rounds", "cards", "personal.cards"], ["/games", "trophy", "nav.games"], ["/notifications", "bell", "nav.notifications"],
+        ] as const).map(([href, icon, label]) => <Link key={href} href={href} className="app-surface flex min-h-[88px] flex-col items-center justify-center gap-2 px-2 py-3 text-center text-xs font-semibold"><AppIcon name={icon} /><span>{t(label)}</span></Link>)}</nav>
+        <details className="app-surface p-4">
           <summary className="cursor-pointer py-2 font-semibold">{t("profile.moreStats")}</summary>
           <div className="mt-3 space-y-3"><RecordsCard records={records} /><MyHonorsCard honors={honors ?? []} loading={honors === null} /><ConquestCard userId={user.id} /></div>
         </details>
@@ -812,7 +817,7 @@ export default function ProfilePage() {
             type="button"
             onClick={() => setShowLogoutConfirm(true)}
             disabled={logoutLoading}
-            className="text-xs text-red-400 underline-offset-4 hover:text-red-600 hover:underline disabled:opacity-60"
+            className="min-h-[48px] rounded-xl px-5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
           >
             {logoutLoading ? t("profile.loggingout") : t("nav.menu.logout")}
           </button>
@@ -871,12 +876,12 @@ function MyGamesLeaderboards({
 
   if (games.length === 0) {
     return (
-      <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
+      <section className="app-surface p-5">
         <h2 className="mb-3 text-sm font-semibold text-primary">{t("profile.mygames")}</h2>
         <p className="mb-3 text-sm text-primary/70">{t("profile.games.empty")}</p>
         <div className="flex gap-2">
-          <Link href="/games/create" className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-cream hover:bg-primary/90">{t("games.create.full")}</Link>
-          <Link href="/games/join" className="rounded-lg border border-primary/20 bg-cream px-3 py-2 text-xs font-medium text-primary hover:bg-primary/5">{t("games.join.full")}</Link>
+          <Link href="/games/create" className="inline-flex min-h-[44px] items-center rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white">{t("games.create.full")}</Link>
+          <Link href="/games/join" className="inline-flex min-h-[44px] items-center rounded-xl border border-primary/20 px-3 py-2 text-xs font-semibold">{t("games.join.full")}</Link>
         </div>
       </section>
     )
@@ -901,7 +906,7 @@ function MyGamesLeaderboards({
             onClick={() =>
               setIdx((i) => (i - 1 + games.length) % games.length)
             }
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/5 text-primary/70 transition-colors hover:bg-primary/10 active:scale-95"
             aria-label={t("profile.game.prev")}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
@@ -922,7 +927,7 @@ function MyGamesLeaderboards({
           <button
             type="button"
             onClick={() => setIdx((i) => (i + 1) % games.length)}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary/40 transition-colors hover:bg-primary/5 hover:text-primary active:scale-95"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/5 text-primary/70 transition-colors hover:bg-primary/10 active:scale-95"
             aria-label={t("profile.game.next")}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
@@ -933,15 +938,16 @@ function MyGamesLeaderboards({
       </div>
 
       {games.length > 1 && (
-        <div className="flex items-center justify-center gap-1.5">
+        <div className="flex flex-wrap items-center justify-center">
           {games.map((l, i) => (
             <button
               key={l.id}
               type="button"
               onClick={() => setIdx(i)}
-              className={`h-1.5 rounded-full transition-all ${i === safeIdx ? "w-5 bg-primary" : "w-1.5 bg-primary/20 hover:bg-primary/40"}`}
+              className="flex h-11 w-8 items-center justify-center rounded-lg"
+              aria-pressed={i === safeIdx}
               aria-label={t("profile.game.view", { name: l.name })}
-            />
+            ><span aria-hidden="true" className={`h-1.5 rounded-full ${i === safeIdx ? "w-5 bg-primary" : "w-1.5 bg-primary/20"}`} /></button>
           ))}
         </div>
       )}

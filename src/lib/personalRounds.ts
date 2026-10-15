@@ -122,6 +122,7 @@ export type PersonalLeague = {
     position: number | null
     user_id: string
     player_name: string
+    avatar_url?: string | null
     total_score: number
     best_score: number | null
     rounds_counted: number

@@ -53,8 +53,9 @@ export default function PersonalRoundPage({ params }: { params: { id: string } }
   if (error) return <main role="alert" className="p-6 text-red-700">{error}</main>
   if (loading || !user || !data || loadedFor !== user.id) return <main className="p-6">{t("common.loading")}</main>
   return <>
-    {(cached || prepared) && data.is_owner && <p role="status" className="mx-auto max-w-2xl px-4 pt-4 text-xs text-primary/70">{t(cached ? "personal.offline.cached" : "personal.offline.prepared")}</p>}
+    {cached && data.is_owner && <p role="status" className="mx-auto max-w-2xl px-4 pt-4 text-xs text-primary/70">{t(cached ? "personal.offline.cached" : "personal.offline.prepared")}</p>}
     {localBackup && <aside className="mx-auto max-w-2xl px-4 pt-4 text-sm text-amber-800"><p>{t("personal.offline.lockedBackup")}</p><button className="min-h-[44px] underline" onClick={() => downloadLocalScores(user.id, data.round.id)}>{t("personal.offline.download")}</button></aside>}
     <PersonalRoundEditor key={params.id} data={data} onReload={async () => { const request = ++requestId.current; const fresh = await loadPersonalCard(params.id); if (request !== requestId.current) return; cachePersonalCard(fresh); setCached(false); setData(fresh) }} />
+    {prepared && !cached && data.is_owner && <p role="status" className="mx-auto max-w-[44rem] px-4 py-2 text-xs text-primary/70">{t("personal.offline.prepared")}</p>}
   </>
 }
