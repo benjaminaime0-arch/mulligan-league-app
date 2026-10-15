@@ -159,6 +159,7 @@ export async function loadUserGames(userId: string): Promise<EnrichedGame[]> {
 export type LeaderboardStanding = {
   position: number | null
   roundsCounted: number | null
+  leaders?: { userId: string; name: string; position: number; total: number }[]
 }
 
 /**
@@ -181,14 +182,20 @@ export async function loadMyStandings(
         out.set(gameId, { position: null, roundsCounted: null })
         return
       }
-      const mine = (data as Array<{
+      const rows = data as Array<{
         user_id: string | null
+        player_name: string
         position: number | null
+        total_score: number
         rounds_counted: number | null
-      }>).find((r) => r.user_id === userId)
+      }>
+      const mine = rows.find((r) => r.user_id === userId)
       out.set(gameId, {
         position: mine?.position ?? null,
         roundsCounted: mine?.rounds_counted ?? null,
+        leaders: rows.filter(r => r.user_id && r.position != null && (r.rounds_counted ?? 0) > 0)
+          .sort((a, b) => a.position! - b.position!).slice(0, 3)
+          .map(r => ({ userId: r.user_id!, name: r.player_name, position: r.position!, total: r.total_score })),
       })
     }),
   )

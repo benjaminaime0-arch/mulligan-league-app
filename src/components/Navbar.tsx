@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
+import { AppIcon } from "@/components/ui/AppIcon"
 import { Logo } from "@/components/Logo"
 import { Avatar } from "@/components/Avatar"
 import { NotificationBell } from "@/components/NotificationBell"
@@ -24,9 +25,9 @@ const authFreePrefixes = ["/join/"]
 /** The MVP actions share the same card and league entry points. */
 function newActions(t: (k: string) => string) {
   return [
-    { href: "/rounds?new=1", label: t("personal.new"), icon: <FlagIcon /> },
-    { href: "/games/create", label: t("nav.new.game"), icon: <PlusCircleIcon /> },
-    { href: "/games/join", label: t("nav.new.join"), icon: <JoinIcon /> },
+    { href: "/rounds?new=1", label: t("personal.new"), icon: <AppIcon name="cards" />, hint: t("app.cardHint") },
+    { href: "/games/create", label: t("nav.new.game"), icon: <AppIcon name="trophy" />, hint: t("app.leagueHint") },
+    { href: "/games/join", label: t("nav.new.join"), icon: <AppIcon name="join" />, hint: t("app.joinHint") },
   ]
 }
 
@@ -61,7 +62,10 @@ export function Navbar() {
     const dialog = actionDialog.current
     if (!dialog) return
     if (showActions && !dialog.open) dialog.showModal()
+    const previousOverflow = document.body.style.overflow
+    if (showActions) document.body.style.overflow = "hidden"
     if (!showActions && dialog.open) dialog.close()
+    return () => { document.body.style.overflow = previousOverflow }
   }, [showActions])
 
   // Fetch the avatar once per authenticated user — not per route change.
@@ -98,8 +102,15 @@ export function Navbar() {
       if (newRef.current && !newRef.current.contains(e.target as Node)) setShowNew(false)
       if (avatarRef.current && !avatarRef.current.contains(e.target as Node)) setShowAvatar(false)
     }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      if (showNew) newRef.current?.querySelector<HTMLButtonElement>("button")?.focus()
+      if (showAvatar) avatarRef.current?.querySelector<HTMLButtonElement>("button")?.focus()
+      setShowNew(false); setShowAvatar(false)
+    }
+    document.addEventListener("keydown", onKey)
     document.addEventListener("mousedown", onClick)
-    return () => document.removeEventListener("mousedown", onClick)
+    return () => { document.removeEventListener("mousedown", onClick); document.removeEventListener("keydown", onKey) }
   }, [showNew, showAvatar])
 
   const avatarFallback = initialOf(user)
@@ -113,7 +124,7 @@ export function Navbar() {
 
   const isActive = (href: string) => {
     if (href === "/home") return pathname === "/home"
-    if (href === "/profile") return pathname === "/profile"
+    if (href === "/profile") return pathname.startsWith("/profile")
     return pathname.startsWith(href)
   }
 
@@ -157,7 +168,7 @@ export function Navbar() {
                   setShowAvatar(false)
                 }}
                 className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-cream hover:bg-primary/90"
-                aria-haspopup="menu"
+                aria-controls="desktop-new-actions"
                 aria-expanded={showNew}
               >
                 <PlusIcon />
@@ -165,7 +176,7 @@ export function Navbar() {
                 <ChevronDown open={showNew} />
               </button>
               {showNew && (
-                <div className="animate-slide-up absolute right-0 top-11 z-50 w-56 rounded-2xl border border-primary/10 bg-white p-1.5 shadow-xl">
+                <div id="desktop-new-actions" className="animate-slide-up absolute right-0 top-11 z-50 w-56 rounded-2xl border border-primary/10 bg-white p-1.5 shadow-xl">
                   {NEW_ACTIONS.map((a) => (
                     <MenuLink key={a.href} href={a.href} icon={a.icon} label={a.label} />
                   ))}
@@ -184,7 +195,7 @@ export function Navbar() {
                   setShowNew(false)
                 }}
                 className="ml-1 flex items-center gap-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                aria-haspopup="menu"
+                aria-controls="desktop-account-actions"
                 aria-expanded={showAvatar}
                 aria-label={t("nav.account")}
               >
@@ -192,7 +203,7 @@ export function Navbar() {
                 <ChevronDown open={showAvatar} />
               </button>
               {showAvatar && (
-                <div className="animate-slide-up absolute right-0 top-12 z-50 w-56 rounded-2xl border border-primary/10 bg-white p-1.5 shadow-xl">
+                <div id="desktop-account-actions" className="animate-slide-up absolute right-0 top-12 z-50 w-56 rounded-2xl border border-primary/10 bg-white p-1.5 shadow-xl">
                   <MenuLink href="/profile" icon={<UserIcon />} label={t("nav.menu.profile")} />
                   <MenuLink href="/notifications" icon={<BellSmallIcon />} label={t("nav.menu.notifications")} />
                   <div className="my-1 border-t border-primary/5" />
@@ -241,23 +252,24 @@ export function Navbar() {
         <Link href="/home" className="flex min-h-[44px] items-center gap-2 font-bold" aria-label={`Mulligan — ${t("nav.home")}`}><Logo mark size={28} /><span>Mulligan</span></Link>
         <NotificationBell />
       </header>
-      <dialog ref={actionDialog} id="new-actions" aria-label={t("nav.new")} onCancel={() => setShowActions(false)} onClose={() => setShowActions(false)} onClick={e => { if (e.target === e.currentTarget) setShowActions(false) }} className="fixed inset-x-4 top-auto bottom-[calc(5rem+env(safe-area-inset-bottom))] m-auto w-[calc(100%_-_2rem)] max-w-sm rounded-2xl border border-primary/10 bg-white p-3 text-primary shadow-xl backdrop:bg-black/30">
-        <div className="flex items-center justify-between px-3"><p className="font-bold">{t("nav.new")}</p><button type="button" onClick={() => setShowActions(false)} className="min-h-[44px] px-3 text-sm">{t("personal.ui.close")}</button></div>
-        {NEW_ACTIONS.map(a => <ActionMenuItem key={a.href} href={a.href} label={a.label} icon={a.icon} onClick={() => setShowActions(false)} />)}
+      <dialog ref={actionDialog} id="new-actions" aria-labelledby="new-actions-title" onCancel={() => setShowActions(false)} onClose={() => setShowActions(false)} onClick={e => { if (e.target === e.currentTarget) setShowActions(false) }} className="app-action-sheet fixed inset-x-0 top-auto bottom-0 m-auto w-full max-w-md rounded-t-[28px] border-0 bg-bone p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-primary shadow-xl">
+        <div aria-hidden="true" className="mx-auto mb-4 h-1 w-9 rounded-full bg-primary/20" />
+        <div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs text-primary/70">{t("app.newHint")}</p><h2 id="new-actions-title" className="mt-1 text-2xl font-bold">{t("nav.new")}</h2></div><button type="button" onClick={() => setShowActions(false)} aria-label={t("personal.ui.close")} className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/5"><AppIcon name="close" className="h-5 w-5" /></button></div>
+        <div className="space-y-2">{NEW_ACTIONS.map(a => <ActionMenuItem key={a.href} href={a.href} label={a.label} hint={a.hint} icon={a.icon} onClick={() => setShowActions(false)} />)}</div>
       </dialog>
 
       {/* Mobile bottom nav: Home · Cards · [+] · Leagues · Profile */}
       <nav className="mobile-nav-safe fixed bottom-0 left-0 right-0 z-40 border-t border-primary/10 bg-white/95 backdrop-blur md:hidden">
-        <div className="mx-auto flex max-w-md items-end justify-between px-2 pt-1.5">
+        <div className="mx-auto flex max-w-md items-center justify-between px-2 pt-2">
           <MobileNavTab href="/home" label={t("nav.home")} active={isActive("/home")} icon={<HomeIcon />} activeIcon={<HomeIconFilled />} />
-          <MobileNavTab href="/rounds" label={t("nav.cards")} active={isActive("/rounds")} icon={<FlagIcon />} activeIcon={<FlagIcon />} />
+          <MobileNavTab href="/rounds" label={t("nav.cards")} active={isActive("/rounds")} icon={<AppIcon name="cards" />} activeIcon={<AppIcon name="cards" />} />
 
           {/* Center FAB */}
           <div className="relative flex flex-col items-center justify-end" style={{ minWidth: 56 }}>
             <button
               type="button"
               onClick={() => setShowActions((v) => !v)}
-              className="mb-0.5 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-cream shadow-lg shadow-primary/25 transition-transform active:scale-95"
+              className="mb-0.5 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-cream shadow-md shadow-primary/20 transition-transform active:scale-95"
               aria-label={showActions ? t("nav.closeMenu") : t("nav.new")}
               aria-expanded={showActions}
               aria-controls="new-actions"
@@ -278,24 +290,24 @@ export function Navbar() {
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
-            </button>
+            </button><span className="text-[10px] font-semibold text-primary/70">{t("nav.new")}</span>
           </div>
 
-          <MobileNavTab href="/games" label={t("nav.games")} active={isActive("/games")} icon={<TrophyIcon />} activeIcon={<TrophyIconFilled />} />
+          <MobileNavTab href="/games" label={t("nav.games")} active={isActive("/games")} icon={<AppIcon name="trophy" />} activeIcon={<AppIcon name="trophy" />} />
 
           {/* Profile tab (avatar) */}
           <Link
             href="/profile"
             aria-current={isActive("/profile") ? "page" : undefined}
-            className="relative flex min-h-[44px] min-w-[52px] flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1"
+            className={`relative flex min-h-[52px] min-w-[56px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-1.5 ${isActive("/profile") ? "bg-sage/30" : ""}`}
           >
             <span
-              className={`absolute top-0 h-[3px] w-6 rounded-full bg-primary transition-opacity ${
+              className={`absolute -bottom-0.5 h-[3px] w-3 rounded-full bg-primary transition-opacity ${
                 isActive("/profile") ? "opacity-100" : "opacity-0"
               }`}
             />
             <Avatar src={avatarUrl} alt="Profile" size={22} fallback={avatarFallback} />
-            <span className={`text-xs font-medium ${isActive("/profile") ? "text-primary" : "text-primary/70"}`}>
+            <span className={`text-[10px] font-semibold ${isActive("/profile") ? "text-primary" : "text-primary/70"}`}>
               {t("nav.profile")}
             </span>
           </Link>
@@ -356,15 +368,15 @@ function MobileNavTab({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className="relative flex min-h-[44px] min-w-[52px] flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 transition-colors active:bg-primary/5"
+      className={`relative flex min-h-[52px] min-w-[56px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-1.5 transition-colors ${active ? "bg-sage/30 text-primary" : "text-primary/60 active:bg-primary/5"}`}
     >
       <span
-        className={`absolute top-0 h-[3px] w-6 rounded-full bg-primary transition-opacity ${
+        className={`absolute -bottom-0.5 h-[3px] w-3 rounded-full bg-primary transition-opacity ${
           active ? "opacity-100" : "opacity-0"
         }`}
       />
       <span className="flex h-6 w-6 items-center justify-center">{active ? activeIcon : icon}</span>
-      <span className={`text-xs font-medium ${active ? "text-primary" : "text-primary/70"}`}>
+      <span className={`text-[10px] font-semibold ${active ? "text-primary" : "text-primary/70"}`}>
         {label}
       </span>
     </Link>
@@ -374,6 +386,7 @@ function MobileNavTab({
 function ActionMenuItem({
   href,
   label,
+  hint,
   icon,
   onClick,
 }: {
@@ -381,22 +394,23 @@ function ActionMenuItem({
   label: string
   icon: React.ReactNode
   onClick: () => void
+  hint: string
 }) {
   return (
     <Link
       href={href}
       onClick={onClick}
-      className="flex min-h-[48px] items-center gap-3 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-cream active:bg-cream"
+      className="app-surface flex min-h-[76px] items-center gap-3 px-4 py-3 text-sm font-medium text-primary"
     >
-      <span className="flex h-5 w-5 items-center justify-center text-primary/60">{icon}</span>
-      {label}
+      <span className="app-icon-tile">{icon}</span>
+      <span className="min-w-0 flex-1"><span className="block font-bold">{label}</span><span className="mt-0.5 block text-xs text-primary/70">{hint}</span></span><AppIcon name="arrow" className="h-4 w-4 shrink-0" />
     </Link>
   )
 }
 
 function DesktopLink({ href, label, pathname }: { href: string; label: string; pathname: string }) {
   const active =
-    href === "/home" || href === "/profile"
+    href === "/home"
       ? pathname === href
       : pathname.startsWith(href)
   return (
@@ -440,74 +454,10 @@ function HomeIconFilled() {
   )
 }
 
-function TrophyIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-primary/50">
-      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-    </svg>
-  )
-}
-
-function TrophyIconFilled() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-    </svg>
-  )
-}
-
-function PlayersIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-primary/50">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  )
-}
-
-function PlayersIconFilled() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  )
-}
-
-function FlagIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" />
-    </svg>
-  )
-}
-
-function PlusCircleIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
-    </svg>
-  )
-}
-
-function JoinIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><polyline points="10 17 15 12 10 7" /><line x1="15" y1="12" x2="3" y2="12" />
-    </svg>
-  )
-}
-
 function UserIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-    </svg>
-  )
-}
-
-function CalendarIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
     </svg>
   )
 }

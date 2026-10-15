@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
-import { Avatar } from "@/components/Avatar"
+import { LeagueCard } from "@/components/home/LeagueCard"
+import { AppIcon } from "@/components/ui/AppIcon"
+import { leagueSection, type HubGame } from "@/lib/leaguePresentation"
 import { useI18n } from "@/lib/i18n"
 import { supabase } from "@/lib/supabase"
 import { personalResult, type PersonalLeagueSummary } from "@/lib/personalRounds"
@@ -12,23 +14,9 @@ import {
   loadUserGames,
   loadMyStandings,
   loadPendingReviewRequests,
-  sectionForStatus,
-  type EnrichedGame,
   type HubSection,
-  type LeaderboardStanding,
   type PendingInvite,
 } from "@/lib/userGames"
-
-type HubGame = EnrichedGame & {
-  standing: LeaderboardStanding
-  section: HubSection
-  personal?: PersonalLeagueSummary
-}
-
-function formatGameType(type: string | null | undefined): string {
-  if (!type) return "Standard"
-  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-}
 
 const SECTION_KEY: Record<HubSection, string> = {
   active: "games.section.active",
@@ -70,9 +58,7 @@ export default function GamesHubPage() {
         setGames(
           enriched.map((g): HubGame => {
             const details = personal.find(p => p.id === g.id)
-            const section = details
-              ? ({ upcoming: "upcoming", active: "active", closed_provisional: "completed", finalized: "completed" } as const)[details.lifecycle_state]
-              : sectionForStatus(g.status)
+            const section = leagueSection(g, details)
             return {
               ...g,
               standing: standings.get(String(g.id)) ?? { position: null, roundsCounted: null },
@@ -119,23 +105,23 @@ export default function GamesHubPage() {
   const hasAnyGame = games.length > 0
 
   return (
-    <main className="mx-auto min-h-screen max-w-2xl px-4 pb-10 pt-6 md:pt-8">
+    <main className="app-page">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-primary">{t("games.title")}</h1>
+          <p className="mb-1 text-sm text-primary/70">{t("app.yourLeagues")}</p><h1 className="text-3xl font-bold text-primary">{t("games.title")}</h1>
         </div>
         <div className="flex gap-2">
           <Link
             href="/games/join"
             className="inline-flex min-h-[48px] items-center rounded-xl border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5"
           >
-            {t("games.join")}
+            <AppIcon name="join" className="mr-2 h-4 w-4" />{t("games.join")}
           </Link>
           <Link
             href="/games/create"
             className="inline-flex min-h-[48px] items-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-cream hover:bg-primary/90"
           >
-            {t("games.create")}
+            <AppIcon name="plus" className="mr-2 h-4 w-4" />{t("games.create")}
           </Link>
         </div>
       </div>
@@ -209,7 +195,6 @@ export default function GamesHubPage() {
                 section={section}
                 games={grouped[section]}
                 t={t}
-                onOpen={(id) => router.push(`/games/${id}`)}
               />
             ) : null,
           )}
@@ -220,7 +205,9 @@ export default function GamesHubPage() {
               <button
                 type="button"
                 onClick={() => setShowCompleted((v) => !v)}
-                className="mb-2 flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary/50"
+                aria-expanded={showCompleted}
+                aria-controls="completed-leagues"
+                className="mb-2 flex min-h-[44px] w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary/70"
               >
                 <span>
                   {t("games.section.completed")} ({grouped.completed.length})
@@ -230,14 +217,9 @@ export default function GamesHubPage() {
                 </span>
               </button>
               {showCompleted && (
-                <div className="flex flex-col gap-3">
+                <div id="completed-leagues" className="grid gap-3 sm:grid-cols-2">
                   {grouped.completed.map((g) => (
-                    <GameCard
-                      key={g.id}
-                      game={g}
-                      t={t}
-                      onOpen={() => router.push(`/games/${g.id}`)}
-                    />
+                    <LeagueCard key={g.id} game={g} />
                   ))}
                 </div>
               )}
@@ -253,12 +235,10 @@ export default function GamesHubPage() {
 function GameSection({
   section,
   games,
-  onOpen,
   t,
 }: {
   section: HubSection
   games: HubGame[]
-  onOpen: (id: string) => void
   t: (k: string, v?: Record<string, string | number>) => string
 }) {
   return (
@@ -268,109 +248,7 @@ function GameSection({
           {t(SECTION_KEY[section])} ({games.length})
         </h2>
       </div>
-      <div className="flex flex-col gap-3">
-        {games.map((g) => (
-          <GameCard key={g.id} game={g} t={t} onOpen={() => onOpen(String(g.id))} />
-        ))}
-      </div>
+      <div className="grid gap-3 sm:grid-cols-2">{games.map(g => <LeagueCard key={g.id} game={g} />)}</div>
     </section>
-  )
-}
-
-function StatusChip({ section, t }: { section: HubSection; t: (k: string) => string }) {
-  const styles: Record<HubSection, string> = {
-    active: "bg-emerald-50 text-emerald-700",
-    upcoming: "bg-amber-50 text-amber-700",
-    completed: "bg-primary/10 text-primary",
-  }
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${styles[section]}`}
-    >
-      {t(SECTION_KEY[section])}
-    </span>
-  )
-}
-
-function GameCard({
-  game,
-  onOpen,
-  t,
-}: {
-  game: HubGame
-  onOpen: () => void
-  t: (k: string, v?: Record<string, string | number>) => string
-}) {
-  const isCompleted = game.section === "completed"
-  const cap = game.total_cards_count
-  const counted = game.standing.roundsCounted
-  const cardsProgress =
-    cap != null && counted != null ? t("home.cards", { counted, total: cap }) : null
-  const position = game.standing.position != null ? `P${game.standing.position}` : null
-
-  const visibleMembers = game.members.slice(0, 5)
-  const overflow = game.memberCount - visibleMembers.length
-
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="w-full rounded-xl border border-primary/10 bg-white p-4 text-left shadow-sm transition-colors hover:border-primary/25 hover:bg-cream/40"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="truncate text-base font-semibold text-primary">
-              {game.name}
-            </h3>
-            <StatusChip section={game.section} t={t} />
-          </div>
-          <p className="mt-0.5 truncate text-xs text-primary/50">
-            {game.course_name || t("games.card.nocourse")} · {game.personal ? `${game.personal.hole_count} · ${game.personal.tee_name} · ${t(`personal.format.${game.personal.format}`)}` : formatGameType(game.game_type)}
-          </p>
-          {game.personal && <p className="mt-1 text-xs text-primary/70">{game.personal.start_date} → {game.personal.end_date} · {game.personal.duration_months ? t(game.personal.duration_months === 1 ? "personal.calendar.monthOne" : "personal.calendar.months", { n: game.personal.duration_months }) : t("personal.calendar.historical")}</p>}
-        </div>
-        {position && (
-          <span className="shrink-0 rounded-lg bg-primary/5 px-2 py-1 text-sm font-bold text-primary">
-            {position}
-          </span>
-        )}
-      </div>
-
-      <div className="mt-3 flex items-center justify-between gap-3">
-        {/* member avatars */}
-        <div className="flex items-center">
-          {visibleMembers.map((m, i) => (
-            <span
-              key={m.user_id}
-              className={i > 0 ? "-ml-2" : ""}
-              style={{ zIndex: visibleMembers.length - i }}
-            >
-              <Avatar
-                src={m.profiles?.avatar_url ?? null}
-                alt={m.profiles?.username || "Player"}
-                size={24}
-                fallback={m.profiles?.username || m.profiles?.first_name || "P"}
-              />
-            </span>
-          ))}
-          {overflow > 0 && (
-            <span className="-ml-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
-              +{overflow}
-            </span>
-          )}
-        </div>
-
-        {/* Card progress, without a match-planning path. */}
-        <div className="flex items-center gap-3 text-xs text-primary/60">
-          {cardsProgress && <span>{cardsProgress}</span>}
-          {isCompleted ? (
-            <span className="text-primary/60">{t(game.personal?.lifecycle_state === "closed_provisional" ? "personal.closure.closed_provisional" : "games.card.final")}</span>
-          ) : (
-            <span className="text-primary/60">{t("games.create.scoringcards")} · {counted ?? 0}</span>
-          )}
-        </div>
-      </div>
-    </button>
   )
 }
