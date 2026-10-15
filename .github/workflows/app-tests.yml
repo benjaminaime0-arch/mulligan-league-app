@@ -13,6 +13,7 @@ on:
       - "scripts/tests/personal-submission-status.cjs"
       - "scripts/tests/unified-flow.cjs"
       - "scripts/tests/card-autosave-offline.cjs"
+      - "scripts/tests/app-presentation.cjs"
       - "public/sw.js"
       - "public/offline.html"
       - "next.config.js"
@@ -29,6 +30,7 @@ on:
       - "scripts/tests/personal-submission-status.cjs"
       - "scripts/tests/unified-flow.cjs"
       - "scripts/tests/card-autosave-offline.cjs"
+      - "scripts/tests/app-presentation.cjs"
       - "public/sw.js"
       - "public/offline.html"
       - "next.config.js"
@@ -59,6 +61,7 @@ jobs:
       - run: node --test scripts/tests/personal-submission-status.cjs
       - run: node --test scripts/tests/unified-flow.cjs
       - run: node --test scripts/tests/card-autosave-offline.cjs
+      - run: node --test scripts/tests/app-presentation.cjs
       # Locale parity + no undefined t() keys. Both fail silently at runtime:
       # a key missing from fr shows English to French users, and a key missing
       # from both renders the raw key ("games.create.title") on the page.

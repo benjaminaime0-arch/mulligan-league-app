@@ -7,6 +7,7 @@ import { CourseTeePicker } from "@/components/personal/CourseTeePicker"
 import { PersonalLevelCard } from "@/components/personal/PersonalLevelCard"
 import { PersonalInbox } from "@/components/personal/PersonalInbox"
 import { RoundList } from "@/components/personal/RoundList"
+import { AppIcon } from "@/components/ui/AppIcon"
 import { cachedPersonalCards, isCardNetworkError } from "@/lib/cardOffline"
 import { todayLocalIso } from "@/lib/date"
 import { supabase } from "@/lib/supabase"
@@ -23,6 +24,7 @@ function PersonalRoundsContent() {
   const [tee, setTee] = useState("")
   const [date, setDate] = useState(todayLocalIso)
   const [showNew, setShowNew] = useState(false)
+  const [filter, setFilter] = useState<"all" | "drafts" | "pending" | "validated">("all")
   const formRef = useRef<HTMLFormElement>(null)
   const [offline, setOffline] = useState(false)
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
@@ -58,10 +60,11 @@ function PersonalRoundsContent() {
     if (showNew) formRef.current?.querySelector<HTMLSelectElement>("select")?.focus()
   }, [showNew])
   if (loading || !user || (loadedFor !== user.id && !error)) return <main className="p-6">{t("common.loading")}</main>
-  return <main className="mx-auto max-w-2xl px-4 py-6">
+  const rounds = data?.rounds.filter(r => filter === "all" || (filter === "drafts" ? r.status === "draft" : filter === "validated" ? r.status === "validated" : ["pending_validation", "pending_player_confirmation", "confirmed"].includes(r.status))) ?? []
+  return <main className="app-page">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <h1 className="text-3xl font-bold">{t("personal.cards")}</h1>
-      <button className={personalButton} disabled={!data || offline} aria-expanded={showNew} aria-controls="new-card" onClick={() => setShowNew(v => !v)}>{showNew ? t("personal.ui.close") : `+ ${t("personal.new")}`}</button>
+      <div><h1 className="text-3xl font-bold">{t("personal.cards")}</h1></div>
+      <button className={`${personalButton} gap-2`} disabled={!data || offline} aria-expanded={showNew} aria-controls="new-card" onClick={() => setShowNew(v => !v)}><AppIcon name={showNew ? "close" : "plus"} className="h-4 w-4" />{showNew ? t("personal.ui.close") : t("app.newCard")}</button>
     </div>
     {offline && <p role="status" className="mt-4 text-sm text-primary/70">{t("personal.offline.list")}</p>}
     {error && <p role="alert" className="my-4 text-sm text-red-700">{error}</p>}
@@ -80,10 +83,13 @@ function PersonalRoundsContent() {
         {data.tees.find(x => x.id === tee)?.ready === false && <p className="text-xs text-amber-800">{t("personal.referencePending")}</p>}
         <button className={`${personalButton} w-full`} disabled={busy || !tee}>{busy ? t("common.loading") : t("personal.start")}</button>
       </form>}
+      <div className="mt-6 flex flex-wrap gap-2" role="group" aria-label={t("personal.ui.state")}>
+        {(["all", "drafts", "pending", "validated"] as const).map(value => <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} className={`min-h-[44px] rounded-full border px-3 text-xs font-semibold transition-colors ${filter === value ? "border-primary bg-primary text-white" : "border-primary/10 bg-white text-primary/70 hover:border-primary/30"}`}>{t(value === "all" ? "app.filterAll" : `app.${value}`)}{value === "all" && <span className="ml-1.5 opacity-75">{data.rounds.length}</span>}</button>)}
+      </div>
       <section className="my-6" aria-label={t("personal.history")}>
-        {data.rounds.length === 0 ? <p className="rounded-2xl bg-white p-5 text-sm text-primary/70">{t("personal.empty")}</p> : <RoundList rounds={data.rounds} />}
+        {rounds.length === 0 ? <p className="app-surface p-5 text-sm text-primary/70">{t(data.rounds.length ? "app.noResults" : "personal.empty")}</p> : <RoundList rounds={rounds} />}
       </section>
-      {!offline && <PersonalLevelCard overview={data} editableIndex showHistory onIndexChange={reload} />}
+      {!offline && <details><summary className="mb-3 cursor-pointer py-3 text-sm font-semibold">{t("app.levelDetails")}</summary><PersonalLevelCard overview={data} editableIndex showHistory onIndexChange={reload} /></details>}
     </>}
     {!data && !error && <p className="mt-5" role="status">{t("common.loading")}</p>}
   </main>

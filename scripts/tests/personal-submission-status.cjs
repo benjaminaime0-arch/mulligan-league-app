@@ -28,7 +28,10 @@ function load(relative) {
     if (name === 'next/link') return ({ children, ...props }) => React.createElement('a', props, children);
     if (name.endsWith('/LeaderboardTable')) return { LeaderboardTable: () => null };
     if (name.endsWith('/GameInviteCode')) return { GameInviteCode: () => null };
-    if (name.startsWith('@/')) return load(`src/${name.slice(2)}.ts`);
+    if (name.startsWith('@/')) {
+      const relative = `src/${name.slice(2)}`;
+      return load(fs.existsSync(path.join(root, `${relative}.tsx`)) ? `${relative}.tsx` : `${relative}.ts`);
+    }
     if (name === './ValidationTimer') return load('src/components/personal/ValidationTimer.tsx');
     return require(name);
   };

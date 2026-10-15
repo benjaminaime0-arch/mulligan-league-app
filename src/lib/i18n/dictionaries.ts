@@ -22,6 +22,31 @@ export const DEFAULT_LOCALE: Locale = "fr"
 type Dict = Record<string, string>
 
 export const en: Dict = {
+  // Compact app surfaces
+  "app.play": "Your next round starts here.",
+  "app.ready": "Ready to play?",
+  "app.resume": "Resume",
+  "app.draft": "Round in progress",
+  "app.yourLeague": "Your league",
+  "app.all": "All",
+  "app.progress": "My progress",
+  "app.playerOne": "{n} player",
+  "app.players": "{n} players",
+  "app.unranked": "Unranked",
+  "app.startsIn": "Starts in {n} days",
+  "app.lastDay": "Last day",
+  "app.daysLeft": "{n} days left",
+  "app.cardsCounted": "{n} cards counted",
+  "app.cardCounted": "{n} card counted",
+  "app.filterAll": "All",
+  "app.drafts": "Drafts",
+  "app.pending": "Pending",
+  "app.validated": "Validated",
+  "app.noResults": "No cards here yet.",
+  "app.levelDetails": "Level & official index",
+  "app.newCard": "New card",
+  "app.retry": "Try again",
+
   "profile.records.title": "Records",
   "profile.records.empty": "No records yet.",
   "profile.records.best": "Best round",
@@ -1013,6 +1038,31 @@ export const en: Dict = {
 }
 
 export const fr: Dict = {
+  // Compact app surfaces
+  "app.play": "À vous de jouer.",
+  "app.ready": "Prêt à jouer ?",
+  "app.resume": "Reprendre",
+  "app.draft": "Carte en cours",
+  "app.yourLeague": "Votre ligue",
+  "app.all": "Tout voir",
+  "app.progress": "Ma progression",
+  "app.playerOne": "{n} joueur",
+  "app.players": "{n} joueurs",
+  "app.unranked": "Non classé",
+  "app.startsIn": "Début dans {n} jours",
+  "app.lastDay": "Dernier jour",
+  "app.daysLeft": "{n} jours restants",
+  "app.cardsCounted": "{n} cartes comptées",
+  "app.cardCounted": "{n} carte comptée",
+  "app.filterAll": "Toutes",
+  "app.drafts": "Brouillons",
+  "app.pending": "En attente",
+  "app.validated": "Validées",
+  "app.noResults": "Aucune carte ici pour le moment.",
+  "app.levelDetails": "Niveau et index officiel",
+  "app.newCard": "Nouvelle carte",
+  "app.retry": "Réessayer",
+
   "profile.records.title": "Records",
   "profile.records.empty": "Aucun record pour le moment.",
   "profile.records.best": "Meilleure partie",
