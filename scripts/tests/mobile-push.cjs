@@ -74,7 +74,7 @@ test('standalone manifest keeps a stable identity and a real 512px brand icon',(
  const manifest=load('src/app/manifest.ts').default();assert.equal(manifest.display,'standalone');assert.equal(manifest.id,'/');assert.equal(manifest.scope,'/');assert.ok(fs.existsSync('public'+manifest.icons[0].src));assert.equal(manifest.icons[0].sizes,'512x512');
 });
 function sender({muted=false,preferenceError=null,subError=null,statusCode=null,count=0,type="personal_card"}={}){
- const deleted=[],sent=[],record={id:'real',user_id:'recipient',title:'Database title',type,body:'Database body',data:{round_id:'round'},created_at:new Date().toISOString()};
+ const deleted=[],sent=[],record={id:'real',user_id:'recipient',title:'Database title',type,body:'Database body',data:type==='league_invitation'?{game_id:'private',invite_code:'ABC123'}:{round_id:'round'},created_at:new Date().toISOString()};
  const subscription={endpoint:'https://push.example/private',p256dh:'public',auth:'private'};
  const client={from(table){const q={select(){return q},eq(k,v){if(q.deleting)deleted.push([k,v]);return q},gte(){return q},lt(){return q},neq(){return q},delete(){q.deleting=true;return q},maybeSingle:async()=>({data:record,error:null}),then(resolve){return Promise.resolve(table==='notifications'?{count}:{data:[subscription],error:subError}).then(resolve)}};return q},rpc:async()=>({data:!muted,error:preferenceError})};
  const webpush={setVapidDetails(){},sendNotification:async(sub,payload)=>{if(statusCode)throw{statusCode};sent.push({sub,payload:JSON.parse(payload)})}};
@@ -131,3 +131,7 @@ test('signed-out push visitors keep their exact app-local destination through lo
 });
 
 test("the preview Home Screen icon is clearly distinct from the public app",()=>{const manifest=load("src/app/manifest.ts",{},{process:{env:{VERCEL_ENV:"preview"}}}).default();assert.equal(manifest.name,"Mulligan Test");assert.equal(manifest.short_name,"Mulligan Test");});
+
+test('invitation pushes avoid private league links in older installed workers',async()=>{
+ const x=sender({type:'league_invitation'});await x.call();const data=x.sent[0].payload.data;assert.equal(data.game_id,undefined);assert.equal(data.invite_code,'ABC123');assert.equal(data.type,'league_invitation');assert.equal(notificationTarget(data.type,data),'/join/ABC123');
+});

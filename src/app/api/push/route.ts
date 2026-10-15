@@ -169,12 +169,19 @@ export async function POST(request: NextRequest) {
 
     // Bundle the notification_id into the payload so the SW can use it for
     // OS-level tag dedupe (and future deep-link read-tracking).
+    const targetData = { ...(record.data || {}) }
+    // Older installed workers do not know invite_code. Let them fall back to
+    // the inbox, where fresh app code can open the invitation, never a private league.
+    if (record.type === "league_invitation") {
+      delete targetData.game_id
+      delete targetData.league_id
+    }
     const payload = JSON.stringify({
       title: record.title,
       body: record.body || "",
       tag: record.id,
       data: {
-        ...(record.data || {}),
+        ...targetData,
         notification_id: record.id,
         type: record.type,
       },
