@@ -79,7 +79,7 @@ export function LeaderboardTable({
   })
 
   return (
-    <div className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
+    <div className="app-surface p-4 sm:p-5">
       <div className="mb-4 flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-semibold text-primary">
           {t("games.standings.title")}

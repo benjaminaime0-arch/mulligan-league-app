@@ -46,7 +46,7 @@ export function GameInviteCode({ inviteCode, gameName, variant }: GameInviteCode
       ? "ml-2 hidden items-center justify-center gap-2 sm:flex"
       : variant === "mobile"
       ? "flex items-center justify-center gap-2 sm:hidden"
-      : "flex items-center justify-center gap-2"
+      : "flex flex-wrap items-center justify-center gap-2"
 
   return (
     <div className={containerClass}>
@@ -55,7 +55,7 @@ export function GameInviteCode({ inviteCode, gameName, variant }: GameInviteCode
       <button
         type="button"
         onClick={handleCopy}
-        className="flex h-8 items-center rounded-md bg-primary/10 px-2.5 font-mono text-sm tracking-[0.15em] text-primary hover:bg-primary/15"
+        className="flex min-h-[44px] items-center rounded-xl bg-primary/10 px-2.5 font-mono text-sm tracking-[0.15em] text-primary hover:bg-primary/15"
         title={variant === "mobile" ? t("invite.code.copy.tap") : t("invite.code.copy.click")}
       >
         {inviteCode}
@@ -63,7 +63,7 @@ export function GameInviteCode({ inviteCode, gameName, variant }: GameInviteCode
       <button
         type="button"
         onClick={handleShare}
-        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-white px-3 text-xs font-medium text-primary hover:bg-primary/5"
+        className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-primary/30 bg-white px-3 text-xs font-medium text-primary hover:bg-primary/5"
         aria-label={t("invite.share.cta")}
       >
         {/* Same share-node glyph used elsewhere (match-detail "Share

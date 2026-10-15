@@ -40,7 +40,7 @@ export function RecordsCard({ records, loading = false }: RecordsCardProps) {
     (records.best_score || records.top_rival || records.longest_streak_weeks > 0)
 
   return (
-    <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
+    <section className="app-surface p-4 sm:p-5">
       <h2 className="mb-4 text-sm font-semibold text-primary">{t("profile.records.title")}</h2>
 
       {loading ? (

@@ -47,6 +47,7 @@ DECLARE
   v_n int;
   v_h jsonb;
   v_recap jsonb;
+  v_badges text[];
 BEGIN
   PERFORM set_config('request.jwt.claims',
     json_build_object('sub', v_sara, 'role', 'authenticated')::text, true);
@@ -134,6 +135,21 @@ BEGIN
     RAISE EXCEPTION 'T4 FAIL: h2h grid %', v_recap->'head_to_head';
   END IF;
   RAISE NOTICE 'T4 PASS: recap gate + podium/attendance/margin/h2h grid';
+
+  -- Profile honors use this function too. Its output field names must not
+  -- shadow the UNION sort columns in PL/pgSQL.
+  SELECT array_agg(b.badge_key) INTO v_badges FROM get_game_badges(v_game) b;
+  IF v_badges IS DISTINCT FROM ARRAY['best_round', 'most_active', 'most_consistent']::text[] THEN
+    RAISE EXCEPTION 'T5 FAIL: badge order %', v_badges;
+  END IF;
+  SELECT count(*) INTO v_n FROM get_user_honors(v_sara);
+  IF v_n < 1 THEN RAISE EXCEPTION 'T5 FAIL: profile honors are empty'; END IF;
+
+  PERFORM set_config('request.jwt.claims',
+    json_build_object('sub', v_vera, 'role', 'authenticated')::text, true);
+  SELECT count(*) INTO v_n FROM get_game_badges(v_game);
+  IF v_n <> 0 THEN RAISE EXCEPTION 'T5 FAIL: outsider sees badges'; END IF;
+  RAISE NOTICE 'T5 PASS: ordered badges, profile honors and membership gate';
 END $$;
 
 ROLLBACK;

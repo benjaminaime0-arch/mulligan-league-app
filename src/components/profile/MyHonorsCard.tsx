@@ -46,7 +46,7 @@ export function MyHonorsCard({ honors, loading = false }: MyHonorsCardProps) {
   const byGame = groupByGame(honors, t("nav.games"))
 
   return (
-    <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
+    <section className="app-surface p-4 sm:p-5">
       <h2 className="mb-4 text-sm font-semibold text-primary">{t("profile.honors.title")}</h2>
 
       {loading ? (

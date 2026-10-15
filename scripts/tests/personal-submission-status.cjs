@@ -32,7 +32,10 @@ function load(relative) {
       const relative = `src/${name.slice(2)}`;
       return load(fs.existsSync(path.join(root, `${relative}.tsx`)) ? `${relative}.tsx` : `${relative}.ts`);
     }
-    if (name === './ValidationTimer') return load('src/components/personal/ValidationTimer.tsx');
+    if (name.startsWith('./')) {
+      const relative = path.relative(root, path.resolve(path.dirname(filename), name));
+      return load(fs.existsSync(path.join(root, `${relative}.tsx`)) ? `${relative}.tsx` : `${relative}.ts`);
+    }
     return require(name);
   };
   loaded._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
@@ -144,5 +147,20 @@ for (const language of ['fr', 'en']) {
     const html = renderList({ ...summary(pilotResults[0]), status: 'disputed' });
     assert.equal(metrics(html).length, 4);
     assert.ok(html.includes(dictionary[language]['personal.status.disputed']));
+  });
+}
+
+const { ScoreSummary } = load('src/components/personal/ScoreSummary.tsx');
+for (const language of ['fr','en']) {
+  test(`${language}: detail score summary preserves missing totals, zero and negative differentials`, () => {
+    locale = language;
+    const html = renderToStaticMarkup(React.createElement(ScoreSummary, { gross:null, net:0, stableford:0, differential:-1.2 }));
+    assert.deepEqual(metrics(html), ['personal.gross','personal.net','personal.stableford','personal.differential'].map((key,i)=>[dictionary[language][key],['—','0','0',new Intl.NumberFormat(language).format(-1.2)][i]]));
+  });
+  test(`${language}: league score summary does not invent a differential`, () => {
+    locale = language;
+    const html=renderToStaticMarkup(React.createElement(ScoreSummary, {gross:90,net:66,stableford:30}));
+    assert.equal(metrics(html).length,3);
+    assert.ok(!html.includes(dictionary[language]['personal.differential']));
   });
 }

@@ -22,6 +22,12 @@ export const DEFAULT_LOCALE: Locale = "fr"
 type Dict = Record<string, string>
 
 export const en: Dict = {
+  "detail.scoreSections": "Scorecard sections",
+  "detail.leagueSections": "League sections",
+  "detail.invite": "Invite friends",
+  "detail.avatar": "Change profile photo",
+  "detail.profileLinks": "Profile shortcuts",
+
   // Compact app surfaces
   "app.play": "Your next round starts here.",
   "app.ready": "Ready to play?",
@@ -1038,6 +1044,12 @@ export const en: Dict = {
 }
 
 export const fr: Dict = {
+  "detail.scoreSections": "Sections de la carte",
+  "detail.leagueSections": "Sections de la ligue",
+  "detail.invite": "Inviter des amis",
+  "detail.avatar": "Changer la photo de profil",
+  "detail.profileLinks": "Raccourcis du profil",
+
   // Compact app surfaces
   "app.play": "À vous de jouer.",
   "app.ready": "Prêt à jouer ?",
