@@ -108,7 +108,7 @@ export default function GamesHubPage() {
     <main className="app-page">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="mb-1 text-sm text-primary/70">{t("app.yourLeagues")}</p><h1 className="text-3xl font-bold text-primary">{t("games.title")}</h1>
+          <h1 className="text-3xl font-bold text-primary">{t("games.title")}</h1>
         </div>
         <div className="flex gap-2">
           <Link

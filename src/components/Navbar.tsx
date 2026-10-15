@@ -25,9 +25,9 @@ const authFreePrefixes = ["/join/"]
 /** The MVP actions share the same card and league entry points. */
 function newActions(t: (k: string) => string) {
   return [
-    { href: "/rounds?new=1", label: t("personal.new"), icon: <AppIcon name="cards" />, hint: t("app.cardHint") },
-    { href: "/games/create", label: t("nav.new.game"), icon: <AppIcon name="trophy" />, hint: t("app.leagueHint") },
-    { href: "/games/join", label: t("nav.new.join"), icon: <AppIcon name="join" />, hint: t("app.joinHint") },
+    { href: "/rounds?new=1", label: t("app.newCard"), icon: <AppIcon name="cards" /> },
+    { href: "/games/create", label: t("nav.new.game"), icon: <AppIcon name="trophy" /> },
+    { href: "/games/join", label: t("nav.new.join"), icon: <AppIcon name="join" /> },
   ]
 }
 
@@ -254,8 +254,8 @@ export function Navbar() {
       </header>
       <dialog ref={actionDialog} id="new-actions" aria-labelledby="new-actions-title" onCancel={() => setShowActions(false)} onClose={() => setShowActions(false)} onClick={e => { if (e.target === e.currentTarget) setShowActions(false) }} className="app-action-sheet fixed inset-x-0 top-auto bottom-0 m-auto w-full max-w-md rounded-t-[28px] border-0 bg-bone p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-primary shadow-xl">
         <div aria-hidden="true" className="mx-auto mb-4 h-1 w-9 rounded-full bg-primary/20" />
-        <div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs text-primary/70">{t("app.newHint")}</p><h2 id="new-actions-title" className="mt-1 text-2xl font-bold">{t("nav.new")}</h2></div><button type="button" onClick={() => setShowActions(false)} aria-label={t("personal.ui.close")} className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/5"><AppIcon name="close" className="h-5 w-5" /></button></div>
-        <div className="space-y-2">{NEW_ACTIONS.map(a => <ActionMenuItem key={a.href} href={a.href} label={a.label} hint={a.hint} icon={a.icon} onClick={() => setShowActions(false)} />)}</div>
+        <div className="mb-4 flex items-start justify-between gap-3"><div><h2 id="new-actions-title" className="mt-1 text-2xl font-bold">{t("nav.new")}</h2></div><button type="button" onClick={() => setShowActions(false)} aria-label={t("personal.ui.close")} className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/5"><AppIcon name="close" className="h-5 w-5" /></button></div>
+        <div className="space-y-2">{NEW_ACTIONS.map(a => <ActionMenuItem key={a.href} href={a.href} label={a.label} icon={a.icon} onClick={() => setShowActions(false)} />)}</div>
       </dialog>
 
       {/* Mobile bottom nav: Home · Cards · [+] · Leagues · Profile */}
@@ -386,7 +386,6 @@ function MobileNavTab({
 function ActionMenuItem({
   href,
   label,
-  hint,
   icon,
   onClick,
 }: {
@@ -394,7 +393,6 @@ function ActionMenuItem({
   label: string
   icon: React.ReactNode
   onClick: () => void
-  hint: string
 }) {
   return (
     <Link
@@ -403,7 +401,7 @@ function ActionMenuItem({
       className="app-surface flex min-h-[76px] items-center gap-3 px-4 py-3 text-sm font-medium text-primary"
     >
       <span className="app-icon-tile">{icon}</span>
-      <span className="min-w-0 flex-1"><span className="block font-bold">{label}</span><span className="mt-0.5 block text-xs text-primary/70">{hint}</span></span><AppIcon name="arrow" className="h-4 w-4 shrink-0" />
+      <span className="min-w-0 flex-1"><span className="block font-bold">{label}</span></span><AppIcon name="arrow" className="h-4 w-4 shrink-0" />
     </Link>
   )
 }

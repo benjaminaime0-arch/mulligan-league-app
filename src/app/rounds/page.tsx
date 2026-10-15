@@ -63,7 +63,7 @@ function PersonalRoundsContent() {
   const rounds = data?.rounds.filter(r => filter === "all" || (filter === "drafts" ? r.status === "draft" : filter === "validated" ? r.status === "validated" : ["pending_validation", "pending_player_confirmation", "confirmed"].includes(r.status))) ?? []
   return <main className="app-page">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><p className="mb-1 text-sm text-primary/70">{t("app.yourCards")}</p><h1 className="text-3xl font-bold">{t("personal.cards")}</h1></div>
+      <div><h1 className="text-3xl font-bold">{t("personal.cards")}</h1></div>
       <button className={`${personalButton} gap-2`} disabled={!data || offline} aria-expanded={showNew} aria-controls="new-card" onClick={() => setShowNew(v => !v)}><AppIcon name={showNew ? "close" : "plus"} className="h-4 w-4" />{showNew ? t("personal.ui.close") : t("app.newCard")}</button>
     </div>
     {offline && <p role="status" className="mt-4 text-sm text-primary/70">{t("personal.offline.list")}</p>}
