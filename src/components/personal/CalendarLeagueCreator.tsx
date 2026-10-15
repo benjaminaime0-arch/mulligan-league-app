@@ -4,14 +4,15 @@ import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
-import { useT } from "@/lib/i18n"
+import { useI18n } from "@/lib/i18n"
+import { AppIcon } from "@/components/ui/AppIcon"
 import { supabase } from "@/lib/supabase"
 import { todayLocalIso } from "@/lib/date"
 import { calendarLeagueEnd } from "@/lib/leagueCalendar"
 import { loadPersonalOverview, personalButton, personalInput, personalResult, type PersonalTee } from "@/lib/personalRounds"
 export function CalendarLeagueCreator() {
   const { user, loading } = useAuth()
-  const t = useT(), router = useRouter(), params = useSearchParams()
+  const { t, locale } = useI18n(), router = useRouter(), params = useSearchParams()
   const requestedTee = params.get("tee"), requestedStart = params.get("start")
   const [tees, setTees] = useState<PersonalTee[]>([])
   const [tee, setTee] = useState(""), [name, setName] = useState("")
@@ -30,12 +31,12 @@ export function CalendarLeagueCreator() {
     }).catch(e => { if (active) setError(e.message) })
     return () => { active = false }
   }, [user, requestedTee])
-  if (loading || !user) return <main className="p-6">{t("common.loading")}</main>
-  return <main className="mx-auto max-w-2xl px-4 py-6">
-    <Link href="/games" className="text-sm underline">← {t("nav.games")}</Link>
-    <h1 className="mt-3 text-2xl font-bold">{t("personal.createLeague")}</h1>
-    <p className="mt-2 text-sm text-primary/70">{t("personal.calendar.intro")}</p>
-    <form className="mt-5 space-y-4 rounded-2xl border border-primary/10 bg-white p-5" onSubmit={async e => {
+  if (loading || !user) return <main className="app-page" role="status">{t("common.loading")}</main>
+  const endLabel = end ? new Date(`${end}T12:00:00`).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" }) : "—"
+  return <main className="app-page !pt-2">
+    <Link href="/games" className="inline-flex min-h-[44px] items-center text-xs font-semibold text-primary/70">← {t("nav.games")}</Link>
+    <header className="mt-2 flex items-start gap-3"><span className="app-icon-tile"><AppIcon name="trophy" /></span><div><h1 className="text-2xl font-bold tracking-tight">{t("personal.createLeague")}</h1><p className="mt-1 text-sm text-primary/70">{t("personal.calendar.intro")}</p></div></header>
+    <form className="mt-5 space-y-4" onSubmit={async e => {
       e.preventDefault(); if (!end) return
       setBusy(true); setError(null)
       try {
@@ -46,22 +47,29 @@ export function CalendarLeagueCreator() {
         router.push(`/games/${result.game_id}`)
       } catch (e) { setError(e instanceof Error ? e.message : t("common.error.generic")); setBusy(false) }
     }}>
-      <label className="block text-sm">{t("personal.leagueName")}<input aria-label={t("personal.leagueName")} className={personalInput} required maxLength={80} value={name} onChange={e => setName(e.target.value)} disabled={busy} /></label>
+      <section className="app-surface space-y-4 p-4 sm:p-5" aria-labelledby="league-course-title">
+      <h2 id="league-course-title" className="flex items-center gap-2 text-sm font-bold"><AppIcon name="flag" className="h-4 w-4" />{t("league.design.course")}</h2>
+      <label className="block text-sm font-medium">{t("personal.leagueName")}<input aria-label={t("personal.leagueName")} className={personalInput} required maxLength={80} value={name} onChange={e => setName(e.target.value)} disabled={busy} /></label>
       <CourseTeePicker tees={tees} value={tee} onChange={setTee} disabled={busy} />
-      <div className="grid grid-cols-2 gap-3">
-        <label className="block text-sm">{t("personal.calendar.start")}<input aria-label={t("personal.calendar.start")} className={personalInput} type="date" required value={start} onChange={e => setStart(e.target.value)} disabled={busy} /></label>
-        <label className="block text-sm">{t("personal.calendar.duration")}<select aria-label={t("personal.calendar.duration")} className={personalInput} value={months} onChange={e => setMonths(Number(e.target.value))} disabled={busy}>{[1,2,3].map(n => <option key={n} value={n}>{t(n === 1 ? "personal.calendar.monthOne" : "personal.calendar.months", { n })}</option>)}</select></label>
-      </div>
-      <p className="rounded-xl bg-cream p-3 text-sm" role="status">{t("personal.calendar.end", { date: end ?? "—" })}</p>
+      </section>
+      <section className="app-surface space-y-4 p-4 sm:p-5" aria-labelledby="league-season-title">
+      <h2 id="league-season-title" className="flex items-center gap-2 text-sm font-bold"><AppIcon name="clock" className="h-4 w-4" />{t("league.design.season")}</h2>
+      <label className="block text-sm font-medium">{t("personal.calendar.start")}<input aria-label={t("personal.calendar.start")} className={personalInput} type="date" required value={start} onChange={e => setStart(e.target.value)} disabled={busy} /></label>
+      <fieldset disabled={busy}><legend className="mb-2 text-sm font-medium">{t("personal.calendar.duration")}</legend><div className="grid grid-cols-3 gap-2">{[1,2,3].map(n => <label key={n} className="relative cursor-pointer"><input className="peer sr-only" type="radio" name="duration" value={n} checked={months === n} onChange={() => setMonths(n)} /><span className="flex min-h-[48px] items-center justify-center rounded-xl border border-primary/15 text-sm font-semibold peer-checked:border-primary peer-checked:bg-primary peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary">{t(n === 1 ? "personal.calendar.monthOne" : "personal.calendar.months", { n })}</span></label>)}</div></fieldset>
+      <p className="flex items-center gap-2 rounded-xl bg-sage/25 p-3 text-sm font-semibold" role="status"><AppIcon name="check" className="h-4 w-4 shrink-0" />{t("personal.calendar.end", { date: endLabel })}</p>
       <details className="text-sm text-primary/70"><summary className="cursor-pointer py-2">{t("personal.ui.rules")}</summary><p className="mt-1 text-xs leading-relaxed">{t("personal.calendar.convention")}</p></details>
-      <label className="block text-sm">{t("personal.format")}<select aria-label={t("personal.format")} className={personalInput} value={format} onChange={e => setFormat(e.target.value)} disabled={busy}>{["stroke_gross", "stroke_net", "stableford_net"].map(f => <option key={f} value={f}>{t(`personal.format.${f}`)}</option>)}</select></label>
-      <details className="rounded-xl border border-primary/15 p-3"><summary className="cursor-pointer text-sm">{t("personal.calendar.options")}</summary>
+      </section>
+      <section className="app-surface space-y-4 p-4 sm:p-5" aria-labelledby="league-format-title">
+      <h2 id="league-format-title" className="flex items-center gap-2 text-sm font-bold"><AppIcon name="cards" className="h-4 w-4" />{t("personal.format")}</h2>
+      <label className="block text-sm"><span className="sr-only">{t("personal.format")}</span><select aria-label={t("personal.format")} className={personalInput} value={format} onChange={e => setFormat(e.target.value)} disabled={busy}>{["stroke_gross", "stroke_net", "stableford_net"].map(f => <option key={f} value={f}>{t(`personal.format.${f}`)}</option>)}</select></label>
+      <details className="border-t border-primary/10 pt-2"><summary className="cursor-pointer py-2 text-sm font-semibold">{t("personal.calendar.options")}</summary>
         <label className="mt-3 block text-sm">{t("personal.requiredCards")}<input aria-label={t("personal.requiredCards")} className={personalInput} type="number" min={1} max={20} required value={cards} onChange={e => setCards(Number(e.target.value))} disabled={busy} /></label>
         <label className="mt-3 flex min-h-[44px] items-center gap-2 text-sm"><input type="checkbox" checked={witness} onChange={e => setWitness(e.target.checked)} disabled={busy} />{t("personal.witnessRequired")}</label>
         <p className="mt-2 text-xs text-primary/70">{t("personal.leagueRules")}</p>
       </details>
-      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      <button className={personalButton} disabled={busy || !tee || !end}>{busy ? t("common.loading") : t("personal.createLeague")}</button>
+      </section>
+      {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      <button className={`${personalButton} w-full gap-2`} disabled={busy || !tee || !end}><AppIcon name="plus" className="h-4 w-4" />{busy ? t("common.loading") : t("personal.createLeague")}</button>
     </form>
   </main>
 }

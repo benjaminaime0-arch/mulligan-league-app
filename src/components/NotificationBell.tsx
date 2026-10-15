@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useId } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useNotifications, type Notification } from "@/hooks/useNotifications"
 import { JoinRequestActionModal } from "@/components/JoinRequestActionModal"
-import { formatRelativeTime, getNotificationIcon } from "@/lib/notificationDisplay"
+import { NotificationItem } from "@/components/NotificationItem"
+import { AppIcon } from "@/components/ui/AppIcon"
 import { useT } from "@/lib/i18n"
 
 export function NotificationBell() {
@@ -13,6 +14,7 @@ export function NotificationBell() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
+  const panelId = `notification-panel-${useId().replace(/:/g, "")}`
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead, refresh } =
     useNotifications()
 
@@ -46,23 +48,7 @@ export function NotificationBell() {
     return () => document.removeEventListener("keydown", handleKey)
   }, [open])
 
-  // Auto-mark every unread notification as read when the dropdown opens.
-  // The user sees the list, so by that moment they've effectively "read"
-  // them — a separate "Mark all read" button is redundant UX.
-  useEffect(() => {
-    if (open && unreadCount > 0) {
-      markAllAsRead()
-    }
-    // We intentionally only depend on `open` — we don't want to re-fire
-    // every time unreadCount changes while the panel is already open
-    // (new notifications arriving via realtime should stay unread and
-    // prominent until the user opens the panel again).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
-
   const handleTap = (notif: Notification) => {
-    if (!notif.read_at) markAsRead(notif.id)
-
     const data = notif.data || {}
 
     // Join request notification that hasn't been acted on → open action modal.
@@ -71,6 +57,7 @@ export function NotificationBell() {
       setActionNotif(notif)
       return
     }
+    if (!notif.read_at) void markAsRead(notif.id)
 
     // join_rejected: the match/game is RLS-invisible to the rejected
     // requester by design — following the id would dead-end. Read-only.
@@ -95,12 +82,14 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/80 text-primary/70 shadow-sm ring-1 ring-primary/10 transition-colors hover:bg-white hover:text-primary active:scale-95"
+        className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white/80 text-primary/70 shadow-sm ring-1 ring-primary/10 transition-colors hover:bg-white hover:text-primary active:scale-95"
         aria-label={
           unreadCount > 0
             ? t("nav.notifications.unread", { n: unreadCount })
             : t("nav.notifications")
         }
+        aria-expanded={open}
+        aria-controls={panelId}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -125,16 +114,15 @@ export function NotificationBell() {
 
       {/* Dropdown panel */}
       {open && (
-        <div className="animate-slide-up absolute right-0 top-11 z-50 w-[340px] max-w-[calc(100vw-24px)] rounded-2xl border border-primary/10 bg-white shadow-xl">
+        <div id={panelId} role="region" aria-label={t("nav.notifications")} className="app-surface absolute right-0 top-12 z-50 w-[360px] max-w-[calc(100vw-24px)] !shadow-xl">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-primary/5 px-4 py-3">
             <h3 className="text-sm font-semibold text-primary">{t("nav.notifications")}</h3>
-            {/* No "Mark all read" button — opening the panel does it
-                automatically (see useEffect on `open` above). */}
+            <button type="button" onClick={() => setOpen(false)} aria-label={t("common.close")} className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/5"><AppIcon name="close" className="h-4 w-4" /></button>
           </div>
 
           {/* Notification list */}
-          <div className="max-h-[400px] overflow-y-auto overscroll-contain">
+          <div className="max-h-[min(400px,55dvh)] overflow-y-auto overscroll-contain p-1">
             {loading ? (
               <div className="flex items-center justify-center py-10">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
@@ -163,7 +151,7 @@ export function NotificationBell() {
             ) : (
               <div className="divide-y divide-primary/5">
                 {notifications.slice(0, 20).map((notif) => (
-                  <NotificationRow
+                  <NotificationItem
                     key={notif.id}
                     notification={notif}
                     onTap={handleTap}
@@ -173,21 +161,21 @@ export function NotificationBell() {
             )}
           </div>
 
-          {/* Footer — link to full page if many notifications */}
-          {notifications.length > 20 && (
-            <div className="border-t border-primary/5 px-4 py-2 text-center">
+          {/* Always expose the inbox, even with fewer than 20 notifications. */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-primary/10 px-4 py-2">
+              {unreadCount > 0 && <button type="button" onClick={() => void markAllAsRead()} className="min-h-[44px] text-xs font-semibold">{t("nav.notifications.markall")}</button>}
               <button
                 type="button"
                 onClick={() => {
                   setOpen(false)
                   router.push("/notifications")
                 }}
-                className="text-xs font-medium text-primary/50 hover:text-primary"
+                className="ml-auto inline-flex min-h-[44px] items-center gap-1 text-xs font-bold"
               >
                 {t("nav.notifications.all")}
+                <AppIcon name="arrow" className="h-3 w-3" />
               </button>
             </div>
-          )}
         </div>
       )}
 
@@ -198,70 +186,5 @@ export function NotificationBell() {
         onResolved={refresh}
       />
     </div>
-  )
-}
-
-/* ── Single notification row ──────────────────────────────────── */
-
-function NotificationRow({
-  notification,
-  onTap,
-}: {
-  notification: Notification
-  onTap: (n: Notification) => void
-}) {
-  const t = useT()
-  const isUnread = !notification.read_at
-  const icon = getNotificationIcon(notification.type)
-  const timeLabel = formatRelativeTime(notification.created_at)
-  const isJoinRequest =
-    notification.type === "join_request" && !!notification.data?.request_id
-  const isClickable =
-    notification.type !== "join_rejected" &&
-    (isJoinRequest ||
-      !!(notification.data?.round_id || notification.data?.match_id || notification.data?.game_id))
-
-  return (
-    <button
-      type="button"
-      onClick={() => onTap(notification)}
-      disabled={!isClickable}
-      className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors ${
-        isClickable ? "hover:bg-cream active:bg-cream" : "cursor-default"
-      } ${isUnread ? "bg-emerald-50/40" : ""}`}
-    >
-      <div
-        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-          isUnread ? "bg-primary/10" : "bg-primary/5"
-        }`}
-      >
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <p
-            className={`text-[13px] leading-snug ${
-              isUnread ? "font-semibold text-primary" : "font-medium text-primary/70"
-            }`}
-          >
-            {notification.title}
-          </p>
-          {isUnread && (
-            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-          )}
-        </div>
-        {notification.body && (
-          <p className="mt-0.5 text-[11px] leading-snug text-primary/45 line-clamp-2">
-            {notification.body}
-          </p>
-        )}
-        <p className="mt-0.5 text-[10px] text-primary/30">{timeLabel}</p>
-        {isJoinRequest && isUnread && (
-          <p className="mt-1 text-[11px] font-medium text-emerald-600">
-            {t("nav.notifications.tap")}
-          </p>
-        )}
-      </div>
-    </button>
   )
 }

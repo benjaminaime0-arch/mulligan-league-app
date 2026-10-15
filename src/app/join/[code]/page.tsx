@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { useAuthContext } from "@/components/AuthProvider"
+import { AppIcon } from "@/components/ui/AppIcon"
 import { Logo } from "@/components/Logo"
 import { useI18n } from "@/lib/i18n"
 import { track } from "@/lib/analytics"
@@ -134,10 +135,10 @@ export default function InviteLandingPage() {
           {t("invite.invalid.body", { code })}
         </p>
         <div className="mt-6 flex flex-col gap-2">
-          <Link href="/games/join" className="rounded-lg bg-primary px-4 py-3 text-center text-sm font-medium text-cream hover:bg-primary/90">
+          <Link href="/games/join" className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 py-3 text-center text-sm font-medium text-cream hover:bg-primary/90">
             {t("invite.manual")}
           </Link>
-          <Link href={user ? "/games" : "/"} className="rounded-lg border border-primary/20 bg-cream px-4 py-3 text-center text-sm font-medium text-primary hover:bg-primary/5">
+          <Link href={user ? "/games" : "/"} className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-primary/20 bg-white px-4 py-3 text-center text-sm font-medium text-primary hover:bg-primary/5">
             {user ? t("invite.browse") : t("invite.gomulligan")}
           </Link>
         </div>
@@ -164,7 +165,7 @@ export default function InviteLandingPage() {
           label={t("invite.players")}
           value={
             preview.max_players != null
-              ? `${preview.member_count} of ${preview.max_players}`
+              ? `${preview.member_count} / ${preview.max_players}`
               : `${preview.member_count}`
           }
         />
@@ -188,7 +189,7 @@ export default function InviteLandingPage() {
       <div className="mt-6 flex flex-col gap-2">
         {user ? (
           preview.is_completed || preview.is_full ? (
-            <Link href="/games" className="rounded-lg bg-primary px-4 py-3 text-center text-sm font-medium text-cream hover:bg-primary/90">
+            <Link href="/games" className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 py-3 text-center text-sm font-medium text-cream hover:bg-primary/90">
               {t("invite.browse")}
             </Link>
           ) : (
@@ -196,13 +197,13 @@ export default function InviteLandingPage() {
               type="button"
               disabled={joining}
               onClick={autoJoin}
-              className="rounded-lg bg-primary px-4 py-3 text-sm font-medium text-cream hover:bg-primary/90 disabled:opacity-60"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-medium text-cream hover:bg-primary/90 disabled:opacity-60"
             >
               {joining ? t("invite.joining") : t("invite.join")}
             </button>
           )
         ) : preview.is_completed || preview.is_full ? (
-          <Link href="/" className="rounded-lg border border-primary/20 bg-cream px-4 py-3 text-center text-sm font-medium text-primary hover:bg-primary/5">
+          <Link href="/" className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-primary/20 bg-white px-4 py-3 text-center text-sm font-medium text-primary hover:bg-primary/5">
             {t("invite.gomulligan")}
           </Link>
         ) : (
@@ -211,13 +212,13 @@ export default function InviteLandingPage() {
                 they never re-type the code. */}
             <Link
               href={`/?tab=signup&redirect=${encodeURIComponent(`/join/${code}`)}`}
-              className="rounded-lg bg-primary px-4 py-3 text-center text-sm font-medium text-cream hover:bg-primary/90"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 py-3 text-center text-sm font-medium text-cream hover:bg-primary/90"
             >
               {t("invite.signup")}
             </Link>
             <Link
               href={`/?redirect=${encodeURIComponent(`/join/${code}`)}`}
-              className="rounded-lg border border-primary/20 bg-cream px-4 py-3 text-center text-sm font-medium text-primary hover:bg-primary/5"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-primary/20 bg-white px-4 py-3 text-center text-sm font-medium text-primary hover:bg-primary/5"
             >
               {t("invite.havelogin")}
             </Link>
@@ -235,12 +236,12 @@ export default function InviteLandingPage() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
+    <main className="mulligan-app flex min-h-screen flex-col items-center justify-center bg-bone px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-6 flex justify-center">
           <Logo size={80} />
         </div>
-        <div className="rounded-2xl border border-primary/10 bg-white p-6 shadow-sm">{children}</div>
+        <div className="app-surface p-6"><span className="app-icon-tile mb-4"><AppIcon name="join" /></span>{children}</div>
       </div>
     </main>
   )
@@ -250,7 +251,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <dt className="text-primary/50">{label}</dt>
-      <dd className="truncate font-medium text-primary">{value}</dd>
+      <dd className="min-w-0 break-words text-right font-semibold text-primary">{value}</dd>
     </div>
   )
 }

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { supabase } from "@/lib/supabase"
 import type { Notification } from "@/hooks/useNotifications"
 import { formatRelativeTime } from "@/lib/notificationDisplay"
-import { useT } from "@/lib/i18n"
+import { useI18n, useT } from "@/lib/i18n"
 
 interface JoinRequestActionModalProps {
   /** Pass the notification whose `data.request_id` should be actioned. */
@@ -86,7 +86,7 @@ export function JoinRequestActionModal({
       <div
         role="dialog"
         aria-modal="true"
-        className="relative w-full max-w-sm rounded-2xl border border-primary/15 bg-white p-6 shadow-lg"
+        className="app-surface relative w-full max-w-sm p-6 !shadow-lg"
       >
         {outcome === "approved" ? (
           <SuccessState
@@ -128,7 +128,7 @@ function DefaultState({
   onApprove: () => void
   onReject: () => void
 }) {
-  const t = useT()
+  const { t, locale } = useI18n()
   return (
     <>
       <h2 className="text-lg font-bold text-primary">{notif.title}</h2>
@@ -136,14 +136,14 @@ function DefaultState({
         <p className="mt-1 text-sm text-primary/60">{notif.body}</p>
       )}
       <div className="mt-2 text-xs text-primary/40">
-        {formatRelativeTime(notif.created_at)}
+        {formatRelativeTime(notif.created_at, locale)}
       </div>
       <div className="mt-5 flex gap-2">
         <button
           type="button"
           onClick={onApprove}
           disabled={loading}
-          className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-60"
+          className="min-h-[48px] flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
         >
           {loading ? t("common.working") : t("games.match.request.approve")}
         </button>
@@ -151,7 +151,7 @@ function DefaultState({
           type="button"
           onClick={onReject}
           disabled={loading}
-          className="flex-1 rounded-lg border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 transition-all hover:bg-red-50 active:scale-[0.98] disabled:opacity-60"
+          className="min-h-[48px] flex-1 rounded-xl border border-red-200 px-4 py-3 text-sm font-semibold text-red-700 disabled:opacity-60"
         >
           {t("games.match.request.reject")}
         </button>
@@ -191,7 +191,7 @@ function SuccessState({
       <button
         type="button"
         onClick={onClose}
-        className="mt-5 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-cream hover:bg-primary/90"
+        className="mt-5 min-h-[48px] w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white"
       >
         {t("common.done")}
       </button>
@@ -208,7 +208,7 @@ function ErrorState({ message, onClose }: { message: string; onClose: () => void
       <button
         type="button"
         onClick={onClose}
-        className="mt-5 w-full rounded-lg border border-primary/20 bg-white px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
+        className="mt-5 min-h-[48px] w-full rounded-xl border border-primary/20 bg-white px-4 py-3 text-sm font-semibold"
       >
         {t("common.close")}
       </button>

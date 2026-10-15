@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useRef, useId } from "react"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import type { NotificationType } from "@/lib/notificationDisplay"
@@ -18,6 +18,8 @@ export type Notification = {
 }
 
 const DEFAULT_PAGE_SIZE = 50
+const READ_SYNC_EVENT = "mulligan:notifications-read"
+type ReadSyncDetail = { userId: string; ids: string[] | null; readAt: string }
 
 export interface UseNotificationsOptions {
   /** How many to fetch per page. Default 50. */
@@ -36,6 +38,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const subscriptionId = useId()
 
   /** Initial + refresh fetch: first page, newest first. */
   const fetchNotifications = useCallback(async () => {
@@ -97,15 +100,34 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
 
   // Initial fetch + realtime subscription (INSERT + UPDATE)
   useEffect(() => {
-    if (authLoading || !user) {
+    if (authLoading) return
+    if (!user) {
+      setNotifications([])
+      setUnreadCount(0)
       setLoading(false)
       return
     }
 
+    setLoading(true)
     fetchNotifications()
+    const syncReads = (event: Event) => {
+      const detail = (event as CustomEvent<ReadSyncDetail>).detail
+      if (detail?.userId !== user.id) return
+      const ids = detail.ids ? new Set(detail.ids) : null
+      setNotifications(previous => previous.map(row =>
+        !row.read_at && (!ids || ids.has(row.id)) ? { ...row, read_at: detail.readAt } : row
+      ))
+      syncUnread()
+    }
+    window.addEventListener(READ_SYNC_EVENT, syncReads)
+    const syncUnread = () => {
+      void supabase.rpc("get_unread_notification_count").then(({ data, error }) => {
+        if (!error && data != null) setUnreadCount(data as number)
+      })
+    }
 
     const channel = supabase
-      .channel(`notifications:${user.id}`)
+      .channel(`notifications:${user.id}:${subscriptionId}`)
       .on(
         "postgres_changes",
         {
@@ -119,11 +141,9 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
           setNotifications((prev) => {
             // Guard against duplicate inserts
             if (prev.some((n) => n.id === newNotif.id)) return prev
-            return [newNotif, ...prev].slice(0, pageSize)
+            return paginated ? [newNotif, ...prev] : [newNotif, ...prev].slice(0, pageSize)
           })
-          if (!newNotif.read_at) {
-            setUnreadCount((prev) => prev + 1)
-          }
+          syncUnread()
         },
       )
       .on(
@@ -136,20 +156,13 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
         },
         (payload) => {
           const updated = payload.new as Notification
-          const prevRow = payload.old as Notification | null
 
           setNotifications((prev) =>
             prev.map((n) => (n.id === updated.id ? { ...n, ...updated } : n)),
           )
 
-          // Sync unread count on read_at transitions (cross-tab / cross-device)
-          const wasUnread = !prevRow?.read_at
-          const nowRead = !!updated.read_at
-          if (wasUnread && nowRead) {
-            setUnreadCount((prev) => Math.max(0, prev - 1))
-          } else if (!wasUnread && !nowRead) {
-            setUnreadCount((prev) => prev + 1)
-          }
+          // The server count avoids decrementing twice after an optimistic read.
+          syncUnread()
         },
       )
       .subscribe()
@@ -157,12 +170,13 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     channelRef.current = channel
 
     return () => {
+      window.removeEventListener(READ_SYNC_EVENT, syncReads)
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current)
         channelRef.current = null
       }
     }
-  }, [authLoading, user, fetchNotifications, pageSize])
+  }, [authLoading, user, fetchNotifications, pageSize, paginated, subscriptionId])
 
   /**
    * Mark single notification as read. Optimistic update with rollback on error.
@@ -196,6 +210,10 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
           ),
         )
         setUnreadCount((prev) => prev + 1)
+      } else {
+        // Keep both responsive bells and an open inbox in sync, even if
+        // the realtime connection is unavailable on this device.
+        window.dispatchEvent(new CustomEvent<ReadSyncDetail>(READ_SYNC_EVENT, { detail: { userId: user.id, ids: [notificationId], readAt: nowIso } }))
       }
     },
     [user, notifications],
@@ -206,8 +224,8 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     if (!user) return
 
     const snapshot = notifications
-    const unreadIds = snapshot.filter((n) => !n.read_at).map((n) => n.id)
-    if (unreadIds.length === 0) return
+    // Unread messages may be on pages not loaded by this bell/inbox yet.
+    if (unreadCount === 0) return
 
     const nowIso = new Date().toISOString()
     setNotifications((prev) =>
@@ -222,6 +240,8 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
       // Rollback
       setNotifications(snapshot)
       setUnreadCount(previousUnread)
+    } else {
+      window.dispatchEvent(new CustomEvent<ReadSyncDetail>(READ_SYNC_EVENT, { detail: { userId: user.id, ids: null, readAt: nowIso } }))
     }
   }, [user, notifications, unreadCount])
 
