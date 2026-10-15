@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
 const read=p=>fs.readFileSync(p,'utf8');
 function load(file,imports={},globals={}){
- const module={exports:{}};vm.runInNewContext(ts.transpileModule(read(file),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:name=>imports[name]??require(name),console,Buffer,URL,Uint8Array,atob,setTimeout,clearTimeout,process:{env:{NEXT_PUBLIC_VAPID_PUBLIC_KEY:Buffer.from([4,...Array(64).fill(1)]).toString('base64url')}},...globals});return module.exports;
+ const module={exports:{}};vm.runInNewContext(ts.transpileModule(read(file),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:name=>imports[name]??require(name),console,Buffer,URL,URLSearchParams,Uint8Array,atob,setTimeout,clearTimeout,process:{env:{NEXT_PUBLIC_VAPID_PUBLIC_KEY:Buffer.from([4,...Array(64).fill(1)]).toString('base64url')}},...globals});return module.exports;
 }
 function pushClient(overrides={}){
  let unsub=0,subscribes=0,registers=0,permissionCalls=0;
@@ -102,4 +102,30 @@ test('incomplete invitations and rejected requests stay in the inbox',async()=>{
 test('empty or malformed payloads still display a visible generic push',async()=>{for(const payload of [null,[],42]){const x=sw();await x.push(payload);assert.equal(x.notices[0].title,'Mulligan');}});
 test('an inactive worker times out rather than hanging activation',async()=>{
  const x=pushClient({setTimeout:callback=>{queueMicrotask(callback);return 1},clearTimeout(){}});x.worker.ready=new Promise(()=>{});assert.equal(await x.api.subscribeToPush(),false);
+});
+function readSyncHarness(){
+ let effect,state={user:{id:'recipient'},loading:true},failure=null,pending=null;const events=new Map(),replaced=[],dispatched=[],calls=[];
+ const window={location:{pathname:'/join/ABC123',search:'?n=11111111-1111-1111-1111-111111111111'},addEventListener:(k,v)=>events.set(k,v),removeEventListener:k=>events.delete(k),dispatchEvent:e=>dispatched.push(e)};
+ const router={replace:(...args)=>replaced.push(args)};
+ const {NotificationReadSync}=load('src/components/NotificationReadSync.tsx',{
+  react:{useEffect:fn=>{effect=fn}},'next/navigation':{useRouter:()=>router,usePathname:()=>window.location.pathname},
+  '@/components/AuthProvider':{useAuthContext:()=>state},'@/lib/supabase':{supabase:{rpc:async(name,args)=>{calls.push({name,args});if(pending)await pending;return{error:failure}}}},
+ },{window,CustomEvent:class{constructor(type,options){this.type=type;this.detail=options.detail}}});
+ return {window,events,replaced,dispatched,calls,setState:s=>{state=s},setFailure:f=>{failure=f},setPending:p=>{pending=p},render:()=>{NotificationReadSync();return effect()},settle:()=>new Promise(resolve=>setImmediate(resolve))};
+}
+test('push read tracking waits for restored auth, runs on join pages, and refreshes the badge',async()=>{
+ const x=readSyncHarness();x.render();await x.settle();assert.equal(x.calls.length,0);
+ x.setState({user:{id:'recipient'},loading:false});x.render();await x.settle();assert.equal(x.calls.length,1);assert.equal(x.calls[0].args.p_notification_ids[0],'11111111-1111-1111-1111-111111111111');assert.equal(x.replaced[0][0],'/join/ABC123');assert.equal(x.dispatched[0].detail.userId,'recipient');
+});
+test('failed read tracking preserves the deep link and retries on reconnect; unmount removes listeners',async()=>{
+ const x=readSyncHarness();x.setState({user:{id:'recipient'},loading:false});x.setFailure({message:'offline'});const cleanup=x.render();await x.settle();assert.equal(x.replaced.length,0);
+ x.setFailure(null);await x.events.get('online')();assert.equal(x.replaced.length,1);cleanup();assert.equal(x.events.size,0);
+});
+test('a late read acknowledgement never navigates back to the previous page',async()=>{
+ const x=readSyncHarness();x.setState({user:{id:'recipient'},loading:false});let release;x.setPending(new Promise(resolve=>{release=resolve}));x.render();x.window.location.pathname='/games/accepted';release();await x.settle();assert.equal(x.replaced.length,0);
+});
+test('signed-out push visitors keep their exact app-local destination through login',()=>{
+ let effect;const replaced=[];const {useAuth}=load('src/hooks/useAuth.ts',{
+  react:{useEffect:fn=>{effect=fn}},'next/navigation':{useRouter:()=>({replace:url=>replaced.push(url)}),usePathname:()=>'/rounds/card'},'@/components/AuthProvider':{useAuthContext:()=>({user:null,loading:false})}
+ },{window:{location:{search:'?n=notice'}}});useAuth();effect();assert.equal(replaced[0],'/?redirect=%2Frounds%2Fcard%3Fn%3Dnotice');
 });

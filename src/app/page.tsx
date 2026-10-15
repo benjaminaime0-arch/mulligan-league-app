@@ -8,7 +8,7 @@ import { LoginForm } from "@/components/auth/LoginForm"
 import { SignupForm } from "@/components/auth/SignupForm"
 import { OAuthButtons } from "@/components/auth/OAuthButtons"
 import { useI18n } from "@/lib/i18n"
-import { signupDestination } from "@/lib/signupFlow"
+import { signupDestination, signupRedirectPath } from "@/lib/signupFlow"
 import { track } from "@/lib/analytics"
 
 export default function Home() {
@@ -52,7 +52,7 @@ function HomeContent() {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
         if (signupConfirmed) track("signup_completed", { provider: "email" })
-        router.replace(signupConfirmed ? signupDestination(redirectTo) : "/home")
+        router.replace(signupConfirmed ? signupDestination(redirectTo) : signupRedirectPath(redirectTo) || "/home")
       } else {
         setChecking(false)
       }

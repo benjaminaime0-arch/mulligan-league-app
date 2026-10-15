@@ -7,7 +7,6 @@ import { AppIcon } from "@/components/ui/AppIcon"
 import { Logo } from "@/components/Logo"
 import { Avatar } from "@/components/Avatar"
 import { NotificationBell } from "@/components/NotificationBell"
-import { NotificationReadSync } from "@/components/NotificationReadSync"
 import { useAuthContext } from "@/components/AuthProvider"
 import { useI18n } from "@/lib/i18n"
 import { supabase } from "@/lib/supabase"
@@ -140,8 +139,6 @@ export function Navbar() {
 
   return (
     <>
-      {/* Mount the ?n= → mark-as-read sync once per authenticated session */}
-      <NotificationReadSync />
 
       {/* Desktop top nav */}
       <header className="sticky top-0 z-40 hidden border-b border-primary/10 bg-white/95 backdrop-blur md:block">

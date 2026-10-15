@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { signupRedirectPath } from "@/lib/signupFlow"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useT } from "@/lib/i18n"
@@ -48,7 +49,7 @@ export function LoginForm() {
       if (signInError) throw signInError
 
       router.refresh()
-      router.push(redirectTo || "/home")
+      router.push(signupRedirectPath(redirectTo) || "/home")
     } catch (err) {
       setError(err instanceof Error ? err.message : t("auth.error.credentials"))
     } finally {
