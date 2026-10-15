@@ -36,6 +36,10 @@ type PersonalFunctions = {
     }
     Returns: Json
   }
+  submit_personal_card_to_leagues: {
+    Args: { p_round: string; p_games: string[]; p_revision: string }
+    Returns: Json
+  }
   submit_personal_card: {
     Args: { p_round: string; p_game: string }
     Returns: Json

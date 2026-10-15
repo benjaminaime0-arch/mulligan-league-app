@@ -2,7 +2,10 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ValidationTimer } from "./ValidationTimer"
-import { personalSubmissionStatusKey } from "@/lib/personalSubmissionStatus"
+import { ConfirmModal } from "@/components/ConfirmModal"
+import { QuickScoreEntry } from "./QuickScoreEntry"
+import { PersonalLeagueSubmission } from "./PersonalLeagueSubmission"
+import { cardEntrySummary } from "@/lib/personalCardFlow"
 import { AppIcon } from "@/components/ui/AppIcon"
 import { ScoreSummary } from "./ScoreSummary"
 import { useI18n } from "@/lib/i18n"
@@ -35,6 +38,7 @@ export function PersonalRoundEditor({
         },
     )
   const [reviewHoles, setReviewHoles] = useState<PersonalHole[]>(makeHoles)
+  const [entryReview, setEntryReview] = useState(false)
   const [validator, setValidator] = useState("")
   const [present, setPresent] = useState(false)
   const [correctionReason, setCorrectionReason] = useState("")
@@ -95,7 +99,8 @@ export function PersonalRoundEditor({
     await onReload()
   }
   const complete = cardIsComplete(holes, data.tee.hole_count)
-  const entered = holes.filter(h => h.completion === "picked_up" || (h.completion === "completed" && Number.isInteger(h.strokes) && h.strokes! >= 1 && h.strokes! <= 30)).length
+  const summary = cardEntrySummary(holes)
+  const entered = summary.entered
   const rules = (<details className="app-surface my-4 px-4 text-xs text-primary/70"><summary className="cursor-pointer py-3 font-semibold">{t("personal.ui.rules")}</summary>{ownerDraft && <div className="space-y-2 pb-1"><p>{t("personal.lifecycle.deadline")}: {displayTime(data.round.entry_deadline_at)} ({data.round.course_timezone})</p><p>{t("personal.lifecycle.validatorHelp")}</p></div>}<p className="mt-3 text-sm">
         {t("personal.handicapSnapshot")}: {data.round.handicap_index} (
         {t(`personal.source.${data.round.handicap_source}`)})
@@ -179,35 +184,21 @@ export function PersonalRoundEditor({
           {editable && <div role="progressbar" aria-label={t("personal.enterScores")} aria-valuemin={0} aria-valuemax={data.tee.hole_count} aria-valuenow={entered} className="mt-3 h-1.5 overflow-hidden rounded-full bg-primary/10"><div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${entered / data.tee.hole_count * 100}%` }} /></div>}
           {data.tee.hole_count === 18 && <nav aria-label={t("detail.scoreSections")} className="mt-3 flex gap-2">{[1, 10].map(n => <a key={n} href={`#holes-${n}`} className="inline-flex min-h-[44px] items-center rounded-full bg-primary/5 px-4 text-xs font-bold">{t("personal.ui.hole")} {n}–{n + 8}</a>)}</nav>}
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        {editable ? <QuickScoreEntry references={data.reference_holes} holes={holes} onChange={change}
+          disabled={busy || (ownerDraft && (!autosave.ready || ['conflict', 'blocked', 'session'].includes(autosave.state.status)))}
+          onDone={() => { if (ownerDraft) setEntryReview(true); else document.getElementById("card-validation-actions")?.scrollIntoView({ block: "center", behavior: "smooth" }) }} /> : <div className="grid gap-4 md:grid-cols-2">
           {[0, ...(data.tee.hole_count === 18 ? [9] : [])].map(start => <div key={start} id={`holes-${start + 1}`} className="app-surface scroll-mt-20 overflow-hidden">
             <h3 className="border-b border-primary/10 bg-sage/25 px-3 py-3 text-sm font-bold">{t("personal.ui.hole")} {start + 1}–{Math.min(start + 9, data.tee.hole_count)}</h3>
-            {editable ? <fieldset disabled={busy || (ownerDraft && (!autosave.ready || ['conflict', 'blocked', 'session'].includes(autosave.state.status)))}>
-              <legend className="sr-only">{t("personal.ui.hole")} {start + 1}–{start + 9}</legend>
-              <div aria-hidden="true" className="grid grid-cols-[28px_40px_minmax(0,1fr)_60px] items-center gap-2 border-b border-primary/10 px-3 py-2 text-[11px] text-primary/70"><span>{t("personal.ui.hole")}</span><span>Par /<br />{t("personal.ui.index")}</span><span>{t("personal.ui.state")}</span><span>{t("personal.ui.strokes")}</span></div>
-              {data.reference_holes.slice(start, start + 9).map(ref => {
-                const h = holes.find(x => x.hole_number === ref.hole_number)!
-                return <div key={ref.hole_number} className="grid grid-cols-[28px_40px_minmax(0,1fr)_60px] items-center gap-2 border-b border-primary/5 px-3 py-2 last:border-0">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/5 text-xs font-bold">{ref.hole_number}</span>
-                  <span className="text-xs text-primary/70">{ref.par} / {ref.stroke_index ?? "—"}</span>
-                  <select aria-label={t("personal.holeState", { n: ref.hole_number })} className={`${personalInput} !mt-0 !px-2`} value={h.completion} onChange={e => change(ref.hole_number, { completion: e.target.value as PersonalHole["completion"], strokes: e.target.value === "completed" ? h.strokes ?? ref.par : null })}>
-                    <option value="not_played">{t("personal.hole.not_played")}</option>
-                    <option value="completed">{t("personal.hole.completed")}</option>
-                    <option value="picked_up">{t("personal.hole.picked_up")}</option>
-                  </select>
-                  {h.completion === "completed" ? <input aria-label={t("personal.holeScore", { n: ref.hole_number })} className={`${personalInput} !mt-0 !px-1 text-center !text-xl font-bold tabular-nums !bg-sage/20`} type="number" inputMode="numeric" min="1" max="30" step="1" value={h.strokes ?? ""} onChange={e => change(ref.hole_number, { strokes: e.target.value === "" ? null : Number(e.target.value) })} /> : <span className="text-center text-primary/40">—</span>}
-                </div>
-              })}
-            </fieldset> : <table className="w-full text-left text-sm">
-              <caption className="sr-only">{t("personal.ui.scores")} · {t("personal.ui.hole")} {start + 1}–{start + 9}</caption>
+            <table className="w-full text-left text-sm"><caption className="sr-only">{t("personal.ui.scores")} · {t("personal.ui.hole")} {start + 1}–{start + 9}</caption>
               <thead className="text-xs text-primary/70"><tr><th scope="col" className="px-3 py-2">{t("personal.ui.hole")}</th><th scope="col">Par</th><th scope="col">{t("personal.ui.index")}</th><th scope="col" className="pr-3 text-right">{t("personal.ui.strokes")}</th></tr></thead>
               <tbody>{data.reference_holes.slice(start, start + 9).map(ref => {
                 const h = holes.find(x => x.hole_number === ref.hole_number)!
                 return <tr key={ref.hole_number} className="border-t border-primary/5"><th scope="row" className="px-3 py-2 font-semibold">{ref.hole_number}</th><td>{ref.par}</td><td>{ref.stroke_index ?? "—"}</td><td className="pr-3 text-right font-bold">{h.completion === "completed" ? h.strokes ?? "—" : t(`personal.hole.${h.completion}`)}</td></tr>
               })}</tbody>
-            </table>}
+            </table>
           </div>)}
-        </div>
+        </div>}
+        {editable && <div className="app-surface mt-3 flex items-center justify-between gap-3 p-4 text-sm"><span>{t("personal.gross")}: <strong>{summary.gross ?? "—"}</strong></span><span className="text-xs text-primary/65">{summary.pickedUp ? t("cardFlow.pickedUpCount", { n: summary.pickedUp }) : t("personal.ui.progress", { n: entered, total: data.tee.hole_count })}</span></div>}
       </section>
       {ownerDraft && <div className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 mx-auto flex max-w-[42rem] gap-2 rounded-2xl border border-primary/10 bg-white/95 p-3 shadow-lg backdrop-blur md:static md:mt-4 md:max-w-none md:shadow-none">
         <button
@@ -225,27 +216,14 @@ export function PersonalRoundEditor({
         <button
           className={`${personalButton} flex-1 !px-3 !text-xs`}
           disabled={busy || !complete || !data.tee.ready || !autosave.online || ['offline', 'conflict', 'blocked', 'session', 'invalid', 'storageError'].includes(autosave.state.status)}
-          onClick={() =>
-            void run(async () => {
-              const v = await save()
-              personalResult(
-                await supabase.rpc("request_personal_validation", {
-                  p_round: data.round.id,
-                  p_expected_version: v,
-                  p_validator: validator || null,
-                }),
-              )
-              await onReload()
-              setNotice(t(validator ? "personal.lifecycle.requested" : "personal.confirmed"))
-            })
-          }
+          onClick={() => setEntryReview(true)}
         >
-          {t("personal.confirm")}
+          {t("cardFlow.review")}
         </button>
       </div>}
       {ownerDraft && rules}
       {validatorReview && (
-        <section className="app-surface mt-4 space-y-3 p-4">
+        <section id="card-validation-actions" className="app-surface mt-4 space-y-3 p-4">
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={present} onChange={(e) => setPresent(e.target.checked)} />{t("personal.present")}</label>
           <button className={personalButton} disabled={busy || !present || !autosave.online} onClick={() => void run(() => review(false))}>{t("personal.approve")}</button>
           <label className="block text-sm">{t("personal.lifecycle.correctionReason")}
@@ -274,67 +252,24 @@ export function PersonalRoundEditor({
           {t("personal.incomplete")}
         </p>
       )}
-      {data.is_owner && data.round.status !== "disputed" && (ownerDraft || data.revision) && (
-        <section className="mt-8">
-          <h2 className="font-semibold">{t(ownerDraft ? "personal.lifecycle.draftLeagues" : "personal.submitTitle")}</h2>
-          <p className="mt-2 text-sm text-primary/70">
-            {t(ownerDraft ? "personal.lifecycle.bootstrap" : "personal.shareNotice")}
-          </p>
-          <ul className="mt-3 space-y-2">
-            {data.leagues.map((g) => (
-              <li
-                key={g.id}
-                className="app-surface p-4"
-              >
-                <Link
-                  href={`/games/${g.id}`}
-                  className="flex min-h-[44px] items-center justify-between gap-2 text-sm font-bold"
-                >
-                  <span>{g.name}</span><AppIcon name="arrow" className="h-4 w-4 shrink-0" />
-                </Link>
-                {g.submission_status ? (
-                  <p className="mt-1 text-sm">{t(personalSubmissionStatusKey(g.submission_status, data.round.status))}</p>
-                ) : g.reason ? (
-                  <p className="mt-1 text-xs text-amber-800">
-                    {t(`personal.reason.${g.reason}`)}
-                  </p>
-                ) : (
-                  <>
-                    <p className="my-2 text-xs">
-                      {g.attestation === "peer_required"
-                        ? t("personal.witnessRequired")
-                        : t("personal.selfDeclared")}
-                    </p>
-                    <button
-                      className={personalButton}
-                      disabled={busy || !autosave.online}
-                      onClick={() =>
-                        void run(async () => {
-                          const res = personalResult<{
-                            success: boolean
-                            reason?: string
-                          }>(
-                            await supabase.rpc("submit_personal_card", {
-                              p_round: data.round.id,
-                              p_game: g.id,
-                            }),
-                          )
-                          if (!res.success)
-                            throw new Error(t(`personal.reason.${res.reason}`))
-                          await onReload()
-                        })
-                      }
-                    >
-                      {t("personal.submit")}
-                    </button>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-          <Link className="mt-5 inline-block min-h-[44px] py-3 text-sm underline" href={`/games/create?tee=${data.round.tee_id}&start=${data.round.played_on}`}>{t("personal.createLeague")}</Link>
-        </section>
-      )}
+      {data.is_owner && data.round.status !== "disputed" && (ownerDraft || data.revision) && <PersonalLeagueSubmission data={data} online={autosave.online} busy={busy} onBusyChange={setBusy} onReload={onReload} />}
+      <ConfirmModal open={entryReview && ownerDraft} title={t("cardFlow.reviewTitle")} confirmLabel={t("personal.confirm")} confirmDisabled={!complete || !autosave.online} loading={busy} onCancel={() => setEntryReview(false)} onConfirm={() => {
+        if (!complete || !autosave.online) return
+        setEntryReview(false)
+        void run(async () => {
+          const v = await save()
+          personalResult(await supabase.rpc("request_personal_validation", { p_round: data.round.id, p_expected_version: v, p_validator: validator || null }))
+          await onReload()
+          setNotice(t(validator ? "personal.lifecycle.requested" : "personal.confirmed"))
+        })
+      }}>
+        <p className="mt-3 text-sm font-bold">{data.tee.course_name} · {t("personal.picker.holeCount", { n: data.tee.hole_count })}</p>
+        <p className="mt-1 text-xs text-primary/65">{data.round.played_on} · {data.tee.name}</p>
+        <div className="my-4 flex justify-between rounded-xl bg-sage/25 p-3 text-sm"><span>{t("personal.gross")} <strong>{summary.gross ?? "—"}</strong></span><span>{t("cardFlow.pickedUpCount", { n: summary.pickedUp })}</span></div>
+        <div className="grid grid-cols-9 gap-1">{holes.map(h => <div key={h.hole_number} className="rounded-md bg-primary/5 py-2 text-center"><p className="text-[10px] text-primary/60">{h.hole_number}</p><p className="text-xs font-bold">{h.completion === "picked_up" ? t("cardFlow.pickedUpShort") : h.strokes ?? "—"}</p></div>)}</div>
+        <p className="mt-4 text-xs text-primary/70">{validator ? `${t("personal.lifecycle.validator")}: ${data.validators.find(v => v.id === validator)?.name ?? ""}` : t("personal.lifecycle.self")}</p>
+        <p className="mt-2 text-xs text-primary/65">{t("cardFlow.lockNotice")}</p>
+      </ConfirmModal>
     </main>
   )
 }
