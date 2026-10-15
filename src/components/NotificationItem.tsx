@@ -1,5 +1,6 @@
 "use client"
 
+import { notificationTarget } from "@/lib/notificationTarget"
 import type { Notification } from "@/hooks/useNotifications"
 import { useI18n } from "@/lib/i18n"
 import { formatRelativeTime, getNotificationIcon } from "@/lib/notificationDisplay"
@@ -14,7 +15,7 @@ export function NotificationItem({ notification, onTap }: {
   const unread = !notification.read_at
   const request = notification.type === "join_request" && !!notification.data?.request_id
   const clickable = notification.type !== "join_rejected" &&
-    (request || !!(notification.data?.round_id || notification.data?.match_id || notification.data?.game_id || notification.data?.new_member_id))
+    (request || !!notificationTarget(notification.type, notification.data ?? {}))
   return <button type="button" onClick={() => onTap(notification)} disabled={!clickable}
     className={`flex min-h-[72px] w-full items-start gap-3 rounded-[18px] p-4 text-left transition-colors ${clickable ? "hover:bg-sage/20 active:bg-sage/30" : "cursor-default"} ${unread ? "bg-sage/15" : ""}`}>
     <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${unread ? "bg-primary text-white" : "bg-primary/5 text-primary/65"}`} aria-hidden="true">{notification.type === "personal_card" ? <AppIcon name="cards" className="h-4 w-4" /> : getNotificationIcon(notification.type, "h-4 w-4")}</span>

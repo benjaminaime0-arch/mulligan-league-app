@@ -1,5 +1,7 @@
 "use client"
 
+import { notificationTarget } from "@/lib/notificationTarget"
+
 import { useState, useEffect, useRef, useId } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useNotifications, type Notification } from "@/hooks/useNotifications"
@@ -65,15 +67,8 @@ export function NotificationBell() {
 
     setOpen(false)
 
-    if (data.round_id) {
-      router.push(`/rounds/${data.round_id}`)
-    } else if (data.match_id) {
-      router.push(`/matches/${data.match_id}`)
-    } else if (data.game_id) {
-      router.push(`/games/${data.game_id}`)
-    } else if (data.new_member_id) {
-      router.push(`/players/${data.new_member_id}`)
-    }
+    const destination = notificationTarget(notif.type, data)
+    if (destination) router.push(destination)
   }
 
   return (

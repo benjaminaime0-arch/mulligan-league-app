@@ -9,6 +9,7 @@ import {
 } from "react"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { detachBrowserPush } from "@/lib/pushNotifications"
 import { offlineOwner, setOfflineOwner } from "@/lib/cardOffline"
 import { setCardDraftOwner, stopCardDrafts } from "@/lib/cardDraftManager"
 
@@ -64,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!active) return
       const previous = offlineOwner()
       if (!session && restoreOffline()) return
-      if (previous && (!session || previous !== session.user.id)) stopCardDrafts(previous)
+      if (previous && (!session || previous !== session.user.id)) { stopCardDrafts(previous); void detachBrowserPush() }
       if (session) { setOfflineOwner(session.user.id); setCardDraftOwner(session.user.id) }
       else if (event === "SIGNED_OUT") setOfflineOwner(null)
       setState({ user: session?.user ?? null, loading: false })

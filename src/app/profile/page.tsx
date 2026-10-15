@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { supabase } from "@/lib/supabase"
+import { unsubscribeFromPush } from "@/lib/pushNotifications"
 import { clearCardOfflineData, pendingCards } from "@/lib/cardOffline"
 import { stopCardDrafts } from "@/lib/cardDraftManager"
 import { toLocalIso } from "@/lib/date"
@@ -509,6 +510,7 @@ export default function ProfilePage() {
     setLogoutLoading(true)
     try {
       if (user) { stopCardDrafts(user.id); clearCardOfflineData(user.id) }
+      await unsubscribeFromPush()
       await supabase.auth.signOut()
       router.push("/")
     } catch (err) {

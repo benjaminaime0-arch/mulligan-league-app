@@ -1,5 +1,7 @@
 "use client"
 
+import { notificationTarget } from "@/lib/notificationTarget"
+
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useNotifications, type Notification } from "@/hooks/useNotifications"
@@ -59,15 +61,8 @@ export default function NotificationsPage() {
     // requester by design — following the id would dead-end. Read-only.
     if (notif.type === "join_rejected") return
 
-    if (data.round_id) {
-      router.push(`/rounds/${data.round_id}`)
-    } else if (data.match_id) {
-      router.push(`/matches/${data.match_id}`)
-    } else if (data.game_id) {
-      router.push(`/games/${data.game_id}`)
-    } else if (data.new_member_id) {
-      router.push(`/players/${data.new_member_id}`)
-    }
+    const destination = notificationTarget(notif.type, data)
+    if (destination) router.push(destination)
   }
 
   // Group by date
