@@ -1,18 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useNotifications, type Notification } from "@/hooks/useNotifications"
 import { useAuth } from "@/hooks/useAuth"
-import { LoadingSpinner } from "@/components/LoadingSpinner"
+import { AppIcon } from "@/components/ui/AppIcon"
+import { NotificationItem } from "@/components/NotificationItem"
 import { JoinRequestActionModal } from "@/components/JoinRequestActionModal"
 import { NotificationPreferences } from "@/components/NotificationPreferences"
 import { PushNotificationToggle } from "@/components/PushNotificationToggle"
-import { useI18n, useT } from "@/lib/i18n"
-import {
-  formatRelativeTime,
-  getNotificationIcon,
-} from "@/lib/notificationDisplay"
+import { useI18n } from "@/lib/i18n"
 
 export default function NotificationsPage() {
   const router = useRouter()
@@ -31,14 +28,24 @@ export default function NotificationsPage() {
   } = useNotifications({ paginated: true })
 
   const [actionNotif, setActionNotif] = useState<Notification | null>(null)
+  const [unreadOnly, setUnreadOnly] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  useEffect(() => {
+    const revealSettings = () => setSettingsOpen(true)
+    const openSettings = () => { if (window.location.hash === "#notification-settings") setSettingsOpen(true) }
+    openSettings()
+    window.addEventListener("hashchange", openSettings)
+    window.addEventListener("mulligan:open-notification-settings", revealSettings)
+    return () => {
+      window.removeEventListener("hashchange", openSettings)
+      window.removeEventListener("mulligan:open-notification-settings", revealSettings)
+    }
+  }, [])
 
-  if (authLoading) return <LoadingSpinner message={t("auth.checking")} />
+  if (authLoading || loading) return <main className="app-page space-y-4" role="status"><span className="sr-only">{t("nav.notifications.loading")}</span><div className="h-24 animate-pulse rounded-[20px] bg-sage/30" /><div className="app-surface h-52 animate-pulse" /></main>
   if (!user) return null
-  if (loading) return <LoadingSpinner message={t("nav.notifications.loading")} />
 
   const handleTap = async (notif: Notification) => {
-    if (!notif.read_at) markAsRead(notif.id)
-
     const data = notif.data || {}
 
     // Open approve/reject modal for unacted join_requests
@@ -46,6 +53,7 @@ export default function NotificationsPage() {
       setActionNotif(notif)
       return
     }
+    if (!notif.read_at) void markAsRead(notif.id)
 
     // join_rejected: the match/game is RLS-invisible to the rejected
     // requester by design — following the id would dead-end. Read-only.
@@ -63,15 +71,15 @@ export default function NotificationsPage() {
   }
 
   // Group by date
-  const grouped = groupByDate(notifications, t, locale)
+  const grouped = groupByDate(unreadOnly ? notifications.filter(n => !n.read_at) : notifications, t, locale)
 
   return (
-    <main className="min-h-screen px-4 pb-6 pt-4">
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+    <main className="app-page">
+      <div className="flex w-full flex-col gap-5">
         {/* Header */}
-        <header className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-primary">
+        <header className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3"><span className="app-icon-tile"><AppIcon name="bell" /></span><div>
+            <h1 className="text-2xl font-bold tracking-tight">
               {t("nav.notifications")}
             </h1>
             {unreadCount > 0 && (
@@ -79,13 +87,14 @@ export default function NotificationsPage() {
                 {t("nav.notifications.unreadcount", { n: unreadCount })}
               </p>
             )}
-          </div>
+          </div></div>
           {unreadCount > 0 && (
             <button
               type="button"
               onClick={markAllAsRead}
-              className="rounded-lg border border-primary/20 bg-white px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/5"
+              className="app-surface inline-flex min-h-[44px] items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-sage/20"
             >
+              <AppIcon name="check" className="h-4 w-4" />
               {t("nav.notifications.markall")}
             </button>
           )}
@@ -94,22 +103,23 @@ export default function NotificationsPage() {
         {/* Settings — the account menu's "Notification settings" entry
             lands here, so the settings actually live here (they were
             previously built but mounted nowhere). */}
-        <section className="rounded-2xl border border-primary/10 bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-primary">
+        <details className="app-surface scroll-mt-20 p-4" id="notification-settings" open={settingsOpen} onToggle={event => setSettingsOpen(event.currentTarget.open)}>
+          <summary className="flex cursor-pointer items-center justify-between gap-3 text-sm font-bold"><span className="inline-flex items-center gap-2"><AppIcon name="settings" className="h-4 w-4" />
             {t("notif.settings.title")}
-          </h2>
-          <p className="mt-0.5 text-xs text-primary/50">
+          </span><AppIcon name="arrow" className="h-4 w-4 rotate-90" /></summary>
+          <p className="mt-2 text-xs text-primary/65">
             {t("notif.settings.sub")}
           </p>
           <div className="mt-3 flex flex-col gap-3">
             <PushNotificationToggle />
             <NotificationPreferences />
           </div>
-        </section>
+        </details>
+        <div role="group" aria-label={t("inbox.design.filter")} className="flex gap-2">{[false,true].map(only => <button key={String(only)} type="button" aria-pressed={unreadOnly === only} onClick={() => setUnreadOnly(only)} className={`inline-flex min-h-[44px] items-center rounded-full px-4 text-sm font-semibold ${unreadOnly === only ? "bg-primary text-white" : "app-surface"}`}>{t(only ? "inbox.design.unread" : "inbox.design.all")}</button>)}</div>
 
         {/* Empty state */}
-        {notifications.length === 0 && (
-          <section className="rounded-2xl border border-dashed border-primary/15 bg-white p-10 text-center">
+        {grouped.length === 0 && (
+          <section className="app-surface p-8 text-center">
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/5">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -128,23 +138,21 @@ export default function NotificationsPage() {
               </svg>
             </div>
             <p className="text-sm font-medium text-primary/70">
-              {t("nav.notifications.empty")}
+              {t(unreadOnly ? unreadCount > 0 ? "inbox.design.moreUnread" : "home.caughtup" : "nav.notifications.empty")}
             </p>
-            <p className="mt-1 text-xs text-primary/40">
-              {t("nav.notifications.empty.sub")}
-            </p>
+            {!unreadOnly && <p className="mt-1 text-xs text-primary/65">{t("nav.notifications.empty.sub")}</p>}
           </section>
         )}
 
         {/* Notification groups */}
         {grouped.map(({ label, items }) => (
           <section key={label}>
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary/40">
+            <h2 className="mb-3 text-xs font-bold text-primary/65">
               {label}
             </h2>
-            <div className="divide-y divide-primary/5 rounded-2xl border border-primary/10 bg-white shadow-sm">
+            <div className="app-surface divide-y divide-primary/5 p-1">
               {items.map((notif) => (
-                <NotificationRow
+                <NotificationItem
                   key={notif.id}
                   notification={notif}
                   onTap={handleTap}
@@ -161,7 +169,7 @@ export default function NotificationsPage() {
               type="button"
               onClick={loadMore}
               disabled={loadingMore}
-              className="rounded-lg border border-primary/20 bg-white px-4 py-2 text-xs font-medium text-primary hover:bg-primary/5 disabled:opacity-60"
+              className="app-surface min-h-[48px] px-5 py-3 text-sm font-semibold hover:bg-sage/20 disabled:opacity-60"
             >
               {loadingMore
                 ? t("common.loading")
@@ -178,72 +186,6 @@ export default function NotificationsPage() {
         onResolved={refresh}
       />
     </main>
-  )
-}
-
-/* ── Single notification row ──────────────────────────────────── */
-
-function NotificationRow({
-  notification,
-  onTap,
-}: {
-  notification: Notification
-  onTap: (n: Notification) => void
-}) {
-  const t = useT()
-  const isUnread = !notification.read_at
-  const icon = getNotificationIcon(notification.type, "h-4 w-4 text-primary/60")
-  const timeLabel = formatRelativeTime(notification.created_at)
-  const isJoinRequest =
-    notification.type === "join_request" && !!notification.data?.request_id
-
-  const isClickable =
-    notification.type !== "join_rejected" &&
-    (isJoinRequest ||
-      !!(notification.data?.round_id || notification.data?.match_id || notification.data?.game_id))
-
-  return (
-    <button
-      type="button"
-      onClick={() => onTap(notification)}
-      disabled={!isClickable}
-      className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors ${
-        isClickable ? "hover:bg-cream active:bg-cream" : "cursor-default"
-      } ${isUnread ? "bg-emerald-50/40" : ""}`}
-    >
-      <div
-        className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-          isUnread ? "bg-primary/10" : "bg-primary/5"
-        }`}
-      >
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <p
-            className={`text-sm ${
-              isUnread ? "font-semibold text-primary" : "font-medium text-primary/80"
-            }`}
-          >
-            {notification.title}
-          </p>
-          {isUnread && (
-            <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-          )}
-        </div>
-        {notification.body && (
-          <p className="mt-0.5 text-xs text-primary/50 line-clamp-2">
-            {notification.body}
-          </p>
-        )}
-        <p className="mt-1 text-[10px] text-primary/35">{timeLabel}</p>
-        {isJoinRequest && isUnread && (
-          <p className="mt-1 text-[11px] font-medium text-emerald-600">
-            {t("nav.notifications.tap")}
-          </p>
-        )}
-      </div>
-    </button>
   )
 }
 

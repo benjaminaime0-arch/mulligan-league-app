@@ -2,8 +2,11 @@
 
 import { normalizeInviteCode, isInviteCode } from "@/lib/inviteCodes"
 
-import { Suspense, useEffect, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense, useState } from "react"
+import { useSearchParams } from "next/navigation"
+import Link from "next/link"
+import { AppIcon } from "@/components/ui/AppIcon"
+import { personalButton } from "@/lib/personalRounds"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { useT } from "@/lib/i18n"
@@ -25,7 +28,6 @@ export default function JoinGamePage() {
 }
 
 function JoinGameContent() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
   const t = useT()
@@ -36,7 +38,12 @@ function JoinGameContent() {
   const [gameId, setGameId] = useState<string | number | null>(null)
   const [successGameName, setSuccessGameName] = useState<string | null>(null)
   const [successCourseName, setSuccessCourseName] = useState<string | null>(null)
-  const [successMemberCount, setSuccessMemberCount] = useState<number>(0)
+  const [successMemberCount, setSuccessMemberCount] = useState<number | null>(null)
+  const showError = (message: string) => setError(
+    /invalid/i.test(message) ? t("games.join.error.invalid") :
+    /full/i.test(message) ? t("games.join.error.full") :
+    /already/i.test(message) ? t("games.join.error.member") : message
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,11 +73,10 @@ function JoinGameContent() {
         const message =
           result?.error ||
           t("games.join.error.failed")
-        setError(message)
+        showError(message)
         return
       }
 
-      setGameId(result.game_id)
       setSuccessGameName(result.game_name ?? null)
 
       // Fetch additional game details for the success card
@@ -88,18 +94,11 @@ function JoinGameContent() {
       setSuccessCourseName(
         (gameRes.data as { course_name?: string | null } | null)?.course_name ?? null
       )
-      setSuccessMemberCount(membersRes.data?.length ?? 0)
+      setSuccessMemberCount(membersRes.error ? null : membersRes.data?.length ?? null)
+      setGameId(result.game_id)
     } catch (err) {
       const message = err instanceof Error ? err.message : t("common.error.generic")
-      if (message.toLowerCase().includes("invalid")) {
-        setError(t("games.join.error.invalid"))
-      } else if (message.toLowerCase().includes("full")) {
-        setError(t("games.join.error.full"))
-      } else if (message.toLowerCase().includes("already")) {
-        setError(t("games.join.error.member"))
-      } else {
-        setError(message)
-      }
+      showError(message)
     } finally {
       setSubmitting(false)
     }
@@ -120,45 +119,32 @@ function JoinGameContent() {
   // Success state — replace entire form with success card
   if (gameId) {
     return (
-      <main className="min-h-screen px-4 py-8">
-        <div className="mx-auto flex w-full max-w-md flex-col gap-8">
-          <div className="rounded-2xl border border-primary/15 bg-white p-8 text-center shadow-sm">
+      <main className="app-page">
+        <div className="mx-auto w-full max-w-md">
+          <div className="app-surface p-6 text-center">
             {/* Checkmark */}
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-              <svg className="h-8 w-8 text-emerald-600" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-sage/30 text-primary">
+              <AppIcon name="check" className="h-8 w-8" />
             </div>
 
-            <h2 className="text-xl font-bold text-primary">{t("games.joined.title")}</h2>
+            <h1 className="text-2xl font-bold tracking-tight">{t("games.joined.title")}</h1>
 
-            <p className="mt-2 text-lg font-semibold text-primary">
+            <p className="mt-4 break-words text-lg font-semibold text-primary">
               {successGameName}
             </p>
 
             <p className="mt-1 text-sm text-primary/60">
               {successCourseName || t("games.card.nocourse")}
-              {" · "}
-              {successMemberCount === 1
+              {successMemberCount != null && <> · {successMemberCount === 1
                 ? t("games.members.one")
-                : t("games.members", { n: successMemberCount })}
+                : t("games.members", { n: successMemberCount })}</>}
             </p>
 
             <div className="mt-6 flex flex-col gap-3">
-              <button
-                type="button"
-                onClick={() => router.push(`/games/${gameId}`)}
-                className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98]"
-              >
-                {t("games.goto")}
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push("/home")}
-                className="w-full rounded-lg border border-primary/30 bg-white px-4 py-3 text-sm font-medium text-primary transition-all hover:bg-primary/5 active:scale-[0.98]"
-              >
+              <Link href={`/games/${gameId}`} className={`${personalButton} w-full gap-2`}>{t("games.goto")}<AppIcon name="arrow" className="h-4 w-4" /></Link>
+              <Link href="/home" className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary/5 px-4 py-3 text-sm font-semibold">
                 {t("common.back.dashboard")}
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -167,18 +153,20 @@ function JoinGameContent() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-8">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-8">
-        <header className="text-center">
-          <h1 className="text-2xl font-bold text-primary">{t("games.join.full")}</h1>
-          <p className="mt-2 text-sm text-primary/70">
+    <main className="app-page !pt-2">
+      <Link href="/games" className="inline-flex min-h-[44px] items-center text-xs font-semibold text-primary/70">← {t("nav.games")}</Link>
+      <div className="mx-auto mt-2 flex w-full max-w-md flex-col gap-5">
+        <header className="rounded-[20px] bg-primary p-5 text-white">
+          <span className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-white/10"><AppIcon name="join" /></span>
+          <h1 className="text-2xl font-bold tracking-tight">{t("games.join.full")}</h1>
+          <p className="mt-2 text-sm text-sage">
             {t("games.join.subtitle")}
           </p>
         </header>
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-6 rounded-xl border border-primary/15 bg-white p-6 text-center shadow-sm"
+          className="app-surface space-y-5 p-5 text-center"
         >
           {error && (
             <div role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 text-left">
@@ -200,12 +188,16 @@ function JoinGameContent() {
               onChange={(e) => setCode(normalizeInviteCode(e.target.value))}
               maxLength={10}
               autoComplete="off"
-              className="mx-auto block w-full max-w-xs rounded-xl border border-primary/30 bg-cream px-4 py-3 text-center text-3xl font-mono tracking-[0.4em] text-primary placeholder:text-primary/30 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="ABC123"
+              className="mx-auto block min-h-[64px] w-full min-w-0 rounded-xl border border-primary/20 bg-sage/15 px-2 py-3 text-center font-mono text-xl font-bold tracking-[0.12em] text-primary placeholder:text-primary/30 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15 sm:text-2xl"
+              placeholder="ABC1234567"
+              autoCapitalize="characters"
+              spellCheck={false}
+              aria-describedby="invite-code-hint"
+              aria-invalid={!!error}
               inputMode="text"
               disabled={submitting}
             />
-            <p className="mt-2 text-xs text-primary/60">
+            <p id="invite-code-hint" className="mt-2 text-xs text-primary/60">
               {t("games.join.code.hint")}
             </p>
           </div>
@@ -213,11 +205,13 @@ function JoinGameContent() {
           <button
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            className={`${personalButton} w-full gap-2`}
           >
             {submitting ? t("invite.joining") : t("games.join.full")}
+            <AppIcon name="arrow" className="h-4 w-4" />
           </button>
         </form>
+        <Link href="/games/create" className="inline-flex min-h-[44px] items-center justify-center gap-2 text-sm font-semibold"><AppIcon name="plus" className="h-4 w-4" />{t("personal.createLeague")}</Link>
       </div>
     </main>
   )

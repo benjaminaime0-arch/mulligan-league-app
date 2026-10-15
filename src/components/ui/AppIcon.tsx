@@ -1,6 +1,6 @@
 import type { SVGProps } from "react"
 
-export type AppIconName = "arrow" | "flag" | "trophy" | "cards" | "plus" | "close" | "clock" | "edit" | "join" | "check" | "user" | "bell" | "camera" | "refresh"
+export type AppIconName = "arrow" | "flag" | "trophy" | "cards" | "plus" | "close" | "clock" | "edit" | "join" | "check" | "user" | "bell" | "camera" | "refresh" | "settings"
 const paths: Record<AppIconName, React.ReactNode> = {
   arrow: <><path d="M5 12h14M13 6l6 6-6 6" /></>,
   flag: <><path d="M5 21V4m0 0c5-4 9 4 14 0v10c-5 4-9-4-14 0" /></>,
@@ -16,6 +16,7 @@ const paths: Record<AppIconName, React.ReactNode> = {
   bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></>,
   camera: <><path d="m9 4-2 3H3v13h18V7h-4l-2-3Z" /><circle cx="12" cy="13" r="4" /></>,
   refresh: <><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6 6a8 8 0 0 1 13 3M5 15a8 8 0 0 0 13 3" /></>,
+  settings: <><path d="M4 7h16M4 17h16" /><circle cx="9" cy="7" r="3" fill="currentColor" /><circle cx="15" cy="17" r="3" fill="currentColor" /></>,
 }
 
 export function AppIcon({ name, ...props }: SVGProps<SVGSVGElement> & { name: AppIconName }) {

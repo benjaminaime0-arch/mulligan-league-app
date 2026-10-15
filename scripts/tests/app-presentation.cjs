@@ -30,6 +30,34 @@ function load(relative) {
 }
 const {leagueDays,leagueSection,featuredLeagues}=load('src/lib/leaguePresentation');
 const {LeagueCard}=load('src/components/home/LeagueCard');
+const {formatRelativeTime}=load('src/lib/notificationDisplay');
+const {NotificationItem}=load('src/components/NotificationItem');
+const {normalizeInviteCode,isInviteCode}=load('src/lib/inviteCodes');
+test('notification times follow the selected language and tolerate future or invalid timestamps',()=>{
+  const now=Date.parse('2026-10-15T12:00:00Z');
+  assert.equal(formatRelativeTime('2026-10-15T11:55:00Z','fr',now).replace(/\s/g,' '),'il y a 5 min');
+  assert.equal(formatRelativeTime('2026-10-14T12:00:00Z','fr',now),'hier');
+  assert.equal(formatRelativeTime('2026-10-15T12:01:00Z','fr',now),'maintenant');
+  assert.equal(formatRelativeTime('invalid','fr',now),'—');
+  assert.equal(formatRelativeTime('2026-10-15T11:55:00Z','en',now),'5 min. ago');
+});
+test('joining accepts legacy and current codes without changing their normalized content',()=>{
+  for(const code of [' ab12cd ',' abc1234567 ']) assert.ok(isInviteCode(normalizeInviteCode(code)));
+  for(const code of ['ABC12','ABC1234','ABC123456!']) assert.equal(isInviteCode(code),false);
+});
+const notice={id:'n',type:'personal_card',title:'Card <one>',body:'Review & confirm',data:{round_id:'r'},read_at:null,created_at:'2026-10-15T12:00:00Z'};
+function noticeHtml(n){return renderToStaticMarkup(React.createElement(NotificationItem,{notification:n,onTap:()=>{}}));}
+test('the shared inbox item escapes content and exposes unread state and its real timestamp',()=>{
+  const html=noticeHtml(notice);
+  assert.ok(html.includes('Card &lt;one&gt;')&&html.includes('Review &amp; confirm'));
+  assert.ok(html.includes('Non lues')&&html.includes('dateTime="2026-10-15T12:00:00Z"'));
+  assert.ok(!html.includes('disabled=""'));
+});
+test('notification rows keep rejected destinations disabled while supporting player links and pending requests',()=>{
+  assert.ok(noticeHtml({...notice,type:'join_rejected',data:{game_id:'private'}}).includes('disabled=""'));
+  assert.ok(!noticeHtml({...notice,type:'member_joined',data:{new_member_id:'player'},read_at:'2026-10-15T12:01:00Z'}).includes('disabled=""'));
+  assert.ok(noticeHtml({...notice,type:'join_request',data:{request_id:'request'}}).includes('Appuyez pour approuver ou refuser'));
+});
 test('league dates use the course calendar across midnight and DST, with no fractional-day drift',()=>{
   for(const [date,now,expected] of [
     ['2026-10-25','2026-10-24T22:30:00Z',0],['2026-10-26','2026-10-25T01:30:00Z',1],

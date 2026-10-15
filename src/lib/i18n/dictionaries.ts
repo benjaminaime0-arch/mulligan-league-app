@@ -74,6 +74,12 @@ export const en: Dict = {
   "profile.moreStats": "Records and honors",
 
   "personal.level.countOne": "{n} recent validated card",
+  "league.design.course": "Your course",
+  "league.design.season": "Your season",
+  "inbox.design.filter": "Filter notifications",
+  "inbox.design.all": "All",
+  "inbox.design.unread": "Unread",
+  "inbox.design.moreUnread": "Load older messages to see the rest.",
   "personal.calendar.monthOne": "{n} month",
   "personal.picker.course": "Course",
   "personal.picker.holes": "Holes",
@@ -1096,6 +1102,12 @@ export const fr: Dict = {
   "profile.moreStats": "Records et distinctions",
 
   "personal.level.countOne": "{n} carte récente validée",
+  "league.design.course": "Votre parcours",
+  "league.design.season": "Votre saison",
+  "inbox.design.filter": "Filtrer les notifications",
+  "inbox.design.all": "Toutes",
+  "inbox.design.unread": "Non lues",
+  "inbox.design.moreUnread": "Chargez les messages plus anciens.",
   "personal.calendar.monthOne": "{n} mois",
   "personal.picker.course": "Parcours",
   "personal.picker.holes": "Format",
@@ -1739,8 +1751,8 @@ export const fr: Dict = {
   "nav.notifications.loadolder": "Charger les plus anciennes",
   "nav.notifications.markall": "Tout marquer comme lu",
   "nav.notifications.tap": "Appuyez pour approuver ou refuser",
-  "nav.notifications.unread": "{n} notifications non lues",
-  "nav.notifications.unreadcount": "{n} non lues",
+  "nav.notifications.unread": "Notifications à lire : {n}",
+  "nav.notifications.unreadcount": "{n} à lire",
 
   // ── notification settings (mounted on /notifications) ──────
   "notif.settings.title": "Préférences de notifications",

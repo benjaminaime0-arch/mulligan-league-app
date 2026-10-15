@@ -16,6 +16,7 @@ export function NotificationPreferences() {
   const [prefs, setPrefs] = useState<PrefMap>({})
   const [loading, setLoading] = useState(true)
   const [pendingType, setPendingType] = useState<string | null>(null)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -27,6 +28,7 @@ export function NotificationPreferences() {
         }
         setPrefs(next)
       }
+      if (error) setError(true)
       setLoading(false)
     }
     load()
@@ -42,6 +44,7 @@ export function NotificationPreferences() {
     const next = !previous
 
     setPendingType(type)
+    setError(false)
     // Optimistic
     setPrefs((p) => ({ ...p, [type]: next }))
 
@@ -53,6 +56,7 @@ export function NotificationPreferences() {
     if (error) {
       // Rollback
       setPrefs((p) => ({ ...p, [type]: previous }))
+      setError(true)
     }
     setPendingType(null)
   }
@@ -67,6 +71,7 @@ export function NotificationPreferences() {
 
   return (
     <div className="flex flex-col divide-y divide-primary/5">
+      {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-xs text-red-700">{t("common.error.generic")}</p>}
       {NOTIFICATION_TYPES.map((type) => {
         const meta = {
           label: t(`notif.type.${type}`),
@@ -78,7 +83,7 @@ export function NotificationPreferences() {
         return (
           <div
             key={type}
-            className="flex items-center justify-between gap-3 py-2"
+            className="flex items-center justify-between gap-3 py-3"
           >
             <div className="flex min-w-0 items-center gap-2.5">
               <div
@@ -92,8 +97,8 @@ export function NotificationPreferences() {
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-primary">{meta.label}</p>
-                <p className="text-[10px] leading-snug text-primary/50 line-clamp-1">
+                <p className="text-sm font-semibold text-primary">{meta.label}</p>
+                <p className="text-xs leading-snug text-primary/65">
                   {meta.description}
                 </p>
               </div>
@@ -102,22 +107,14 @@ export function NotificationPreferences() {
             <button
               type="button"
               onClick={() => toggle(type)}
-              disabled={pending}
-              className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
-                enabled ? "bg-emerald-500" : "bg-primary/20"
-              }`}
-              aria-label={
-                enabled
-                  ? t("notif.pref.disable", { label: meta.label })
-                  : t("notif.pref.enable", { label: meta.label })
-              }
-              aria-pressed={enabled}
+              disabled={pendingType !== null}
+              className="flex h-11 w-12 shrink-0 items-center justify-center rounded-xl disabled:opacity-50"
+              role="switch"
+              aria-label={meta.label}
+              aria-checked={enabled}
+              aria-busy={pending}
             >
-              <span
-                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                  enabled ? "translate-x-[18px]" : "translate-x-0.5"
-                }`}
-              />
+              <span className={`relative block h-6 w-10 rounded-full transition-colors ${enabled ? "bg-primary" : "bg-primary/20"}`}><span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-4" : ""}`} /></span>
             </button>
           </div>
         )
