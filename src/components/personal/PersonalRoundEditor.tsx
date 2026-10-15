@@ -99,6 +99,7 @@ export function PersonalRoundEditor({
     await onReload()
   }
   const complete = cardIsComplete(holes, data.tee.hole_count)
+  const entryReviewBlocked = busy || !complete || !data.tee.ready || !autosave.online || ['offline', 'conflict', 'blocked', 'session', 'invalid', 'storageError'].includes(autosave.state.status)
   const summary = cardEntrySummary(holes)
   const entered = summary.entered
   const rules = (<details className="app-surface my-4 px-4 text-xs text-primary/70"><summary className="cursor-pointer py-3 font-semibold">{t("personal.ui.rules")}</summary>{ownerDraft && <div className="space-y-2 pb-1"><p>{t("personal.lifecycle.deadline")}: {displayTime(data.round.entry_deadline_at)} ({data.round.course_timezone})</p><p>{t("personal.lifecycle.validatorHelp")}</p></div>}<p className="mt-3 text-sm">
@@ -186,7 +187,7 @@ export function PersonalRoundEditor({
         </div>
         {editable ? <QuickScoreEntry references={data.reference_holes} holes={holes} onChange={change}
           disabled={busy || (ownerDraft && (!autosave.ready || ['conflict', 'blocked', 'session'].includes(autosave.state.status)))}
-          onDone={() => { if (ownerDraft) setEntryReview(true); else document.getElementById("card-validation-actions")?.scrollIntoView({ block: "center", behavior: "smooth" }) }} /> : <div className="grid gap-4 md:grid-cols-2">
+          onDone={() => { if (ownerDraft) { if (!entryReviewBlocked) setEntryReview(true) } else document.getElementById("card-validation-actions")?.scrollIntoView({ block: "center", behavior: "smooth" }) }} /> : <div className="grid gap-4 md:grid-cols-2">
           {[0, ...(data.tee.hole_count === 18 ? [9] : [])].map(start => <div key={start} id={`holes-${start + 1}`} className="app-surface scroll-mt-20 overflow-hidden">
             <h3 className="border-b border-primary/10 bg-sage/25 px-3 py-3 text-sm font-bold">{t("personal.ui.hole")} {start + 1}–{Math.min(start + 9, data.tee.hole_count)}</h3>
             <table className="w-full text-left text-sm"><caption className="sr-only">{t("personal.ui.scores")} · {t("personal.ui.hole")} {start + 1}–{start + 9}</caption>
@@ -215,7 +216,7 @@ export function PersonalRoundEditor({
         </button>
         <button
           className={`${personalButton} flex-1 !px-3 !text-xs`}
-          disabled={busy || !complete || !data.tee.ready || !autosave.online || ['offline', 'conflict', 'blocked', 'session', 'invalid', 'storageError'].includes(autosave.state.status)}
+          disabled={entryReviewBlocked}
           onClick={() => setEntryReview(true)}
         >
           {t("cardFlow.review")}
@@ -253,8 +254,8 @@ export function PersonalRoundEditor({
         </p>
       )}
       {data.is_owner && data.round.status !== "disputed" && (ownerDraft || data.revision) && <PersonalLeagueSubmission data={data} online={autosave.online} busy={busy} onBusyChange={setBusy} onReload={onReload} />}
-      <ConfirmModal open={entryReview && ownerDraft} title={t("cardFlow.reviewTitle")} confirmLabel={t("personal.confirm")} confirmDisabled={!complete || !autosave.online} loading={busy} onCancel={() => setEntryReview(false)} onConfirm={() => {
-        if (!complete || !autosave.online) return
+      <ConfirmModal open={entryReview && ownerDraft} title={t("cardFlow.reviewTitle")} confirmLabel={t("personal.confirm")} confirmDisabled={entryReviewBlocked} loading={busy} onCancel={() => setEntryReview(false)} onConfirm={() => {
+        if (entryReviewBlocked) return
         setEntryReview(false)
         void run(async () => {
           const v = await save()
