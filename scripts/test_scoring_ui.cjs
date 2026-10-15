@@ -95,11 +95,11 @@ function renderPersonalCard(card) {
 const firstDraftHtml = renderPersonalCard({ ...cardFixture, revision: null, leagues: [], round: { ...cardFixture.round, status: 'draft', validator_id: null } })
 assert.ok(firstDraftHtml.includes('/games/create?tee=tee') && firstDraftHtml.includes('Create a league'), 'first draft must reach the shared league creator before permanently locking scores')
 const personalHtml = renderPersonalCard(cardFixture)
-assert.equal((personalHtml.match(/>Submit this revision<\/button>/g) || []).length, 2, 'one revision must be offered to both leagues')
-assert.ok(personalHtml.includes('Revision visible to league members'), 'sharing consent must be visible')
+assert.equal((personalHtml.match(/type="checkbox"/g) || []).length, 2, 'one revision must be selectable for both leagues')
+assert.ok(personalHtml.includes('Select all'), 'batch selection must be visible')
 assert.ok(personalHtml.includes('Nine-hole differential doubled'), 'nine-hole estimate must be explained')
 const unverifiedHtml = renderPersonalCard({ ...cardFixture, round: { ...cardFixture.round, status: 'draft' }, tee: { ...cardFixture.tee, ready: false } })
-const confirmButton = unverifiedHtml.match(/<button([^>]*)>Confirm card<\/button>/)
+const confirmButton = unverifiedHtml.match(/<button([^>]*)>Review my card<\/button>/)
 assert.ok(confirmButton && /\sdisabled(?:=|\s|$)/.test(confirmButton[1]), 'unverified ratings must prevent confirmation')
 assert.ok(unverifiedHtml.includes('verified rating, slope'), 'missing reference data must be explained')
 assert.ok(!personalHtml.includes('>Confirm card</button>'), 'validated card must have no confirm/edit workflow')
@@ -143,10 +143,10 @@ for (const course_name of ['Golf de Rueil-Malmaison', 'Golf du Haras de Jardy'])
   assert.ok(locked.includes('>Index</th>') && !locked.includes('>SI</th>'), 'locked score grid uses Index');
   assert.equal((locked.match(/scope="row"/g)||[]).length,count,`${course_name}: all ${count} scores visible`);
   assert.ok(locked.includes('Picked up'), 'picked-up score remains readable');
-  assert.ok(!locked.includes('<input')&&!locked.includes('<select'), 'locked cards expose no score controls');
+  assert.ok(!locked.includes('type="number"')&&!locked.includes('<select'), 'locked cards expose no score controls');
   const draft=renderPersonalCard({...fixture,revision:null,round:{...fixture.round,status:'draft'}});
   assert.ok(draft.includes('Par /<br/>Index') && !draft.includes('Par / SI'), 'draft score grid uses Index');
-  assert.equal((draft.match(/aria-label="Status of hole \d+"/g)||[]).length,count,'draft keeps a completion control for each hole');
+  assert.equal((draft.match(/type="number"/g)||[]).length,count,'draft exposes direct score input for each hole');
   assert.ok(cardIsComplete(scores,count),'picked-up holes count toward completeness');
   assert.equal(cardIsComplete([...scores.slice(0,-1),{...scores.at(-1),completion:'not_played'}],count),false,'unplayed final hole cannot be confirmed');
  }
