@@ -62,7 +62,7 @@ self.addEventListener("push", (event) => {
     icon: "/logo-mark.png",
     badge: "/logo-mark.png",
     // Use the notification id as the tag when available so the OS can collapse duplicates
-    tag: payload.tag || payload.data?.notification_id || "mulligan-notification",
+    tag: payload.data?.notification_id || payload.tag || "mulligan-notification",
     data: payload.data || {},
     vibrate: [100, 50, 100],
   }
@@ -76,18 +76,20 @@ self.addEventListener("notificationclick", (event) => {
   const data = event.notification.data || {}
   let url = "/notifications"
 
-  if (data.round_id) {
-    url = `/rounds/${data.round_id}`
+  if (data.type === "league_invitation" && /^(?:[A-Z0-9]{6}|[A-Z0-9]{10})$/.test(data.invite_code || "")) {
+    url = `/join/${data.invite_code}`
+  } else if (data.round_id) {
+    url = `/rounds/${encodeURIComponent(data.round_id)}`
   } else if (data.match_id) {
-    url = `/matches/${data.match_id}`
+    url = `/matches/${encodeURIComponent(data.match_id)}`
   } else if (data.game_id) {
-    url = `/games/${data.game_id}`
+    url = `/games/${encodeURIComponent(data.game_id)}`
   } else if (data.league_id) {
     // Pre-rename payloads: league ids ARE game ids (the table was renamed
     // in place), and /leagues/* was never a route in this app.
-    url = `/games/${data.league_id}`
+    url = `/games/${encodeURIComponent(data.league_id)}`
   } else if (data.new_member_id) {
-    url = `/players/${data.new_member_id}`
+    url = `/players/${encodeURIComponent(data.new_member_id)}`
   }
 
   // Append notification_id so the client can mark it read on arrival.
@@ -106,13 +108,13 @@ self.addEventListener("notificationclick", (event) => {
       // Prefer a visible tab already on our origin.
       const visible = windowClients.find(
         (c) =>
-          c.url.startsWith(self.location.origin) &&
+          new URL(c.url).origin === self.location.origin &&
           c.visibilityState === "visible",
       )
 
       // Otherwise, any tab that already has the target URL open.
       const alreadyOnTarget = windowClients.find(
-        (c) => c.url.startsWith(self.location.origin) && c.url.endsWith(url),
+        (c) => new URL(c.url).origin === self.location.origin && c.url === new URL(url, self.location.origin).href,
       )
 
       const target = alreadyOnTarget || visible
@@ -120,8 +122,10 @@ self.addEventListener("notificationclick", (event) => {
       if (target && "focus" in target) {
         try {
           // Only navigate when not already at the URL (avoids reloading into same route).
-          if (!target.url.endsWith(url) && "navigate" in target) {
-            await target.navigate(url)
+          if (target.url !== new URL(url, self.location.origin).href) {
+            if (!("navigate" in target) || !await target.navigate(new URL(url, self.location.origin).href)) {
+              return clients.openWindow(new URL(url, self.location.origin).href)
+            }
           }
           return target.focus()
         } catch {
@@ -131,7 +135,7 @@ self.addEventListener("notificationclick", (event) => {
 
       // No suitable existing tab → open a new one.
       if (clients.openWindow) {
-        return clients.openWindow(url)
+        return clients.openWindow(new URL(url, self.location.origin).href)
       }
     })(),
   )

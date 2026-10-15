@@ -3,47 +3,59 @@
 import { useEffect, useState } from "react"
 import {
   isPushSupported,
+  needsPushInstallation,
   getPushPermission,
   subscribeToPush,
   unsubscribeFromPush,
   isSubscribedToPush,
 } from "@/lib/pushNotifications"
+import { useAuthContext } from "@/components/AuthProvider"
 import { useT } from "@/lib/i18n"
 
 export function PushNotificationToggle() {
   const t = useT()
+  const { user } = useAuthContext()
+  const [install, setInstall] = useState(false)
+  const [error, setError] = useState(false)
   const [supported, setSupported] = useState(false)
   const [subscribed, setSubscribed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState(false)
 
   useEffect(() => {
+    let active = true
     const check = async () => {
+      setInstall(needsPushInstallation())
       const sup = isPushSupported()
       setSupported(sup)
       if (sup) {
         const sub = await isSubscribedToPush()
-        setSubscribed(sub)
+        if (active) setSubscribed(sub)
       }
-      setLoading(false)
+      if (active) setLoading(false)
     }
-    check()
-  }, [])
+    void check()
+    return () => { active = false }
+  }, [user?.id])
 
-  if (!supported || loading) return null
+  if (loading) return null
+  if (install || !supported) return <div className="rounded-xl border border-primary/10 bg-cream px-4 py-3"><p className="text-sm font-medium">{t("notif.push.title")}</p><p className="mt-1 text-xs text-primary/65">{t(install ? "notif.push.install" : "notif.push.unsupported")}</p></div>
 
   const permission = getPushPermission()
   const denied = permission === "denied"
 
   const handleToggle = async () => {
     setToggling(true)
+    setError(false)
     try {
       if (subscribed) {
         const success = await unsubscribeFromPush()
         if (success) setSubscribed(false)
+        else setError(true)
       } else {
         const success = await subscribeToPush()
         if (success) setSubscribed(true)
+        else setError(true)
       }
     } finally {
       setToggling(false)
@@ -61,6 +73,7 @@ export function PushNotificationToggle() {
             ? t("notif.push.on")
             : t("notif.push.off")}
         </p>
+        {error && <p role="alert" className="mt-1 text-xs text-red-700">{t("notif.push.error")}</p>}
       </div>
       <button
         type="button"

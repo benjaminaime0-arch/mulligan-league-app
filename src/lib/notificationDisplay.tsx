@@ -7,6 +7,8 @@ import type { ReactNode } from "react"
  *   - supabase/migrations/add_join_requests_system.sql
  */
 export const NOTIFICATION_TYPES = [
+  "personal_card",
+  "league_invitation",
   "score_submitted",
   "score_approved",
   "match_completed",
@@ -45,6 +47,7 @@ export function getNotificationIcon(
           <path d="M4.93 19.07a10 10 0 0 1 0-14.14" />
         </svg>
       )
+    case "league_invitation":
     case "join_request":
       return (
         <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -70,6 +73,7 @@ export function getNotificationIcon(
           <line x1="9" y1="9" x2="15" y2="15" />
         </svg>
       )
+    case "personal_card":
     case "score_submitted":
       return (
         <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

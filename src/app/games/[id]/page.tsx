@@ -1006,6 +1006,7 @@ export default function GamePage({ params }: GamePageProps) {
                   <span className="text-xs text-primary/60">{t("games.invitecode")}</span>
                   <div className="flex items-center gap-2">
                     <GameInviteCode
+                      gameId={isMember || isAdmin ? game.id : undefined}
                       inviteCode={game.invite_code}
                       gameName={game.name}
                       variant="bottom"

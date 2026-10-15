@@ -55,6 +55,8 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Mulligan", statusBarStyle: "default" },
   title: {
     default: "Mulligan — Organize Your Golf Group",
     template: "%s | Mulligan",

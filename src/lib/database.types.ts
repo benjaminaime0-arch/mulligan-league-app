@@ -1296,6 +1296,10 @@ export type Database = {
         Returns: undefined
       }
       shares_game_with: { Args: { p_other: string }; Returns: boolean }
+      invite_league_player: {
+        Args: { p_game: string; p_username: string }
+        Returns: Json
+      }
       should_send_push: {
         Args: { p_type: string; p_user_id: string }
         Returns: boolean

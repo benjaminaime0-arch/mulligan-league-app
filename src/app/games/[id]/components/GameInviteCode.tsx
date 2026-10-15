@@ -1,15 +1,17 @@
 "use client"
 
+import { LeaguePlayerInvite } from "@/components/LeaguePlayerInvite"
 import { useT } from "@/lib/i18n"
 
 interface GameInviteCodeProps {
+  gameId?: string
   inviteCode: string
   gameName: string
   /** "desktop" shows inline next to title, "mobile" shows centered block, "bottom" always visible */
   variant: "desktop" | "mobile" | "bottom"
 }
 
-export function GameInviteCode({ inviteCode, gameName, variant }: GameInviteCodeProps) {
+export function GameInviteCode({ gameId, inviteCode, gameName, variant }: GameInviteCodeProps) {
   const t = useT()
 
   const handleCopy = async () => {
@@ -46,7 +48,7 @@ export function GameInviteCode({ inviteCode, gameName, variant }: GameInviteCode
       ? "ml-2 hidden items-center justify-center gap-2 sm:flex"
       : variant === "mobile"
       ? "flex items-center justify-center gap-2 sm:hidden"
-      : "flex flex-wrap items-center justify-center gap-2"
+      : "flex w-full flex-wrap items-center justify-center gap-2"
 
   return (
     <div className={containerClass}>
@@ -85,6 +87,7 @@ export function GameInviteCode({ inviteCode, gameName, variant }: GameInviteCode
         </svg>
         {t("games.share.cta")}
       </button>
+      {gameId && <LeaguePlayerInvite gameId={gameId} />}
     </div>
   )
 }

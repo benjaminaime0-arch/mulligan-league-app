@@ -111,9 +111,13 @@ export async function POST(request: NextRequest) {
       .select("id", { count: "exact", head: true })
       .eq("user_id", record.user_id)
       .gte("created_at", sinceIso)
+      .lt("created_at", record.created_at)
       .neq("id", record.id)
 
-    if (recentCount != null && recentCount >= throttleThreshold) {
+    // Actionable invitations and card decisions must not disappear in a burst.
+    // Invitations have their own server-side dedupe and sender rate limit.
+    const actionable = record.type === "league_invitation" || record.type === "personal_card"
+    if (!actionable && recentCount != null && recentCount >= throttleThreshold) {
       return NextResponse.json({
         sent: 0,
         reason: "Throttled (rapid-fire)",
@@ -125,10 +129,11 @@ export async function POST(request: NextRequest) {
     // User may have muted this notification type. Defaults to true
     // if no preference row exists.
     if (record.type) {
-      const { data: pushAllowed } = await supabaseAdmin.rpc("should_send_push", {
+      const { data: pushAllowed, error: preferenceError } = await supabaseAdmin.rpc("should_send_push", {
         p_user_id: record.user_id,
         p_type: record.type,
       })
+      if (preferenceError) return NextResponse.json({ error: "Preference lookup failed" }, { status: 500 })
       if (pushAllowed === false) {
         return NextResponse.json({
           sent: 0,
@@ -142,7 +147,8 @@ export async function POST(request: NextRequest) {
       .select("endpoint, p256dh, auth")
       .eq("user_id", record.user_id)
 
-    if (error || !subscriptions || subscriptions.length === 0) {
+    if (error) return NextResponse.json({ error: "Subscription lookup failed" }, { status: 500 })
+    if (!subscriptions || subscriptions.length === 0) {
       return NextResponse.json({ sent: 0, reason: "No subscriptions" })
     }
 
@@ -166,7 +172,7 @@ export async function POST(request: NextRequest) {
     const payload = JSON.stringify({
       title: record.title,
       body: record.body || "",
-      tag: record.type || "notification",
+      tag: record.id,
       data: {
         ...(record.data || {}),
         notification_id: record.id,
@@ -195,6 +201,7 @@ export async function POST(request: NextRequest) {
             .from("push_subscriptions")
             .delete()
             .eq("endpoint", sub.endpoint)
+            .eq("user_id", record.user_id)
         }
         failures.push(sub.endpoint.slice(0, 40) + "...")
       }
