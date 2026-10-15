@@ -47,16 +47,15 @@ self.addEventListener("fetch", event => {
 })
 
 self.addEventListener("push", (event) => {
-  if (!event.data) return
-
   let payload
   try {
-    payload = event.data.json()
+    payload = event.data?.json() || {}
   } catch {
-    payload = { title: "Mulligan League", body: event.data.text() }
+    payload = { title: "Mulligan League", body: event.data?.text() || "" }
   }
 
-  const title = payload.title || "Mulligan League"
+  if (typeof payload !== "object" || Array.isArray(payload)) payload = {}
+  const title = payload.title || "Mulligan"
   const options = {
     body: payload.body || "",
     icon: "/logo-mark.png",
@@ -76,8 +75,10 @@ self.addEventListener("notificationclick", (event) => {
   const data = event.notification.data || {}
   let url = "/notifications"
 
-  if (data.type === "league_invitation" && /^(?:[A-Z0-9]{6}|[A-Z0-9]{10})$/.test(data.invite_code || "")) {
-    url = `/join/${data.invite_code}`
+  if (data.type === "join_rejected") {
+    url = "/notifications"
+  } else if (data.type === "league_invitation") {
+    if (/^(?:[A-Z0-9]{6}|[A-Z0-9]{10})$/.test(data.invite_code || "")) url = `/join/${data.invite_code}`
   } else if (data.round_id) {
     url = `/rounds/${encodeURIComponent(data.round_id)}`
   } else if (data.match_id) {

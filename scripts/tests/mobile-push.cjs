@@ -95,3 +95,11 @@ test('burst throttling suppresses extra pushes while leaving the persisted inbox
 });
 
 test("card decisions and invitations remain deliverable during a burst",async()=>{for(const type of ["personal_card","league_invitation"]){const x=sender({count:8,type});assert.equal((await x.call()).body.sent,1);}});
+
+test('incomplete invitations and rejected requests stay in the inbox',async()=>{
+ for(const type of ['league_invitation','join_rejected']){const x=sw();await x.click({type,invite_code:'invalid',game_id:'private'});assert.equal(x.opened[0],'https://app.mulliganclub.co/notifications');assert.equal(notificationTarget(type,{invite_code:'invalid',game_id:'private'}),null);}
+});
+test('empty or malformed payloads still display a visible generic push',async()=>{for(const payload of [null,[],42]){const x=sw();await x.push(payload);assert.equal(x.notices[0].title,'Mulligan');}});
+test('an inactive worker times out rather than hanging activation',async()=>{
+ const x=pushClient({setTimeout:callback=>{queueMicrotask(callback);return 1},clearTimeout(){}});x.worker.ready=new Promise(()=>{});assert.equal(await x.api.subscribeToPush(),false);
+});

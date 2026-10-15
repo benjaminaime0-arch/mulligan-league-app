@@ -11,6 +11,7 @@ import { NotificationReadSync } from "@/components/NotificationReadSync"
 import { useAuthContext } from "@/components/AuthProvider"
 import { useI18n } from "@/lib/i18n"
 import { supabase } from "@/lib/supabase"
+import { unsubscribeFromPush } from "@/lib/pushNotifications"
 import { clearCardOfflineData, pendingCards } from "@/lib/cardOffline"
 import { stopCardDrafts } from "@/lib/cardDraftManager"
 
@@ -132,6 +133,7 @@ export function Navbar() {
     setShowAvatar(false)
     if (user && pendingCards(user.id).length && !window.confirm(t("personal.offline.logoutWarning"))) return
     if (user) { stopCardDrafts(user.id); clearCardOfflineData(user.id) }
+    await unsubscribeFromPush()
     await supabase.auth.signOut()
     router.replace("/")
   }
