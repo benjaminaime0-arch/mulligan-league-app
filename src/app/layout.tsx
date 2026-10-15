@@ -4,6 +4,7 @@ import "./globals.css"
 import { AuthProvider } from "@/components/AuthProvider"
 import { I18nProvider } from "@/lib/i18n"
 import { ConsentBanner } from "@/components/ConsentBanner"
+import { CardOfflineSupport } from "@/components/personal/CardOfflineSupport"
 import { AppShell } from "@/components/AppShell"
 
 // NEXT_PUBLIC_* values are inlined at build time exactly as stored in the
@@ -116,6 +117,7 @@ export default function RootLayout({
       >
         <I18nProvider>
           <AuthProvider>
+            <CardOfflineSupport />
             <AppShell>{children}</AppShell>
             {/* GA is loaded from inside the banner, only after consent
                 (CNIL) — never on first paint. */}

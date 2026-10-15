@@ -5,6 +5,7 @@ import { ValidationTimer } from "./ValidationTimer"
 import { personalSubmissionStatusKey } from "@/lib/personalSubmissionStatus"
 import { useT } from "@/lib/i18n"
 import { supabase } from "@/lib/supabase"
+import { useCardDraft } from "@/lib/useCardDraft"
 import {
   cardIsComplete,
   holesAsJson,
@@ -31,20 +32,21 @@ export function PersonalRoundEditor({
           strokes: null,
         },
     )
-  const [holes, setHoles] = useState<PersonalHole[]>(makeHoles)
-  const [version, setVersion] = useState(data.round.draft_version)
+  const [reviewHoles, setReviewHoles] = useState<PersonalHole[]>(makeHoles)
   const [validator, setValidator] = useState("")
   const [present, setPresent] = useState(false)
   const [correctionReason, setCorrectionReason] = useState("")
   const ownerDraft = data.is_owner && data.round.status === "draft"
+  const autosave = useCardDraft(data, ownerDraft)
+  const holes = ownerDraft ? autosave.state.holes : reviewHoles
   const validatorReview = !data.is_owner && data.round.status === "pending_validation"
-  const editable = ownerDraft || validatorReview
+  const editable = ownerDraft || (validatorReview && autosave.online)
   const displayTime = (value: string) => new Date(value).toLocaleString(undefined, { timeZone: data.round.course_timezone })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   useEffect(() => {
-    setHoles(
+    setReviewHoles(
       data.reference_holes.map(
         (h) =>
           (data.round.status === "draft" ? data.holes : data.revision?.scores ?? data.holes).find((s) => s.hole_number === h.hole_number) ?? {
@@ -54,35 +56,27 @@ export function PersonalRoundEditor({
           },
       ),
     )
-    setVersion(data.round.draft_version)
   }, [data])
   const run = async (fn: () => Promise<void>) => {
     setBusy(true)
     setError(null)
     setNotice(null)
     try {
+      if (!autosave.online) throw new Error("offline")
       await fn()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("personal.loadError"))
+      const message = e instanceof Error ? e.message : ""
+      setError(["offline", "session", "conflict", "invalid", "storageError", "blocked"].includes(message) ? t(`personal.autosave.${message}`) : message || t("personal.loadError"))
     } finally {
       setBusy(false)
     }
   }
-  const save = async () => {
-    const res = personalResult<{ draft_version: number }>(
-      await supabase.rpc("save_personal_card", {
-        p_round: data.round.id,
-        p_holes: holesAsJson(holes),
-        p_expected_version: version,
-      }),
-    )
-    setVersion(res.draft_version)
-    return res.draft_version
+  const save = () => autosave.flush()
+  const change = (n: number, patch: Partial<PersonalHole>) => {
+    const next = holes.map(h => h.hole_number === n ? { ...h, ...patch } : h)
+    if (ownerDraft) autosave.change(n, patch)
+    else setReviewHoles(next)
   }
-  const change = (n: number, patch: Partial<PersonalHole>) =>
-    setHoles((prev) =>
-      prev.map((h) => (h.hole_number === n ? { ...h, ...patch } : h)),
-    )
   const review = async (correct: boolean) => {
     if (!data.revision) return
     personalResult(await supabase.rpc("review_personal_card", {
@@ -108,6 +102,18 @@ export function PersonalRoundEditor({
       <p className="mt-1 text-sm text-primary/70">
         {data.round.played_on} · {data.tee.hole_count} · {data.tee.name}
       </p>
+      {ownerDraft && <section className="mt-3 text-sm" aria-label={t("personal.autosave.title")}>
+        <p role="status" className={['conflict', 'blocked', 'storageError', 'invalid', 'session'].includes(autosave.state.status) ? "text-amber-800" : "text-primary/70"}>{t(`personal.autosave.${autosave.state.status}`)}</p>
+        {autosave.state.status === "offline" && <p className="mt-1 text-xs text-primary/70">{t("personal.offline.confirmOnline")}</p>}
+        {['offline', 'session', 'storageError'].includes(autosave.state.status) && <button className="mt-2 min-h-[44px] underline" onClick={() => void run(async () => { await save() })}>{t("personal.offline.retry")}</button>}
+        {autosave.state.conflict && <div className="mt-2 rounded-xl border border-amber-300 bg-white p-3">
+          <ul className="space-y-1 text-xs">{holes.map((h, i) => {
+            const other = autosave.state.conflict![i]
+            return h.completion !== other.completion || h.strokes !== other.strokes ? <li key={h.hole_number}>{t("personal.hole", { n: h.hole_number })}: {t("personal.offline.mine")} {h.strokes ?? t(`personal.hole.${h.completion}`)} · {t("personal.offline.other")} {other.strokes ?? t(`personal.hole.${other.completion}`)}</li> : null
+          })}</ul>
+          <div className="mt-2 flex flex-wrap gap-3"><button className="min-h-[44px] underline" onClick={() => autosave.choose(false)}>{t("personal.offline.useOther")}</button><button className="min-h-[44px] font-bold underline" onClick={() => autosave.choose(true)}>{t("personal.offline.keepMine")}</button></div>
+        </div>}
+      </section>}
       <p className="mt-3 text-sm">
         {t("personal.handicapSnapshot")}: {data.round.handicap_index} (
         {t(`personal.source.${data.round.handicap_source}`)})
@@ -191,7 +197,7 @@ export function PersonalRoundEditor({
         <div className="grid gap-4 md:grid-cols-2">
           {[0, ...(data.tee.hole_count === 18 ? [9] : [])].map(start => <div key={start} className="overflow-hidden rounded-2xl border border-primary/10 bg-white">
             <h3 className="bg-primary/5 px-3 py-3 text-sm font-bold">{t("personal.ui.hole")} {start + 1}–{Math.min(start + 9, data.tee.hole_count)}</h3>
-            {editable ? <fieldset disabled={busy}>
+            {editable ? <fieldset disabled={busy || (ownerDraft && (!autosave.ready || ['conflict', 'blocked', 'session'].includes(autosave.state.status)))}>
               <legend className="sr-only">{t("personal.ui.hole")} {start + 1}–{start + 9}</legend>
               <div aria-hidden="true" className="grid grid-cols-[28px_40px_1fr_60px] items-center gap-2 border-b border-primary/10 px-3 py-2 text-[11px] text-primary/70"><span>{t("personal.ui.hole")}</span><span>Par /<br />{t("personal.ui.index")}</span><span>{t("personal.ui.state")}</span><span>{t("personal.ui.strokes")}</span></div>
               {data.reference_holes.slice(start, start + 9).map(ref => {
@@ -233,7 +239,7 @@ export function PersonalRoundEditor({
         </button>
         <button
           className={personalButton}
-          disabled={busy || !complete || !data.tee.ready}
+          disabled={busy || !complete || !data.tee.ready || !autosave.online || ['offline', 'conflict', 'blocked', 'session', 'invalid', 'storageError'].includes(autosave.state.status)}
           onClick={() =>
             void run(async () => {
               const v = await save()
@@ -255,11 +261,11 @@ export function PersonalRoundEditor({
       {validatorReview && (
         <section className="mt-4 space-y-3">
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={present} onChange={(e) => setPresent(e.target.checked)} />{t("personal.present")}</label>
-          <button className={personalButton} disabled={busy || !present} onClick={() => void run(() => review(false))}>{t("personal.approve")}</button>
+          <button className={personalButton} disabled={busy || !present || !autosave.online} onClick={() => void run(() => review(false))}>{t("personal.approve")}</button>
           <label className="block text-sm">{t("personal.lifecycle.correctionReason")}
             <textarea className={personalInput} maxLength={500} value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} />
           </label>
-          <button className={personalButton} disabled={busy || !present || !complete || correctionReason.trim().length < 3} onClick={() => void run(() => review(true))}>{t("personal.lifecycle.propose")}</button>
+          <button className={personalButton} disabled={busy || !present || !complete || !autosave.online || correctionReason.trim().length < 3} onClick={() => void run(() => review(true))}>{t("personal.lifecycle.propose")}</button>
         </section>
       )}
       {data.round.status === "pending_player_confirmation" && (
@@ -315,7 +321,7 @@ export function PersonalRoundEditor({
                     </p>
                     <button
                       className={personalButton}
-                      disabled={busy}
+                      disabled={busy || !autosave.online}
                       onClick={() =>
                         void run(async () => {
                           const res = personalResult<{

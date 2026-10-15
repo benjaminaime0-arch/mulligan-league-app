@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { supabase } from "@/lib/supabase"
+import { clearCardOfflineData, pendingCards } from "@/lib/cardOffline"
+import { stopCardDrafts } from "@/lib/cardDraftManager"
 import { toLocalIso } from "@/lib/date"
 import { rpcOrFallback } from "@/lib/rpc"
 import { useAuth } from "@/hooks/useAuth"
@@ -501,8 +503,10 @@ export default function ProfilePage() {
   }, [user, handleMatchRefresh])
 
   const handleLogout = async () => {
+    if (user && pendingCards(user.id).length && !window.confirm(t("personal.offline.logoutWarning"))) return
     setLogoutLoading(true)
     try {
+      if (user) { stopCardDrafts(user.id); clearCardOfflineData(user.id) }
       await supabase.auth.signOut()
       router.push("/")
     } catch (err) {
