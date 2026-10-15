@@ -1,10 +1,11 @@
 import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
+  const name = process.env.VERCEL_ENV === "preview" ? "Mulligan Test" : "Mulligan"
   return {
     id: "/",
-    name: "Mulligan",
-    short_name: "Mulligan",
+    name,
+    short_name: name,
     start_url: "/home",
     scope: "/",
     display: "standalone",
