@@ -42,8 +42,8 @@ export function useAuth() {
     if (loading) return
     if (!user && !isAuthFree(pathname)) {
       const search = window.location.search
-      const fromPush = new URLSearchParams(search).has("n")
-      router.replace(fromPush ? `/?redirect=${encodeURIComponent(pathname + search)}` : "/")
+      const tab = new URLSearchParams(search).has("n") ? "login" : "signup"
+      router.replace(`/?tab=${tab}&redirect=${encodeURIComponent(pathname + search)}`)
     }
   }, [user, loading, pathname, router])
 

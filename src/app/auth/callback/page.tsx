@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { signupRedirectPath } from "@/lib/signupFlow"
 import { supabase } from "@/lib/supabase"
 
 /**
@@ -40,7 +41,7 @@ function Waiting({ message = "Signing you in…" }: { message?: string }) {
 function CallbackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const next = searchParams.get("next")
+  const next = signupRedirectPath(searchParams.get("next"))
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -71,7 +72,7 @@ function CallbackContent() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) route(session.user.id)
+      if (session) setTimeout(() => { void route(session.user.id) }, 0)
     })
 
     // If nothing shows up, the link was stale or the provider errored.

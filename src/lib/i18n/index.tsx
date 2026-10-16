@@ -49,6 +49,11 @@ function interpolate(template: string, vars?: Record<string, string | number>) {
 
 function detectLocale(): Locale {
   if (typeof window === "undefined") return DEFAULT_LOCALE
+  const requested = new URLSearchParams(window.location.search).get("lang")
+  if (requested && (LOCALES as string[]).includes(requested)) {
+    try { window.localStorage.setItem(STORAGE_KEY, requested) } catch { /* Preference remains valid for this visit. */ }
+    return requested as Locale
+  }
   const stored = window.localStorage.getItem(STORAGE_KEY)
   if (stored && (LOCALES as string[]).includes(stored)) return stored as Locale
   const nav = window.navigator?.language?.slice(0, 2).toLowerCase()

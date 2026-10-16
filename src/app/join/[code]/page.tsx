@@ -1,6 +1,6 @@
 "use client"
 
-import { normalizeInviteCode } from "@/lib/inviteCodes"
+import { isInviteCode, normalizeInviteCode } from "@/lib/inviteCodes"
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
@@ -19,7 +19,7 @@ import { track } from "@/lib/analytics"
  * name, course, format, member count — via the `get_invite_preview` RPC
  * (a narrow, anon-executable projection; see its migration).
  *
- * Logged IN: joins automatically, so the invitee never re-types the code,
+ * Logged IN: confirms joining explicitly, without re-typing the code,
  * then lands in the game. `/games/join` stays as the manual-code fallback.
  *
  * Dead-ends (bad code, full game, finished game) are friendly and always
@@ -37,7 +37,8 @@ type Preview = {
   is_completed?: boolean
 }
 
-function formatLabel(f: string | null | undefined): string {
+function formatLabel(f: string | null | undefined, t: (key: string) => string): string {
+  if (f && ["stroke_gross", "stroke_net", "stableford_net"].includes(f)) return t(`personal.format.${f}`)
   if (!f) return "Stroke play"
   return f.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
 }
@@ -53,14 +54,16 @@ export default function InviteLandingPage() {
   const [loading, setLoading] = useState(true)
   const [joining, setJoining] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // Auto-join must fire once, even as auth state settles.
   const joinAttempted = useRef(false)
+  const [lookupAttempt, setLookupAttempt] = useState(0)
 
   // 1. Preview (works logged out).
   useEffect(() => {
     let cancelled = false
     const run = async () => {
       setLoading(true)
+      setError(null)
+      if (!isInviteCode(code)) { setPreview({ found: false }); setLoading(false); return }
       track("invite_link_opened", { code_len: code.length })
       const { data, error: rpcError } = await supabase.rpc("get_invite_preview", {
         p_code: code,
@@ -72,7 +75,7 @@ export default function InviteLandingPage() {
       } else {
         const p = (data || { found: false }) as Preview
         setPreview(p)
-        if (p.found) track("invite_preview_viewed", { authed: !!user })
+        if (p.found) track("invite_preview_viewed", {})
       }
       setLoading(false)
     }
@@ -80,10 +83,10 @@ export default function InviteLandingPage() {
     return () => {
       cancelled = true
     }
-  }, [code, t, user])
+  }, [code, t, lookupAttempt])
 
-  // 2. Auto-join once we know the viewer is signed in and the game is joinable.
-  const autoJoin = useCallback(async () => {
+  // Join only after the user confirms the preview; allow retries on failure.
+  const joinLeague = useCallback(async () => {
     if (joinAttempted.current) return
     joinAttempted.current = true
     setJoining(true)
@@ -108,15 +111,10 @@ export default function InviteLandingPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : t("invite.failed"))
     } finally {
+      joinAttempted.current = false
       setJoining(false)
     }
   }, [code, router, t])
-
-  useEffect(() => {
-    if (authLoading || !user || !preview?.found) return
-    if (preview.is_full || preview.is_completed) return
-    autoJoin()
-  }, [authLoading, user, preview, autoJoin])
 
   if (loading || authLoading) {
     return (
@@ -130,11 +128,12 @@ export default function InviteLandingPage() {
   if (!preview?.found) {
     return (
       <Shell>
-        <h1 className="text-xl font-bold text-primary">{t("invite.invalid.title")}</h1>
+        <h1 className="text-xl font-bold text-primary">{error ? t("invite.lookup.title") : t("invite.invalid.title")}</h1>
         <p className="mt-2 text-sm text-primary/60">
-          {t("invite.invalid.body", { code })}
+          {error || t("invite.invalid.body", { code })}
         </p>
         <div className="mt-6 flex flex-col gap-2">
+          {error && <button type="button" className="min-h-[48px] rounded-xl bg-primary px-4 text-sm text-cream" onClick={() => setLookupAttempt((n) => n + 1)}>{t("invite.retry")}</button>}
           <Link href="/games/join" className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 py-3 text-center text-sm font-medium text-cream hover:bg-primary/90">
             {t("invite.manual")}
           </Link>
@@ -160,7 +159,7 @@ export default function InviteLandingPage() {
 
       <dl className="mt-4 space-y-1.5 text-sm">
         <Row label={t("invite.course")} value={preview.course_name || t("invite.notset")} />
-        <Row label={t("invite.format")} value={formatLabel(preview.format)} />
+        <Row label={t("invite.format")} value={formatLabel(preview.format, t)} />
         <Row
           label={t("invite.players")}
           value={
@@ -186,6 +185,7 @@ export default function InviteLandingPage() {
         <Note>{t("invite.full", { max: preview.max_players ?? 0 })}</Note>
       ) : null}
 
+      {!preview.is_completed && !preview.is_full && <p className="mt-5 text-sm text-primary/70">{t("invite.nextStep")}</p>}
       <div className="mt-6 flex flex-col gap-2">
         {user ? (
           preview.is_completed || preview.is_full ? (
@@ -196,7 +196,7 @@ export default function InviteLandingPage() {
             <button
               type="button"
               disabled={joining}
-              onClick={autoJoin}
+              onClick={joinLeague}
               className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-medium text-cream hover:bg-primary/90 disabled:opacity-60"
             >
               {joining ? t("invite.joining") : t("invite.join")}
@@ -208,16 +208,15 @@ export default function InviteLandingPage() {
           </Link>
         ) : (
           <>
-            {/* After auth the user returns here and is joined automatically —
-                they never re-type the code. */}
+            {/* Preserve this invitation through email and social sign-in. */}
             <Link
               href={`/?tab=signup&redirect=${encodeURIComponent(`/join/${code}`)}`}
               className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 py-3 text-center text-sm font-medium text-cream hover:bg-primary/90"
             >
-              {t("invite.signup")}
+              {t("invite.signup.named", { name: preview.name || "Mulligan" })}
             </Link>
             <Link
-              href={`/?redirect=${encodeURIComponent(`/join/${code}`)}`}
+              href={`/?tab=login&redirect=${encodeURIComponent(`/join/${code}`)}`}
               className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-primary/20 bg-white px-4 py-3 text-center text-sm font-medium text-primary hover:bg-primary/5"
             >
               {t("invite.havelogin")}

@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { LeaguePlayerInvite } from "@/components/LeaguePlayerInvite"
 import { useT } from "@/lib/i18n"
 
@@ -13,20 +14,24 @@ interface GameInviteCodeProps {
 
 export function GameInviteCode({ gameId, inviteCode, gameName, variant }: GameInviteCodeProps) {
   const t = useT()
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const [joinUrl, setJoinUrl] = useState("")
+
+  useEffect(() => { setJoinUrl(`${window.location.origin}/join/${encodeURIComponent(inviteCode)}`) }, [inviteCode])
 
   const handleCopy = async () => {
-    if (typeof navigator === "undefined" || !navigator.clipboard) return
+    if (typeof navigator === "undefined" || !navigator.clipboard) { setFeedback(t("invite.share.failed")); return }
     try {
       await navigator.clipboard.writeText(inviteCode)
+      setFeedback(t("invite.code.copied"))
     } catch {
-      // ignore
+      setFeedback(t("invite.share.failed"))
     }
   }
 
   const handleShare = async () => {
-    // Deep link (T1.3): shows a pre-auth preview of the game and joins the
-    // invitee automatically after sign-up — no code re-typing.
-    const joinUrl = `${window.location.origin}/join/${inviteCode}`
+    // Share the preview URL so friends can return to this invitation after sign-up.
+    const joinUrl = `${window.location.origin}/join/${encodeURIComponent(inviteCode)}`
     const message = `${t("invite.share.message.link", { name: gameName })}\n${joinUrl}`
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
@@ -37,8 +42,9 @@ export function GameInviteCode({ gameId, inviteCode, gameName, variant }: GameIn
     } else if (typeof navigator !== "undefined" && navigator.clipboard) {
       try {
         await navigator.clipboard.writeText(message)
+        setFeedback(t("invite.share.copied"))
       } catch {
-        // ignore
+        setFeedback(t("invite.share.failed"))
       }
     }
   }
@@ -58,7 +64,8 @@ export function GameInviteCode({ gameId, inviteCode, gameName, variant }: GameIn
         type="button"
         onClick={handleCopy}
         className="flex min-h-[44px] items-center rounded-xl bg-primary/10 px-2.5 font-mono text-sm tracking-[0.15em] text-primary hover:bg-primary/15"
-        title={variant === "mobile" ? t("invite.code.copy.tap") : t("invite.code.copy.click")}
+        title={t("invite.code.copy.click")}
+        aria-label={t("invite.code.copy.click")}
       >
         {inviteCode}
       </button>
@@ -87,6 +94,8 @@ export function GameInviteCode({ gameId, inviteCode, gameName, variant }: GameIn
         </svg>
         {t("games.share.cta")}
       </button>
+      {joinUrl && <a className="inline-flex min-h-[44px] items-center rounded-xl border border-primary/30 bg-white px-3 text-xs font-medium text-primary hover:bg-primary/5" href={`https://wa.me/?text=${encodeURIComponent(`${t("invite.share.message.link", { name: gameName })}\n${joinUrl}`)}`} target="_blank" rel="noopener noreferrer">{t("invite.share.whatsapp")}</a>}
+      {feedback && <p role="status" className="w-full text-center text-xs text-primary">{feedback}</p>}
       {gameId && <LeaguePlayerInvite gameId={gameId} />}
     </div>
   )

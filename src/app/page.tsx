@@ -41,12 +41,26 @@ function HomeContent() {
   const searchParams = useSearchParams()
   const { t } = useI18n()
   const [checking, setChecking] = useState(true)
-  // `?tab=signup` deep-links into the signup tab so /signup redirects can
-  // land on the right pane.
-  const initialTab: Tab = searchParams.get("tab") === "signup" ? "signup" : "login"
+  // Acquisition defaults to signup; returning members can explicitly choose login.
+  const initialTab: Tab = searchParams.get("tab") === "login" ? "login" : "signup"
   const [tab, setTab] = useState<Tab>(initialTab)
   const signupConfirmed = searchParams.get("signup") === "confirmed"
-  const redirectTo = searchParams.get("redirect")
+  const redirectTo = signupRedirectPath(searchParams.get("redirect"))
+  const isCreate = redirectTo === "/games/create"
+  const inviteCode = redirectTo?.match(/^\/join\/([A-Z0-9]{6}|[A-Z0-9]{10})$/i)?.[1]
+  const [inviteName, setInviteName] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    setInviteName(null)
+    if (inviteCode) {
+      void supabase.rpc("get_invite_preview", { p_code: inviteCode }).then(({ data }) => {
+        const preview = data as { found?: boolean; name?: string } | null
+        if (active && preview?.found && preview.name) setInviteName(preview.name)
+      })
+    }
+    return () => { active = false }
+  }, [inviteCode])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -64,7 +78,7 @@ function HomeContent() {
   return (
     <main className={`flex min-h-screen flex-col lg:flex-row ${NAV_PAD_CANCEL}`}>
       {/* Brand panel — full-height left split on desktop, top band on mobile. */}
-      <section className="flex flex-col bg-primary px-6 py-8 text-cream lg:min-h-screen lg:w-[55%] lg:px-14 lg:py-12">
+      <section className="flex flex-col bg-primary px-6 py-6 text-cream lg:min-h-screen lg:w-[55%] lg:px-14 lg:py-12">
         <div className="flex items-center gap-3">
           <Image
             src="/logo-mark-white.png"
@@ -81,9 +95,9 @@ function HomeContent() {
           </span>
         </div>
 
-        <div className="mt-8 lg:my-auto lg:py-16">
+        <div className="mt-5 lg:my-auto lg:py-16">
           {/* -0.04em is the brand kit's display tracking (.t-display). */}
-          <h1 className="text-4xl font-black leading-[1.08] tracking-[-0.04em] sm:text-5xl lg:text-6xl xl:text-7xl">
+          <h1 className="text-3xl font-black leading-[1.08] tracking-[-0.04em] sm:text-5xl lg:text-6xl xl:text-7xl">
             {t("auth.hero.line1")}
             <br />
             <span className="text-gold">{t("auth.hero.line2")}</span>
@@ -116,12 +130,17 @@ function HomeContent() {
             for panels sitting on the off-white body; against bone it has
             almost no edge, so the green tint the app already uses wins. */}
         <div className="auth-card h-fit w-full max-w-[460px] rounded-[14px] border border-primary/15 bg-white p-6 shadow-sm sm:p-7">
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold tracking-tight text-primary">{tab === "login" ? t("auth.entry.login") : inviteCode ? t("auth.entry.invite") : isCreate ? t("auth.entry.create") : t("auth.entry.signup")}</h2>
+            <p className="mt-2 text-sm text-primary/70">{inviteName ? t("auth.entry.inviteName", { name: inviteName }) : inviteCode ? t("auth.entry.inviteHelp") : isCreate ? t("auth.entry.createHelp") : t("auth.entry.help")}</p>
+            {inviteCode && <a className="mt-2 inline-flex min-h-[44px] items-center text-sm text-primary underline" href={redirectTo!}>{t("auth.entry.backInvite")}</a>}
+          </div>
           {/* Social sign-in first — the lowest-friction entry (T1.1). It sits
               above the tabs because it is tab-agnostic: Google both signs in
               and signs up, so putting it inside either pane would imply it
               only applies there. OAuthButtons renders its own "or" divider. */}
           <div className="mb-6">
-            <OAuthButtons redirectTo={searchParams.get("redirect")} />
+            <OAuthButtons redirectTo={redirectTo} />
           </div>
 
           <div

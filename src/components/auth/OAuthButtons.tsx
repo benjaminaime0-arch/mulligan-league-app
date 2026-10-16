@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { useI18n } from "@/lib/i18n"
+import { signupRedirectPath } from "@/lib/signupFlow"
 import { track } from "@/lib/analytics"
 
 /**
@@ -38,7 +39,8 @@ export function OAuthButtons({ redirectTo }: { redirectTo?: string | null }) {
     setLoading(provider)
     track("signup_started", { provider })
     try {
-      const next = redirectTo ? `?next=${encodeURIComponent(redirectTo)}` : ""
+      const destination = signupRedirectPath(redirectTo ?? null)
+      const next = destination ? `?next=${encodeURIComponent(destination)}` : ""
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
