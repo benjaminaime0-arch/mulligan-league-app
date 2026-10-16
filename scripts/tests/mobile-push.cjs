@@ -127,7 +127,7 @@ test('a late read acknowledgement never navigates back to the previous page',asy
 test('signed-out push visitors keep their exact app-local destination through login',()=>{
  let effect;const replaced=[];const {useAuth}=load('src/hooks/useAuth.ts',{
   react:{useEffect:fn=>{effect=fn}},'next/navigation':{useRouter:()=>({replace:url=>replaced.push(url)}),usePathname:()=>'/rounds/card'},'@/components/AuthProvider':{useAuthContext:()=>({user:null,loading:false})}
- },{window:{location:{search:'?n=notice'}}});useAuth();effect();assert.equal(replaced[0],'/?redirect=%2Frounds%2Fcard%3Fn%3Dnotice');
+ },{window:{location:{search:'?n=notice'}}});useAuth();effect();assert.equal(replaced[0],'/?tab=login&redirect=%2Frounds%2Fcard%3Fn%3Dnotice');
 });
 
 test("the preview Home Screen icon is clearly distinct from the public app",()=>{const manifest=load("src/app/manifest.ts",{},{process:{env:{VERCEL_ENV:"preview"}}}).default();assert.equal(manifest.name,"Mulligan Test");assert.equal(manifest.short_name,"Mulligan Test");});
