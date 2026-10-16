@@ -13,6 +13,7 @@ export function SignupForm() {
   // Honour `?redirect=` so an invite link (/join/[code]) returns the new
   // user straight to the game they were invited to (T1.3).
   const redirectTo = useSearchParams().get("redirect")
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -24,8 +25,6 @@ export function SignupForm() {
     lastName: "",
     email: "",
     password: "",
-    confirmPassword: "",
-    club: "",
   })
 
   const validate = () => {
@@ -44,9 +43,6 @@ export function SignupForm() {
     else if (formData.password.length < 6) {
       errors.password = t("auth.error.password.short")
     }
-    if (formData.password && formData.confirmPassword !== formData.password) {
-      errors.confirmPassword = t("auth.error.password.mismatch")
-    }
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -57,6 +53,7 @@ export function SignupForm() {
 
     if (!validate()) return
 
+    track("signup_started", { provider: "email" })
     setLoading(true)
     try {
       const { data, error: signUpError } = await supabase.auth.signUp({
@@ -69,7 +66,6 @@ export function SignupForm() {
             username: formData.username.trim(),
             first_name: formData.firstName.trim(),
             last_name: formData.lastName.trim(),
-            club: formData.club.trim() || undefined,
           },
         },
       })
@@ -88,7 +84,7 @@ export function SignupForm() {
       // protected onboarding without a session or retain passwords while waiting.
       if (!data.session) {
         setConfirmationEmail(formData.email.trim())
-        setFormData((p) => ({ ...p, password: "", confirmPassword: "" }))
+        setFormData((p) => ({ ...p, password: "" }))
         track("signup_confirmation_requested", { provider: "email" })
         return
       }
@@ -140,7 +136,7 @@ export function SignupForm() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor="signup-username" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
             {t("onboarding.username")}
@@ -230,7 +226,7 @@ export function SignupForm() {
         </label>
         <input
           id="signup-password"
-          type="password"
+          type={showPassword ? "text" : "password"}
           value={formData.password}
           onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
           className="w-full rounded-[10px] border border-primary/20 bg-white px-3.5 py-2.5 text-base text-charcoal placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
@@ -238,43 +234,12 @@ export function SignupForm() {
           autoComplete="new-password"
           disabled={loading}
         />
+        <button type="button" aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)} className="mt-2 min-h-[44px] text-sm text-primary underline">
+          {showPassword ? t("auth.password.hide") : t("auth.password.show")}
+        </button>
         {fieldErrors.password && (
           <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
         )}
-      </div>
-
-      <div>
-        <label htmlFor="signup-confirmPassword" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
-          {t("auth.password.confirm")}
-        </label>
-        <input
-          id="signup-confirmPassword"
-          type="password"
-          value={formData.confirmPassword}
-          onChange={(e) => setFormData((p) => ({ ...p, confirmPassword: e.target.value }))}
-          className="w-full rounded-[10px] border border-primary/20 bg-white px-3.5 py-2.5 text-base text-charcoal placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          placeholder="••••••••"
-          autoComplete="new-password"
-          disabled={loading}
-        />
-        {fieldErrors.confirmPassword && (
-          <p className="mt-1 text-sm text-red-600">{fieldErrors.confirmPassword}</p>
-        )}
-      </div>
-
-      <div>
-        <label htmlFor="signup-club" className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
-          {t("onboarding.club")} <span className="font-normal normal-case tracking-normal text-primary/70">{t("common.optional")}</span>
-        </label>
-        <input
-          id="signup-club"
-          type="text"
-          value={formData.club}
-          onChange={(e) => setFormData((p) => ({ ...p, club: e.target.value }))}
-          className="w-full rounded-[10px] border border-primary/20 bg-white px-3.5 py-2.5 text-base text-charcoal placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          placeholder="Pebble Beach Golf Links"
-          disabled={loading}
-        />
       </div>
 
       <button

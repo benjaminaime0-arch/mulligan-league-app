@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { Logo } from "@/components/Logo"
 import { useI18n } from "@/lib/i18n"
+import { signupRedirectPath } from "@/lib/signupFlow"
 import { track } from "@/lib/analytics"
 
 /**
@@ -42,7 +43,7 @@ const TOTAL_STEPS = 3
 function WelcomeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const next = searchParams.get("next")
+  const next = signupRedirectPath(searchParams.get("next"))
   const { user, loading: authLoading } = useAuth()
   const { t } = useI18n()
 
@@ -229,7 +230,8 @@ function WelcomeContent() {
               onClick={async () => {
                 if (await saveProfile()) {
                   track("onboarding_completed", { step: 2 })
-                  setStep(3)
+                  if (next) router.replace(next)
+                  else setStep(3)
                 }
               }}
               className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-60"

@@ -1000,11 +1000,11 @@ export default function GamePage({ params }: GamePageProps) {
           <section className="rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-sm font-semibold text-primary">{t("games.settings")}</h2>
 
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
               {game.invite_code ? (
                 <>
                   <span className="text-xs text-primary/60">{t("games.invitecode")}</span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
                     <GameInviteCode
                       gameId={isMember || isAdmin ? game.id : undefined}
                       inviteCode={game.invite_code}

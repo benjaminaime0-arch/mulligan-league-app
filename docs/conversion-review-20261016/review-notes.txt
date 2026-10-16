@@ -1,0 +1,28 @@
+Mulligan conversion changes — review only — 16 October 2026
+
+Local landing preview: http://localhost:3401/
+Local signup: http://localhost:3400/?lang=fr&tab=signup&redirect=%2Fgames%2Fcreate
+
+Prepared:
+- Existing green/cream design retained; friendship/rivalry headline and illustrative leaderboard hero.
+- Main landing CTAs lead to signup with /games/create retained.
+- Signup defaults to registration; returning members can choose login.
+- French landing carries language into the app.
+- Signup removes optional club and repeated password entry; password visibility toggle added.
+- Invitation name remains visible on signup, with a return-to-invitation link.
+- Email confirmation, OAuth and onboarding keep validated app-local destinations.
+- Known destinations bypass the generic join/create screen after social onboarding.
+- Invitation preview requires explicit confirmation before membership changes; failed joins and failed lookups are retryable.
+- Existing code-copy retained with feedback; invitation sharing has clipboard feedback and a WhatsApp option.
+
+Validation:
+- Production build, lint and TypeScript checks passed.
+- 17 existing/extended presentation and signup tests passed, including redirect escape and email destination preservation.
+- French/English translation parity passed.
+- Browser review: 1280px desktop and 390px mobile; no landing overflow or broken images.
+- Browser: empty signup submission validates locally; public invitation loads existing course, format and player count; signup/login destinations checked.
+- Live email confirmation, Google authentication, actual membership and WhatsApp send were not executed; these require staging validation before launch.
+
+Nothing was published, pushed, migrated or sent. Production data was read only.
+App changes are on local branch codex/conversion-review-20261016 in the Mulligan app repository.
+WordPress replacement block is homepage-wordpress-draft.html. Do not apply it until approved.
