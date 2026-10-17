@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useI18n } from "@/lib/i18n"
 import { AppIcon } from "@/components/ui/AppIcon"
 import { supabase } from "@/lib/supabase"
+import { track } from "@/lib/analytics"
 import { todayLocalIso } from "@/lib/date"
 import { calendarLeagueEnd } from "@/lib/leagueCalendar"
 import { loadPersonalOverview, personalButton, personalInput, personalResult, type PersonalTee } from "@/lib/personalRounds"
@@ -44,6 +45,7 @@ export function CalendarLeagueCreator() {
           p_name: name.trim(), p_tee: tee, p_start: start, p_duration_months: months,
           p_format: format, p_cards: cards, p_attestation: witness ? "peer_required" : "self_declared",
         }))
+        track("game_created", { format, duration_months: months })
         router.push(`/games/${result.game_id}`)
       } catch (e) { setError(e instanceof Error ? e.message : t("common.error.generic")); setBusy(false) }
     }}>

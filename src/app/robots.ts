@@ -1,14 +1,6 @@
 import type { MetadataRoute } from "next"
 
 export default function robots(): MetadataRoute.Robots {
-  return {
-    rules: [
-      {
-        userAgent: "*",
-        allow: ["/"],
-        disallow: ["/home", "/profile", "/games", "/matches", "/leaderboard", "/players", "/notifications"],
-      },
-    ],
-    sitemap: "https://app.mulliganclub.co/sitemap.xml",
-  }
+  // Let crawlers read page-level noindex on authentication/private app routes.
+  return { rules: [{ userAgent: "*", allow: "/", disallow: ["/api/"] }], sitemap: "https://app.mulliganclub.co/sitemap.xml" }
 }

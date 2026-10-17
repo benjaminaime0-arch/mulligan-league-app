@@ -59,23 +59,15 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: process.env.VERCEL_ENV === "preview" ? "Mulligan Test" : "Mulligan", statusBarStyle: "default" },
   title: {
-    default: "Mulligan — Organize Your Golf Group",
+    default: "Mulligan — Ligue de golf privée entre amis",
     template: "%s | Mulligan",
   },
   description:
-    "Turn your golf group into a real game. Create private games, track weekly scores, and compete with friends. Free to use.",
-  keywords: [
-    "golf game",
-    "golf group",
-    "golf scoring",
-    "golf leaderboard",
-    "weekly golf",
-    "golf competition",
-    "organize golf",
-  ],
+    "Créez votre ligue de golf privée, invitez vos amis et partagez le classement de votre saison. Cartes personnelles sur 9 ou 18 trous.",
+  robots: { index: false, follow: true },
   // Reads NEXT_PUBLIC_SITE_URL from env (set in Vercel project settings)
   // with a fallback to the app subdomain. Apex mulliganclub.co is the
-  // Webflow marketing site; the Next.js app lives at app.mulliganclub.co.
+  // WordPress marketing site; the Next.js app lives at app.mulliganclub.co.
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL || "https://app.mulliganclub.co",
   ),
@@ -87,18 +79,18 @@ export const metadata: Metadata = {
     apple: [{ url: "/logo-mark.png" }],
   },
   openGraph: {
-    title: "Mulligan — Organize Your Golf Group",
+    title: "Mulligan — Ligue de golf privée entre amis",
     description:
-      "Turn your golf group into a real game. Create private games, track weekly scores, and compete with friends. Free to use.",
+      "Créez votre ligue de golf privée, invitez vos amis et partagez le classement de votre saison. Cartes personnelles sur 9 ou 18 trous.",
     type: "website",
     siteName: "Mulligan",
     images: [{ url: "/logo.png", width: 1024, height: 1024, alt: "Mulligan" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Mulligan — Organize Your Golf Group",
+    title: "Mulligan — Ligue de golf privée entre amis",
     description:
-      "Turn your golf group into a real game. Create private games, track weekly scores, and compete with friends. Free to use.",
+      "Créez votre ligue de golf privée, invitez vos amis et partagez le classement de votre saison. Cartes personnelles sur 9 ou 18 trous.",
     images: ["/logo.png"],
   },
 }

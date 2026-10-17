@@ -16,6 +16,7 @@ export type AnalyticsEvent =
   | "invite_link_opened"
   | "invite_preview_viewed"
   | "invite_joined"
+  | "invite_shared"
   | "game_created"
   | "match_created"
   | "score_entered"
