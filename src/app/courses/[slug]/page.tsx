@@ -76,12 +76,13 @@ export async function generateMetadata({
     .filter(Boolean)
     .join(", ")
   const title = `${course.name} — carte de score et infos`
-  const description = `${course.name} (${facts}) : carte de score trou par trou, distances et index. Organisez votre ligue entre amis sur ce parcours avec Mulligan.`
+  const description = `${course.name} (${facts}) : carte de score trou par trou, distances et index. Découvrez aussi Mulligan pour organiser une ligue de golf privée entre amis.`
   return {
     // Root layout's title.template appends "| Mulligan" — never hardcode it
     // here or tabs render "… | Mulligan | Mulligan".
     title,
     description,
+    robots: { index: true, follow: true },
     alternates: { canonical: `https://app.mulliganclub.co/courses/${course.slug}` },
     openGraph: {
       title: `${course.name} — ${facts}`,
@@ -249,16 +250,17 @@ export default async function CoursePage({ params }: { params: { slug: string } 
       <PracticeCta courseId={course.id} courseName={course.name} slug={course.slug} />
 
       <section className="mt-10 rounded-xl bg-primary p-6 text-center text-cream">
-        <h2 className="text-lg font-bold">Créez votre ligue sur ce parcours</h2>
+        <h2 className="text-lg font-bold">Créez votre ligue de golf entre amis</h2>
         <p className="mt-1 text-sm opacity-80">
-          Parties entre amis, cartes trou par trou, classement en direct — gratuit.
+          Invitez votre groupe, partagez vos cartes et suivez votre saison. Vérifiez les parcours et départs disponibles dans l’application.
         </p>
         <Link
-          href="/"
+          href="/?lang=fr&tab=signup&redirect=%2Fgames%2Fcreate"
           className="mt-4 inline-block rounded-lg bg-cream px-5 py-2.5 font-semibold text-primary"
         >
-          Commencer sur Mulligan
+          Créer ma ligue privée
         </Link>
+        <p className="mt-4 text-sm"><a className="underline" href="https://mulliganclub.co/ligue-golf-entre-amis/">Comment lancer une ligue avec vos amis</a></p>
       </section>
     </main>
   )

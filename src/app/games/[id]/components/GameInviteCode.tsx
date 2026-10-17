@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { LeaguePlayerInvite } from "@/components/LeaguePlayerInvite"
+import { track } from "@/lib/analytics"
 import { useT } from "@/lib/i18n"
 
 interface GameInviteCodeProps {
@@ -36,12 +37,14 @@ export function GameInviteCode({ gameId, inviteCode, gameName, variant }: GameIn
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ text: message, url: joinUrl })
+        track("invite_shared", { method: "native" })
       } catch {
         // user cancelled or share failed
       }
     } else if (typeof navigator !== "undefined" && navigator.clipboard) {
       try {
         await navigator.clipboard.writeText(message)
+        track("invite_shared", { method: "clipboard" })
         setFeedback(t("invite.share.copied"))
       } catch {
         setFeedback(t("invite.share.failed"))
@@ -94,7 +97,7 @@ export function GameInviteCode({ gameId, inviteCode, gameName, variant }: GameIn
         </svg>
         {t("games.share.cta")}
       </button>
-      {joinUrl && <a className="inline-flex min-h-[44px] items-center rounded-xl border border-primary/30 bg-white px-3 text-xs font-medium text-primary hover:bg-primary/5" href={`https://wa.me/?text=${encodeURIComponent(`${t("invite.share.message.link", { name: gameName })}\n${joinUrl}`)}`} target="_blank" rel="noopener noreferrer">{t("invite.share.whatsapp")}</a>}
+      {joinUrl && <a className="inline-flex min-h-[44px] items-center rounded-xl border border-primary/30 bg-white px-3 text-xs font-medium text-primary hover:bg-primary/5" href={`https://wa.me/?text=${encodeURIComponent(`${t("invite.share.message.link", { name: gameName })}\n${joinUrl}`)}`} target="_blank" rel="noopener noreferrer" onClick={() => track("invite_shared", { method: "whatsapp" })}>{t("invite.share.whatsapp")}</a>}
       {feedback && <p role="status" className="w-full text-center text-xs text-primary">{feedback}</p>}
       {gameId && <LeaguePlayerInvite gameId={gameId} />}
     </div>
