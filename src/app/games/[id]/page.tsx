@@ -715,7 +715,7 @@ export default function GamePage({ params }: GamePageProps) {
 
   const isDraft = game.status !== "active" && game.status !== "completed"
 
-  if (personalLeague) return <PersonalLeaguePanel initial={personalLeague} userId={user.id} />
+  if (personalLeague) return <PersonalLeaguePanel key={personalLeague.game.id} initial={personalLeague} userId={user.id} returningFrom={searchParams.get("from")} />
 
   return (
     <main className="min-h-screen px-4 pb-6 pt-4">
