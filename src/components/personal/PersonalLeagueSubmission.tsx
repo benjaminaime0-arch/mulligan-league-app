@@ -24,9 +24,10 @@ export function PersonalLeagueSubmission({ data, online, busy, onBusyChange, onR
   const groups = groupCardLeagues(data.leagues)
   const chosen = selectedCardLeagues(data.leagues,selected)
   const draft = data.round.status === "draft"
-  useEffect(() => { setSelected(intended ? [intended] : []); setConfirmation(null) }, [data.round.id,data.revision?.id,intended])
+  const deciding = data.round.status === "pending_player_confirmation"
+  useEffect(() => { setSelected(intended ? [intended] : []); setConfirmation(null) }, [data.round.id,data.revision?.id,data.round.status,intended])
   const submit = async () => {
-    if (!confirmation || flight.current || busy || !online) return
+    if (deciding || !confirmation || flight.current || busy || !online) return
     flight.current = true; onBusyChange(true); setError(null); setMessage(null)
     try {
       const result = personalResult<BatchResponse>(await supabase.rpc("submit_personal_card_to_leagues", {
@@ -50,6 +51,10 @@ export function PersonalLeagueSubmission({ data, online, busy, onBusyChange, onR
     } finally { flight.current = false; onBusyChange(false) }
   }
   const title = (g: CardLeague) => <Link href={`/games/${g.id}`} className="flex min-h-[44px] items-center justify-between gap-2 text-sm font-bold"><span>{g.name}</span><AppIcon name="arrow" className="h-4 w-4 shrink-0" /></Link>
+  if (deciding) return groups.submitted.length ? <section id="card-league-submission" className="mt-8 space-y-3">
+    <h2 className="font-bold">{t("correction.leagues")}</h2>
+    <ul className="app-surface divide-y divide-primary/10 px-4">{groups.submitted.map(g => <li key={g.id} className="py-3">{title(g)}<p className="mt-1 text-sm">{t(personalSubmissionStatusKey(g.submission_status!,data.round.status))}</p></li>)}</ul>
+  </section> : null
   return <section id="card-league-submission" className="mt-8 scroll-mt-20 space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold">{t(draft ? "personal.lifecycle.draftLeagues" : "personal.submitTitle")}</h2>
       {!!groups.eligible.length && !draft && <button type="button" className="min-h-[44px] text-xs font-bold underline" disabled={busy || !online} onClick={() => setSelected(chosen.length === Math.min(groups.eligible.length,50) ? [] : groups.eligible.slice(0,50).map(g => g.id))}>{t(chosen.length === Math.min(groups.eligible.length,50) ? "cardFlow.clearSelection" : "cardFlow.selectAll")}</button>}
