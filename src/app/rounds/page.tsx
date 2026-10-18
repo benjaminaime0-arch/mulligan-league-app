@@ -60,7 +60,7 @@ function PersonalRoundsContent() {
       if (league) setDate(leagueCardWindow(league, todayInLeague(league.rules.timezone)).initial)
       setTee(league?.rules.tee_id || choices.find(x => x.id === requested)?.id || choices.find(x => x.ready)?.id || choices[0]?.id || "")
       const existing = league ? leagueCardReturn(d.rounds, league, user.id, todayInLeague(league.rules.timezone)) : null
-      setShowNew((requestedNew || !!requested || !!course) && !existing?.draft && !existing?.submission)
+      setShowNew((requestedNew || !!requested || !!course) && !existing?.draft && !existing?.submission && !existing?.replacement)
     }).catch(e => {
       if (!active) return
       if (isCardNetworkError(e)) {
@@ -80,7 +80,7 @@ function PersonalRoundsContent() {
   if (loading || !user || (loadedFor !== loadKey && !error)) return <main className="p-6">{t("common.loading")}</main>
   const cardWindow = cardLeague ? leagueCardWindow(cardLeague, todayInLeague(cardLeague.rules.timezone)) : null
   const existing = cardLeague && data && !offline ? leagueCardReturn(data.rounds, cardLeague, user.id, todayInLeague(cardLeague.rules.timezone)) : null
-  const hasExisting = !!(existing?.draft || existing?.submission)
+  const hasExisting = !!(existing?.draft || existing?.submission || existing?.replacement)
   const rounds = data?.rounds.filter(r => filter === "all" || (filter === "drafts" ? r.status === "draft" : filter === "validated" ? r.status === "validated" : ["pending_validation", "pending_player_confirmation", "confirmed"].includes(r.status))) ?? []
   return <main className="app-page">
     <div className="flex flex-wrap items-center justify-between gap-3">
