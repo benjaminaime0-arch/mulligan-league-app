@@ -8,17 +8,17 @@ export type LeagueReminder = { id: string; name: string; kind: "join" | "card"; 
 /** A reminder is a message to prepare, never proof of sending or completion. */
 export function leagueReminders(data: PersonalLeague, viewer: string, today: string): LeagueReminder[] {
   if (!data.organizer_progress || !["open", "upcoming"].includes(data.closure_status) || today > data.game.end_date) return []
+  if (!/^(?:[A-Z0-9]{6}|[A-Z0-9]{10})$/i.test(data.game.invite_code)) return []
   const progress = leagueGroupProgress(data, viewer)
   const result: LeagueReminder[] = []
   if (/^(?:[A-Z0-9]{6}|[A-Z0-9]{10})$/i.test(data.game.invite_code)) {
     for (const person of progress.awaiting) if (person.user_id !== viewer) {
-      result.push({ id: person.user_id, name: person.player_name, kind: "join", path: `/join/${encodeURIComponent(data.game.invite_code)}` })
+      result.push({ id: person.user_id, name: person.player_name, kind: "join", path: `/join/${encodeURIComponent(data.game.invite_code)}?reminder=join` })
     }
   }
   if (leagueContext(data.game.id) && leagueContext(data.rules.tee_id) && leagueCardWindow(data, today).open) {
-    const entry = `/rounds?tee=${data.rules.tee_id}&league=${data.game.id}`
-    // Returning players see login if needed; the exact league/tee survives auth.
-    const path = `/?tab=login&redirect=${encodeURIComponent(entry)}`
+    // Public context first; membership and card state are checked after sign-in.
+    const path = `/join/${encodeURIComponent(data.game.invite_code)}?reminder=card`
     for (const member of progress.members) if (member.user_id !== viewer && member.status === "missing") {
       result.push({ id: member.user_id, name: member.player_name, kind: "card", path })
     }

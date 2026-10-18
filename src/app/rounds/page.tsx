@@ -1,5 +1,7 @@
 "use client"
 import Link from "next/link"
+import { leagueCardReturn } from "@/lib/leagueCardReturn"
+import { LeagueCardReturnPanel } from "@/components/personal/LeagueCardReturnPanel"
 import { leagueCardWindow } from "@/lib/cardLeagueReview"
 import { todayInLeague } from "@/lib/nextLeague"
 import { leagueContext, withLeagueContext } from "@/lib/personalCardFlow"
@@ -57,7 +59,8 @@ function PersonalRoundsContent() {
       const choices = course ? d.tees.filter(x => x.course_id === course) : d.tees
       if (league) setDate(leagueCardWindow(league, todayInLeague(league.rules.timezone)).initial)
       setTee(league?.rules.tee_id || choices.find(x => x.id === requested)?.id || choices.find(x => x.ready)?.id || choices[0]?.id || "")
-      setShowNew(requestedNew || !!requested || !!course)
+      const existing = league ? leagueCardReturn(d.rounds, league, user.id, todayInLeague(league.rules.timezone)) : null
+      setShowNew((requestedNew || !!requested || !!course) && !existing?.draft && !existing?.submission)
     }).catch(e => {
       if (!active) return
       if (isCardNetworkError(e)) {
@@ -76,17 +79,20 @@ function PersonalRoundsContent() {
   }, [showNew])
   if (loading || !user || (loadedFor !== loadKey && !error)) return <main className="p-6">{t("common.loading")}</main>
   const cardWindow = cardLeague ? leagueCardWindow(cardLeague, todayInLeague(cardLeague.rules.timezone)) : null
+  const existing = cardLeague && data && !offline ? leagueCardReturn(data.rounds, cardLeague, user.id, todayInLeague(cardLeague.rules.timezone)) : null
+  const hasExisting = !!(existing?.draft || existing?.submission)
   const rounds = data?.rounds.filter(r => filter === "all" || (filter === "drafts" ? r.status === "draft" : filter === "validated" ? r.status === "validated" : ["pending_validation", "pending_player_confirmation", "confirmed"].includes(r.status))) ?? []
   return <main className="app-page">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h1 className="text-3xl font-bold">{t(leagueId ? "friendCard.newTitle" : "personal.cards")}</h1></div>
-      <button className={`${personalButton} gap-2`} disabled={!data || offline} aria-expanded={showNew} aria-controls="new-card" onClick={() => setShowNew(v => !v)}><AppIcon name={showNew ? "close" : "plus"} className="h-4 w-4" />{showNew ? t("personal.ui.close") : t("app.newCard")}</button>
+      {(!hasExisting || showNew) && <button className={`${personalButton} gap-2`} disabled={!data || offline} aria-expanded={showNew} aria-controls="new-card" onClick={() => setShowNew(v => !v)}><AppIcon name={showNew ? "close" : "plus"} className="h-4 w-4" />{showNew ? t("personal.ui.close") : t("app.newCard")}</button>}
     </div>
     {leagueId && <Link href={`/games/${leagueId}`} className="mt-4 inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold">← {t("friend.backLeague")}</Link>}
     {offline && <p role="status" className="mt-4 text-sm text-primary/70">{t("personal.offline.list")}</p>}
     {error && <p role="alert" className="my-4 text-sm text-red-700">{error === "league_context" ? t("friendCard.rulesFailed") : error}</p>}
     {data && <>
       {!leagueId && data.inbox.length > 0 && <PersonalInbox items={data.inbox} />}
+      {existing && cardLeague && !showNew && <LeagueCardReturnPanel league={cardLeague} state={existing} allowNew={!!cardWindow?.open} onNew={() => setShowNew(true)} />}
       {showNew && <form ref={formRef} id="new-card" className="my-5 space-y-4 rounded-2xl border border-primary/10 bg-white p-5" onSubmit={async e => {
         e.preventDefault(); if (createFlight.current || busy || (leagueId && !cardWindow?.open)) return
         createFlight.current = true; setBusy(true); setError(null)

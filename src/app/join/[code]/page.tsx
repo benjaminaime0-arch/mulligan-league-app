@@ -2,14 +2,15 @@
 
 import { isInviteCode, normalizeInviteCode } from "@/lib/inviteCodes"
 
-import { useCallback, useEffect, useRef, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { Suspense, useCallback, useEffect, useRef, useState } from "react"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { useAuthContext } from "@/components/AuthProvider"
 import { AppIcon } from "@/components/ui/AppIcon"
 import { Logo } from "@/components/Logo"
 import { useI18n } from "@/lib/i18n"
+import { inviteMemberDestination } from "@/lib/leagueCardReturn"
 import { track } from "@/lib/analytics"
 import { AnalyticsView } from "@/components/AnalyticsView"
 
@@ -55,13 +56,16 @@ export default function InviteLandingPage() {
   const code = normalizeInviteCode(params?.code || "")
   return <>
     {isInviteCode(code) && <AnalyticsView event="invite_link_opened" viewKey="invitation" params={{ code_len: code.length }} />}
-    <InviteLandingContent />
+    <Suspense><InviteLandingContent /></Suspense>
   </>
 }
 
 function InviteLandingContent() {
   const params = useParams<{ code: string }>()
   const router = useRouter()
+  const search = useSearchParams()
+  const cardIntent = search.get("reminder") === "card" || search.get("card") === "1"
+  const reminderIntent = cardIntent || search.get("reminder") === "join"
   const { user, loading: authLoading } = useAuthContext()
   const { t, locale } = useI18n()
 
@@ -113,7 +117,7 @@ function InviteLandingContent() {
       const res = (data || {}) as { success?: boolean; game_id?: string; error?: string }
       if (res.success && res.game_id) {
         track("invite_joined", { league_id: res.game_id, member_count: (preview?.member_count ?? 0) + 1 })
-        router.replace(`/games/${res.game_id}`)
+        router.replace(inviteMemberDestination(res.game_id, cardIntent, !!preview?.hole_count, !!preview?.is_completed))
         return
       }
       // A stale preview or lost join acknowledgement must retain this league.
@@ -122,7 +126,7 @@ function InviteLandingContent() {
         if (refreshError) throw refreshError
         const memberId = (refreshed as Preview | null)?.member_game_id
         if (!memberId) throw new Error(t("invite.failed"))
-        router.replace(`/games/${memberId}`)
+        router.replace(inviteMemberDestination(memberId, cardIntent, !!preview?.hole_count, !!preview?.is_completed))
         return
       }
       setError(res.error || t("invite.failed"))
@@ -132,7 +136,7 @@ function InviteLandingContent() {
       joinAttempted.current = false
       setJoining(false)
     }
-  }, [code, router, t, preview?.member_count])
+  }, [code, router, t, preview?.member_count, preview?.hole_count, preview?.is_completed, cardIntent])
 
   if (loading || authLoading) {
     return (
@@ -164,6 +168,9 @@ function InviteLandingContent() {
   }
 
   const memberId = user ? preview.member_game_id : null
+  const inviteReturn = `/join/${code}${reminderIntent ? `?reminder=${cardIntent ? "card" : "join"}` : ""}`
+  const loginHref = `/?tab=login&redirect=${encodeURIComponent(inviteReturn)}`
+  const signupHref = `/?tab=signup&redirect=${encodeURIComponent(inviteReturn)}`
   const shortDate = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })
   const spotsLeft =
     preview.max_players != null && preview.member_count != null
@@ -176,7 +183,7 @@ function InviteLandingContent() {
       <p className="text-xs font-semibold uppercase tracking-wide text-primary/40">
         {t("invite.invited")}
       </p>
-      <h1 className="mt-1 text-2xl font-bold text-primary">{preview.name}</h1>
+      <h1 className="mt-1 break-words text-2xl font-bold text-primary">{preview.name}</h1>
 
       <dl className="mt-4 space-y-1.5 text-sm">
         <Row label={t("invite.course")} value={preview.course_name || t("invite.notset")} />
@@ -208,10 +215,10 @@ function InviteLandingContent() {
         <Note>{t("invite.full", { max: preview.max_players ?? 0 })}</Note>
       ) : null}
 
-      {memberId ? <p className="mt-5 text-sm text-primary/70">{t("invite.memberReady")}</p> : !preview.is_completed && !preview.is_full && <p className="mt-5 text-sm text-primary/70">{t(user ? "invite.readyStep" : "invite.nextStep")}</p>}
+      {memberId ? <p className="mt-5 text-sm text-primary/70">{t("invite.memberReady")}</p> : !preview.is_completed && !preview.is_full && <p className="mt-5 text-sm text-primary/70">{t(user ? "invite.readyStep" : reminderIntent ? "cardReturn.signInHint" : "invite.nextStep")}</p>}
       {!!preview.hole_count && !preview.is_completed && <p className="mt-2 text-xs leading-relaxed text-primary/65">{t(preview.attestation === "peer_required" ? "invite.witnessRule" : "invite.freshRule")}</p>}
       <div className="mt-6 flex flex-col gap-2">
-        {memberId ? <Link href={`/games/${memberId}`} className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-cream">{t("invite.openLeague")}</Link> : user ? (
+        {memberId ? <Link href={inviteMemberDestination(memberId, cardIntent, !!preview.hole_count, !!preview.is_completed)} className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-cream">{t(cardIntent && preview.hole_count && !preview.is_completed ? "cardReturn.openEntry" : "invite.openLeague")}</Link> : user ? (
           preview.is_completed || preview.is_full ? (
             <Link href="/games" className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 py-3 text-center text-sm font-medium text-cream hover:bg-primary/90">
               {t("invite.browse")}
@@ -227,23 +234,24 @@ function InviteLandingContent() {
             </button>
           )
         ) : preview.is_completed || preview.is_full ? (
-          <Link href="/" className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-primary/20 bg-white px-4 py-3 text-center text-sm font-medium text-primary hover:bg-primary/5">
-            {t("invite.gomulligan")}
-          </Link>
+          <>
+            <Link href={loginHref} className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 py-3 text-center text-sm font-semibold text-cream">{t("cardReturn.memberLogin")}</Link>
+            <Link href="/" className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-primary/20 bg-white px-4 py-3 text-center text-sm text-primary">{t("invite.gomulligan")}</Link>
+          </>
         ) : (
           <>
             {/* Preserve this invitation through email and social sign-in. */}
             <Link
-              href={`/?tab=signup&redirect=${encodeURIComponent(`/join/${code}`)}`}
+              href={reminderIntent ? loginHref : signupHref}
               className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 py-3 text-center text-sm font-medium text-cream hover:bg-primary/90"
             >
-              {t("invite.signup.named", { name: preview.name || "Mulligan" })}
+              {reminderIntent ? t("cardReturn.login") : t("invite.signup.named", { name: preview.name || "Mulligan" })}
             </Link>
             <Link
-              href={`/?tab=login&redirect=${encodeURIComponent(`/join/${code}`)}`}
+              href={reminderIntent ? signupHref : loginHref}
               className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-primary/20 bg-white px-4 py-3 text-center text-sm font-medium text-primary hover:bg-primary/5"
             >
-              {t("invite.havelogin")}
+              {reminderIntent ? t("auth.signup") : t("invite.havelogin")}
             </Link>
             {spotsLeft != null && spotsLeft > 0 && (
               <p className="text-center text-xs text-primary/40">

@@ -1,9 +1,9 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),ts=require('typescript'),React=require('react');
 const {renderToStaticMarkup}=require('react-dom/server');
-const root=path.resolve(__dirname,'../..');let locale='fr';let mockedDraft;let mockedRpc;let mockedUser={id:'owner'};const cache=new Map();
+const root=path.resolve(__dirname,'../..');let locale='fr';let mockedDraft;let mockedRpc;let mockedUser={id:'owner'};let mockedSearchParams=new URLSearchParams();const cache=new Map();
 function load(relative){let file=path.join(root,relative);if(!path.extname(file))file+=fs.existsSync(file+'.tsx')?'.tsx':'.ts';if(cache.has(file))return cache.get(file);const m=new Module(file,module);m.paths=module.paths;m.require=name=>{
  if(name==='@/components/AuthProvider')return{useAuthContext:()=>({user:mockedUser,loading:false})};
- if(name==='next/navigation')return{useParams:()=>({code:'B583DG1HQP'}),useRouter:()=>({replace(){}})};
+ if(name==='next/navigation')return{useParams:()=>({code:'B583DG1HQP'}),useRouter:()=>({replace(){}}),useSearchParams:()=>mockedSearchParams,usePathname:()=>'/rounds'};
  if(name==='next/image')return({priority,...props})=>React.createElement('img',props);
  if(name==='@/lib/supabase')return{supabase:{rpc:(...args)=>mockedRpc?.(...args)}};
  if(name==='@/lib/useCardDraft')return{useCardDraft:()=>mockedDraft};
@@ -290,9 +290,8 @@ for(const language of ['fr','en'])test(`${language}: retained invitations are no
 test('reminders target only invited non-members and friends with no first submission',()=>{
  const {leagueReminders}=load('src/lib/leagueReminders');const d=groupLeague();d.board.push({user_id:'first',player_name:'First card friend',rounds_counted:0});
  const reminders=leagueReminders(d,'owner','2026-10-18');assert.deepEqual(reminders.map(r=>[r.id,r.kind]),[['invited','join'],['first','card']]);
- assert.equal(reminders[0].path,'/join/ABC123');const auth=new URL(reminders[1].path,'https://app.mulliganclub.co');assert.equal(auth.searchParams.get('tab'),'login');
- const entry=new URL(auth.searchParams.get('redirect'),auth.origin);assert.equal(entry.pathname,'/rounds');assert.equal(entry.searchParams.get('league'),d.game.id);assert.equal(entry.searchParams.get('tee'),d.rules.tee_id);
- const {signupRedirectPath}=load('src/lib/signupFlow');assert.equal(signupRedirectPath(auth.searchParams.get('redirect')),entry.pathname+entry.search);
+ assert.equal(reminders[0].path,'/join/ABC123?reminder=join');const entry=new URL(reminders[1].path,'https://app.mulliganclub.co');assert.equal(entry.pathname,'/join/ABC123');assert.equal(entry.searchParams.get('reminder'),'card');
+ const {signupRedirectPath}=load('src/lib/signupFlow');assert.equal(signupRedirectPath(entry.pathname+entry.search),'/join/ABC123?reminder=card');
  for(const state of ['finalized','closed_provisional'])assert.deepEqual(leagueReminders({...d,closure_status:state},'owner','2026-10-18'),[]);
  assert.deepEqual(leagueReminders({...d,organizer_progress:null},'owner','2026-10-18'),[]);assert.deepEqual(leagueReminders(d,'owner','2100-01-01'),[]);
  const future={...d,game:{...d.game,start_date:'2026-11-01'}};assert.deepEqual(leagueReminders(future,'owner','2026-10-18').map(r=>r.kind),['join']);
@@ -340,4 +339,49 @@ for(const language of ['fr','en'])test(`${language}: reminder preview stays comp
  try{React.useState=v=>[v,()=>{}];React.useRef=v=>({current:v});Object.defineProperty(global,'navigator',{value:{clipboard:{writeText:async value=>{copied=value}}},configurable:true});
   const tree=LeagueReminderDialog({name:'Friend',kind:'card',message:text,onClose(){}});tree.props.onConfirm();assert.equal(copied,text);
  }finally{React.useState=state;React.useRef=ref;Object.defineProperty(global,'navigator',{value:priorNavigator,configurable:true})}
+});
+
+test('a reminder resumes only exact-tee drafts inside the live course-local entry window',()=>{
+ const {leagueCardReturn}=load('src/lib/leagueCardReturn');const league={...groupLeague(),game:{...groupLeague().game,start_date:'2026-10-18',end_date:'2026-11-17'},submissions:[]};
+ const round={id:'saved',tee_id:league.rules.tee_id,status:'draft',played_on:'2026-10-18'};
+ assert.equal(leagueCardReturn([round],league,'owner','2026-10-18').draft.id,'saved');
+ for(const change of [{tee_id:'other-tee'},{tee_id:undefined},{status:'validated'},{played_on:'2026-10-17'},{played_on:'2026-10-19'}])assert.equal(leagueCardReturn([{...round,...change}],league,'owner','2026-10-18').draft,null,JSON.stringify(change));
+ for(const state of ['finalized','closed_provisional'])assert.equal(leagueCardReturn([round],{...league,closure_status:state},'owner','2026-10-18').draft,null);
+ const priorDay={...league,game:{...league.game,start_date:'2026-10-17'}};assert.equal(leagueCardReturn([{...round,played_on:'2026-10-17'}],priorDay,'owner','2026-10-18').draft.id,'saved');
+});
+test('a stale reminder shows the current submission instead of starting a duplicate first card',()=>{
+ const {leagueCardReturn}=load('src/lib/leagueCardReturn');const league=groupLeague(),round={id:'draft',tee_id:league.rules.tee_id,status:'draft',played_on:'2026-10-18'};
+ for(const status of ['accepted','pending']){const sent={user_id:'owner',round_id:'already-sent',status,card_status:'pending_validation'};const result=leagueCardReturn([round],{...league,submissions:[sent]},'owner','2026-10-18');assert.equal(result.draft,null);assert.equal(result.submission.round_id,'already-sent');}
+ for(const status of ['superseded','rejected'])assert.equal(leagueCardReturn([round],{...league,submissions:[{user_id:'owner',status}]},'owner','2026-10-18').draft.id,'draft');
+ assert.equal(leagueCardReturn([round],{...league,submissions:[{user_id:'other',status:'pending'}]},'owner','2026-10-18').draft.id,'draft');
+});
+for(const language of ['fr','en'])test(`${language}: existing draft and submitted-card panels preserve the league with explicit new-card choice`,()=>{
+ locale=language;const {LeagueCardReturnPanel}=load('src/components/personal/LeagueCardReturnPanel');const league={...groupLeague(),tee:{name:'Yellow'}};const draft={id:'saved',played_on:'2026-10-18'};const dict=load('src/lib/i18n/dictionaries').dictionaries[language];
+ const html=renderToStaticMarkup(React.createElement(LeagueCardReturnPanel,{league,state:{draft,submission:null},onNew(){}}));assert.ok(html.includes(dict['cardReturn.resume']));assert.ok(html.includes(`/rounds/saved?league=${league.game.id}`));assert.ok(html.includes(dict['cardReturn.new']));
+ const sent=renderToStaticMarkup(React.createElement(LeagueCardReturnPanel,{league,state:{draft:null,submission:{round_id:'sent',played_on:'2026-10-18',status:'pending',card_status:'pending_player_confirmation'}},onNew(){}}));assert.ok(sent.includes(dict['cardReturn.sentTitle']));assert.ok(sent.includes(dict['personal.submission.awaitingPlayer']));assert.ok(sent.includes(`/rounds/sent?league=${league.game.id}`));assert.ok(!sent.includes(dict['cardReturn.resume']));
+});
+test('card-intent destinations work for personal leagues, with completed and legacy leagues returning to standings',()=>{
+ const {inviteMemberDestination}=load('src/lib/leagueCardReturn');assert.equal(inviteMemberDestination(targetId,true,true,false),`/rounds?new=1&league=${targetId}`);
+ for(const args of [[false,true,false],[true,false,false],[true,true,true]])assert.equal(inviteMemberDestination(targetId,...args),`/games/${targetId}`);
+ assert.equal(inviteMemberDestination('//evil.example',true,true,false),'/games');
+});
+for(const language of ['fr','en'])test(`${language}: reminder preview prioritizes returning-player sign-in and retains the intent`,()=>{
+ locale=language;const dict=load('src/lib/i18n/dictionaries').dictionaries[language];
+ try{for(const intent of ['join','card']){mockedSearchParams=new URLSearchParams({reminder:intent});const html=renderInvitation(invitationPreview(),null);assert.ok(html.includes(dict['cardReturn.login']));assert.ok(html.includes(encodeURIComponent(`/join/B583DG1HQP?reminder=${intent}`)));assert.ok(!html.includes(dict['invite.signup.named'].replace('{name}','Friends Cup')));}
+ mockedSearchParams=new URLSearchParams({reminder:'card'});const member=renderInvitation(invitationPreview({member_game_id:targetId,is_full:true}));assert.ok(member.includes(`/rounds?new=1&amp;league=${targetId}`));
+ const ended=renderInvitation(invitationPreview({member_game_id:targetId,is_completed:true}));assert.ok(ended.includes(`/games/${targetId}`));
+ for(const flags of [{is_full:true},{is_completed:true}]){const anon=renderInvitation(invitationPreview(flags),null);assert.ok(anon.includes(dict['cardReturn.memberLogin']));assert.ok(anon.includes('tab=login'));}
+ }finally{mockedSearchParams=new URLSearchParams()}
+});
+for(const language of ['fr','en'])test(`${language}: the actual reminder entry page offers an existing card before any new-card form`,()=>{
+ locale=language;const Page=load('src/app/rounds/page').default;const state=React.useState;const originalRpc=mockedRpc;
+ const league={...groupLeague(),tee:{name:'Yellow'},game:{...groupLeague().game,name:'Return Cup'}};
+ const d={rounds:[{id:'saved',tee_id:league.rules.tee_id,status:'draft',played_on:new Date().toISOString().slice(0,10),course_name:'QA',tee_name:'Yellow',hole_count:9}],inbox:[],tees:[],official_index:null,history:[],level:{status:'unavailable',value:null,cards_count:0,cards_used:0,revision_ids:[]}};
+ const dict=load('src/lib/i18n/dictionaries').dictionaries[language];
+ try{mockedSearchParams=new URLSearchParams({new:'1',league:league.game.id});mockedRpc=()=>assert.fail('Rendering reminder must not write a new round');
+  for(const submitted of [false,true]){let index=0;const context={...league,submissions:submitted?[{user_id:'owner',round_id:'sent',played_on:'2026-10-18',status:'pending',card_status:'pending_validation'}]:[]};
+   React.useState=initial=>{const i=index++;return[i===0?d:i===3?false:i===5?context:i===7?`owner:${league.game.id}:::true`:typeof initial==='function'?initial():initial,()=>{}]};
+   const html=renderToStaticMarkup(React.createElement(Page));assert.ok(html.includes(dict[submitted?'cardReturn.sentTitle':'cardReturn.resume']));assert.ok(!html.includes(dict['personal.start']));assert.ok(!html.includes('id="new-card"'));
+  }
+ }finally{React.useState=state;mockedRpc=originalRpc;mockedSearchParams=new URLSearchParams()}
 });
