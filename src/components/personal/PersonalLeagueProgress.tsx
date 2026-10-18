@@ -1,4 +1,5 @@
 "use client"
+import { PersonalLeagueCorrectionResults } from "./PersonalLeagueCorrectionResults"
 import { PersonalLeagueValidation } from "./PersonalLeagueValidation"
 import { leagueValidationQueue } from "@/lib/leagueValidationQueue"
 import Link from "next/link"
@@ -28,12 +29,14 @@ export function PersonalLeagueProgress({ data, userId, onInvite }: { data: Perso
   return <section className="app-surface mb-4 p-4" aria-label={t("group.title")}>
     <h2 className="font-bold">{t("group.title")}</h2>
     <p className="mt-1 text-xs leading-relaxed text-primary/70">{t("group.summary", { joined: progress.members.length, submitted: progress.submitted })}</p>
+    <p className="mt-1 text-xs leading-relaxed text-primary/70">{t("correctionResults.summary", { counted: data.board.reduce((n, row) => n + row.rounds_counted, 0), pending: data.submissions.filter(card => card.status === "pending").length, excluded: data.submissions.filter(card => card.status === "rejected").length })}</p>
     <p role="status" className="mt-2 text-xs font-semibold">{t(progress.needsAction ? "group.followUp" : "group.upToDate", { n: progress.needsAction })}{progress.toReview > 0 && <span className="mt-1 block text-primary/70">{t("group.toReview", { n: progress.toReview })}</span>}</p>
     {hasPending && <div className="mt-3"><PersonalLeagueValidation data={data} userId={userId} /></div>}
+    <PersonalLeagueCorrectionResults data={data} />
     <details className="mt-2" open={!hasPending && (progress.needsAction > 0 || progress.members.length <= 6)}>
       <summary className="min-h-[44px] cursor-pointer py-3 text-xs font-semibold">{t("group.roster")}</summary>
       <ul className="divide-y divide-primary/10">{members.map(member => <li key={member.user_id} className="flex min-h-[64px] items-center justify-between gap-3 py-3">
-        <div className="min-w-0"><p className="break-words text-sm font-semibold">{member.player_name}{member.user_id === userId && <span className="font-normal text-primary/60"> · {t("group.you")}</span>}</p><p className="mt-1 text-xs leading-relaxed text-primary/70">{t(member.reviewRound ? "group.status.review" : `group.status.${member.status}`)}</p></div>
+        <div className="min-w-0"><p className="break-words text-sm font-semibold">{member.player_name}{member.user_id === userId && <span className="font-normal text-primary/60"> · {t("group.you")}</span>}</p><p className="mt-1 text-xs leading-relaxed text-primary/70">{t(member.reviewRound ? "group.status.review" : `group.status.${member.status}`)}</p><p className="mt-1 text-xs text-primary/60">{t("correctionResults.quota", { n: member.rounds_counted, required: data.game.scoring_cards_count ?? 1 })}</p></div>
         {reminders.some(person => person.id === member.user_id) && <button type="button" aria-label={t("reminder.title", { name: member.player_name })} onClick={() => openReminder(member.user_id)} className="min-h-[44px] shrink-0 text-xs font-bold underline">{t("reminder.cta")}</button>}
         {member.reviewRound && <Link href={`/rounds/${member.reviewRound}`} className="inline-flex min-h-[44px] shrink-0 items-center text-xs font-bold underline">{t("group.review")}</Link>}
       </li>)}</ul>
