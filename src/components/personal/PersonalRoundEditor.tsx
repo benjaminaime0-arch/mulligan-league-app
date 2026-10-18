@@ -142,7 +142,7 @@ export function PersonalRoundEditor({
         {new Date(`${data.round.played_on}T12:00:00`).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" })}
       </p>
       {validatorReview && <aside className="my-4 rounded-xl bg-sage/25 p-4"><h2 className="text-sm font-bold">{t(correcting ? "validation.correctTitle" : "validation.title")}</h2><p className="mt-1 text-xs leading-relaxed text-primary/70">{t(correcting ? "validation.correctHint" : "validation.hint")}</p></aside>}
-      {validatorReview && <a href="#card-validation-actions" className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 mx-auto flex min-h-[48px] max-w-[42rem] items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white shadow-lg md:hidden">{t(correcting ? "validation.reviewCorrection" : "validation.reviewDecision")}</a>}
+      {validatorReview && <div className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 mx-auto max-w-[42rem] rounded-2xl border border-primary/10 bg-white/95 p-3 shadow-lg backdrop-blur md:hidden"><a href="#card-validation-actions" className={`${personalButton} w-full`}>{t(correcting ? "validation.reviewCorrection" : "validation.reviewDecision")}</a></div>}
       {ownerDraft && <section className="mt-3 rounded-xl bg-sage/20 px-3 py-2 text-xs" aria-label={t("personal.autosave.title")}>
         <p role="status" className={['conflict', 'blocked', 'storageError', 'invalid', 'session'].includes(autosave.state.status) ? "text-amber-800" : "text-primary/70"}>{t(`personal.autosave.${autosave.state.status}`)}</p>
         {autosave.state.status === "offline" && <p className="mt-1 text-xs text-primary/70">{t("personal.offline.confirmOnline")}</p>}
