@@ -513,6 +513,31 @@ function correctionOutcomeLeague(required=1,format='stroke_net'){
  const card=(id,score,status='accepted',card_status='validated',revision_number=2)=>({id,round_id:`10000000-0000-4000-8000-${String(id.charCodeAt(0)).padStart(12,'0')}`,user_id:'friend',player_name:'Friend',played_on:'2026-10-18',status,card_status,revision_number,gross_total:score,net_total:score,stableford_points:40-score});
  d.submissions=[card('a',10),card('b',20),card('c',5,'rejected','disputed'),card('old',1,'superseded','validated',1)];d.organizer_progress={awaiting_join:[]};return d;
 }
+test('a replacement reminder resumes a matching draft even when older accepted cards exist',()=>{
+ const {leagueCardReturn}=load('src/lib/leagueCardReturn');const d=correctionOutcomeLeague(3),draft={id:'replacement-draft',tee_id:d.rules.tee_id,status:'draft',played_on:'2026-10-18'};
+ const state=leagueCardReturn([draft],d,'friend','2026-10-18');assert.equal(state.draft.id,draft.id);assert.equal(state.submission,null);assert.deepEqual(state.replacement,{remaining:1,counted:2,required:3});
+ for(const patch of [{tee_id:'other'},{played_on:'2026-10-16'},{played_on:'2026-10-19'},{status:'validated'}])assert.equal(leagueCardReturn([{...draft,...patch}],d,'friend','2026-10-18').draft,null);
+ assert.ok(leagueCardReturn([],d,'friend','2026-10-18').replacement,'no draft still offers an explicit new-card action');
+});
+test('a pending replacement or correction wins over older accepted cards and suppresses another replacement',()=>{
+ const {leagueCardReturn}=load('src/lib/leagueCardReturn');const d=correctionOutcomeLeague(3);
+ for(const status of ['pending_validation','pending_player_confirmation']){const pending={...d.submissions[0],id:'replacement',round_id:'replacement-round',status:'pending',card_status:status};d.submissions=[...d.submissions.filter(s=>s.id!=='replacement'),pending];const state=leagueCardReturn([],d,'friend','2026-10-18');assert.equal(state.submission.round_id,'replacement-round');assert.equal(state.replacement,null);assert.equal(state.draft,null);}
+});
+test('stale replacement reminders never reopen fulfilled quotas, closed entry, missing members or superseded corrections',()=>{
+ const {leagueCardReturn}=load('src/lib/leagueCardReturn');const base=correctionOutcomeLeague(3);
+ for(const d of [{...base,board:base.board.map(m=>({...m,rounds_counted:3}))},{...base,closure_status:'closed_provisional'},{...base,closure_status:'finalized'},{...base,board:[]},{...base,submissions:base.submissions.map(s=>s.id==='c'?{...s,status:'superseded'}:s)}])assert.equal(leagueCardReturn([],d,'friend','2026-10-18').replacement,null);
+ assert.equal(leagueCardReturn([],base,'owner','2026-10-18').replacement,null);
+});
+for(const language of ['fr','en'])test(`${language}: the actual replacement reminder page prioritizes recovery without creating a round`,()=>{
+ locale=language;const Page=load('src/app/rounds/page').default,original=React.useState,priorRpc=mockedRpc;const league=correctionOutcomeLeague(3);league.tee={name:'Yellow'};league.board=[{...league.board[1],user_id:'owner'}];league.submissions=league.submissions.map(s=>({...s,user_id:'owner'}));const dict=load('src/lib/i18n/dictionaries').dictionaries[language];
+ try{mockedSearchParams=new URLSearchParams({new:'1',league:league.game.id});mockedRpc=()=>assert.fail('Opening replacement reminder must not create or submit a round');
+ for(const draft of [null,{id:'saved',tee_id:league.rules.tee_id,status:'draft',played_on:'2026-10-18'}]){const d={rounds:draft?[draft]:[],inbox:[],tees:[],official_index:null,history:[],level:{status:'unavailable',value:null,cards_count:0,cards_used:0,revision_ids:[]}};let index=0;React.useState=initial=>{const i=index++;return[i===0?d:i===3?false:i===5?league:i===7?`owner:${league.game.id}:::true`:typeof initial==='function'?initial():initial,()=>{}]};const html=renderToStaticMarkup(React.createElement(Page));assert.ok(html.includes(dict['cardReturn.replaceTitle']));assert.ok(!html.includes(dict['cardReturn.sentTitle']));assert.ok(!html.includes('id="new-card"'));if(draft)assert.ok(html.includes(`/rounds/saved?league=${league.game.id}`));}
+ }finally{React.useState=original;mockedRpc=priorRpc;mockedSearchParams=new URLSearchParams()}
+});
+for(const language of ['fr','en'])test(`${language}: replacement entry explains the excluded card and quota with one primary next step`,()=>{
+ locale=language;const {LeagueCardReturnPanel}=load('src/components/personal/LeagueCardReturnPanel'),{leagueCardReturn}=load('src/lib/leagueCardReturn');const d={...correctionOutcomeLeague(3),tee:{name:'Yellow'}};d.rules.attestation='peer_required';const dict=load('src/lib/i18n/dictionaries').dictionaries[language];
+ for(const draft of [null,{id:'saved',tee_id:d.rules.tee_id,status:'draft',played_on:'2026-10-18'}]){let html=renderToStaticMarkup(React.createElement(LeagueCardReturnPanel,{league:d,state:leagueCardReturn(draft?[draft]:[],d,'friend','2026-10-18'),onNew(){}}));assert.ok(html.includes(dict['cardReturn.replaceTitle']));assert.ok(html.includes(dict['cardReturn.replaceHint'].replace('{n}','1')));assert.ok(html.includes(dict['correctionResults.quota'].replace('{n}','2').replace('{required}','3')));assert.ok(html.includes(dict['cardReturn.replacePeer']));assert.ok(!html.includes(dict['cardReturn.sentTitle']));assert.ok(!html.includes('/rounds/'+d.submissions[0].round_id));assert.ok(!html.includes('{n}'));if(draft)assert.ok(html.includes(`/rounds/saved?league=${d.game.id}`));else assert.ok(html.includes(dict['cardReturn.another']));}
+});
 for(const format of ['stroke_gross','stroke_net','stableford_net'])test(`${format}: correction acceptance distinguishes counted, reserve and excluded cards`,()=>{
  const {leagueCorrectionResults}=load('src/lib/leagueCorrectionResults');const d=correctionOutcomeLeague(1,format);let results=leagueCorrectionResults(d);assert.deepEqual(results.map(r=>[r.card.id,r.contribution]),[['a','counted'],['b','reserve'],['c','excluded']]);assert.equal(results[2].remaining,0);
  d.board[1].total_score++;results=leagueCorrectionResults(d);assert.equal(results[0].contribution,'accepted');assert.equal(results[1].contribution,'accepted','unreconciled totals must never invent best-card attribution');
