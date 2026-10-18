@@ -1,4 +1,4 @@
-import type { PersonalCard, PersonalHole } from "./personalRounds"
+import type { PersonalCard, PersonalHole, PersonalRevision } from "./personalRounds"
 export type CardLeague = PersonalCard["leagues"][number]
 
 export function scoreChange(raw: string): Pick<PersonalHole, "completion" | "strokes"> {
@@ -43,4 +43,17 @@ export function cardScoresChanged(scores: PersonalHole[], original: PersonalHole
     const before = previous.get(h.hole_number)
     return !before || h.completion !== before.completion || h.strokes !== before.strokes
   })
+}
+
+type ScoreRevision = Pick<PersonalRevision, "id" | "revision_number" | "scores">
+export function correctionComparison(current: ScoreRevision | null, revisions: ScoreRevision[]): { before: PersonalHole; after: PersonalHole }[] | null {
+  if (!current) return null
+  const previous = revisions.find(revision => revision.revision_number === current.revision_number - 1)
+  if (!previous || previous.scores.length !== current.scores.length) return null
+  const original = new Map(previous.scores.map(hole => [hole.hole_number, hole]))
+  if (original.size !== previous.scores.length || new Set(current.scores.map(hole => hole.hole_number)).size !== current.scores.length || current.scores.some(hole => !original.has(hole.hole_number))) return null
+  return current.scores.filter(hole => {
+    const before = original.get(hole.hole_number)!
+    return before.completion !== hole.completion || before.strokes !== hole.strokes
+  }).sort((a, b) => a.hole_number - b.hole_number).map(after => ({ before: original.get(after.hole_number)!, after }))
 }

@@ -4,6 +4,7 @@ import Link from "next/link"
 import { ValidationTimer } from "./ValidationTimer"
 import { ConfirmModal } from "@/components/ConfirmModal"
 import { QuickScoreEntry } from "./QuickScoreEntry"
+import { PersonalCorrectionDecision } from "./PersonalCorrectionDecision"
 import { PersonalLeagueSubmission } from "./PersonalLeagueSubmission"
 import { cardEntrySummary, withLeagueContext, intendedCardLeague, cardScoresChanged } from "@/lib/personalCardFlow"
 import { AppIcon } from "@/components/ui/AppIcon"
@@ -46,6 +47,7 @@ export function PersonalRoundEditor({
   const [correctionReason, setCorrectionReason] = useState("")
   const [correcting, setCorrecting] = useState(false)
   const reviewFlight = useRef(false)
+  const [correctionOutcome, setCorrectionOutcome] = useState<boolean | null>(null)
   const intended = intendedCardLeague(data.leagues, leagueId)
   const ownerDraft = data.is_owner && data.round.status === "draft"
   const autosave = useCardDraft(data, ownerDraft)
@@ -106,13 +108,6 @@ export function PersonalRoundEditor({
       setNotice(t(correct ? "validation.correctionSent" : "validation.approved"))
     } finally { reviewFlight.current = false }
   }
-  const resolve = async (accept: boolean) => {
-    if (!data.revision) return
-    personalResult(await supabase.rpc("resolve_personal_correction", {
-      p_round: data.round.id, p_revision: data.revision.id, p_accept: accept,
-    }))
-    await onReload()
-  }
   const complete = cardIsComplete(holes, data.tee.hole_count)
   const entryReviewBlocked = busy || !complete || !data.tee.ready || !autosave.online || ['offline', 'conflict', 'blocked', 'session', 'invalid', 'storageError'].includes(autosave.state.status)
   const summary = cardEntrySummary(holes)
@@ -141,6 +136,8 @@ export function PersonalRoundEditor({
       <p className="mt-1 text-sm text-primary/70">
         {new Date(`${data.round.played_on}T12:00:00`).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" })}
       </p>
+      {data.round.status === "pending_player_confirmation" && <PersonalCorrectionDecision data={data} online={autosave.online} busy={busy} onBusyChange={setBusy} onReload={onReload} onResolved={setCorrectionOutcome} />}
+      {correctionOutcome !== null && <aside role="status" className="app-surface my-4 p-4"><p className="text-sm font-semibold">{t(correctionOutcome ? "correction.accepted" : "correction.refused")}</p><Link href="/home" className="mt-2 inline-flex min-h-[44px] items-center text-sm font-bold">{t("validation.backInbox")} →</Link></aside>}
       {validatorReview && <aside className="my-4 rounded-xl bg-sage/25 p-4"><h2 className="text-sm font-bold">{t(correcting ? "validation.correctTitle" : "validation.title")}</h2><p className="mt-1 text-xs leading-relaxed text-primary/70">{t(correcting ? "validation.correctHint" : "validation.hint")}</p></aside>}
       {validatorReview && <div className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 mx-auto max-w-[42rem] rounded-2xl border border-primary/10 bg-white/95 p-3 shadow-lg backdrop-blur md:hidden"><a href="#card-validation-actions" className={`${personalButton} w-full`}>{t(correcting ? "validation.reviewCorrection" : "validation.reviewDecision")}</a></div>}
       {ownerDraft && <section className="mt-3 rounded-xl bg-sage/20 px-3 py-2 text-xs" aria-label={t("personal.autosave.title")}>
@@ -157,7 +154,7 @@ export function PersonalRoundEditor({
       </section>}
       <section className="app-surface my-4 p-4" aria-label={t("personal.lifecycle.title")}>
         <h2 className={`app-pill ${data.round.status === "disputed" ? "bg-red-50 text-red-800" : data.round.status.startsWith("pending") ? "bg-amber-50 text-amber-900" : "bg-sage/35"}`}><AppIcon name={data.round.status === "validated" ? "check" : "clock"} className="h-3.5 w-3.5" />{t(`personal.status.${data.round.status}`)}</h2>
-        {!ownerDraft && data.is_owner && <p className="mt-3 text-xs text-primary/70">{t("personal.lifecycle.deadline")}: {displayTime(data.round.entry_deadline_at)} ({data.round.course_timezone})</p>}
+        {!ownerDraft && data.is_owner && data.round.status !== "pending_player_confirmation" && <p className="mt-3 text-xs text-primary/70">{t("personal.lifecycle.deadline")}: {displayTime(data.round.entry_deadline_at)} ({data.round.course_timezone})</p>}
         {data.round.status === "pending_validation" && data.round.auto_validation_at && (
           <div><p className="mt-2 text-sm">{t("personal.lifecycle.timer")}: {displayTime(data.round.auto_validation_at)} ({data.round.course_timezone})</p><ValidationTimer due={data.round.auto_validation_at} serverNow={data.server_now} /><button className="mt-2 text-sm underline" disabled={busy} onClick={() => void run(onReload)}>{t("personal.refresh")}</button></div>
         )}
@@ -186,7 +183,7 @@ export function PersonalRoundEditor({
             {t("personal.level.title")}: {data.level.value ?? "—"} ·{" "}
             {t(`personal.level.${data.level.status}`)}
           </p>}
-          {!validatorReview && <p className="mt-2 text-xs text-sage">
+          {!validatorReview && data.round.status !== "pending_player_confirmation" && <p className="mt-2 text-xs text-sage">
             {t("personal.lifecycle.lockNotice")}
           </p>}
         </section>
@@ -262,20 +259,6 @@ export function PersonalRoundEditor({
             <button className="min-h-[44px] text-sm font-semibold underline" disabled={busy || !autosave.online} onClick={() => { setCorrecting(true); window.requestAnimationFrame(() => document.getElementById("holes-1")?.scrollIntoView({ block: "start" })) }}>{t("validation.correct")}</button>
           </>}
           {!autosave.online && <p role="status" className="text-xs text-amber-800">{t("personal.offline.confirmOnline")}</p>}
-        </section>
-      )}
-      {data.round.status === "pending_player_confirmation" && (
-        <section className="app-surface my-5 !border-amber-400 p-4">
-          <h2 className="font-semibold">{t("personal.lifecycle.reviewCorrection")}</h2>
-          <p className="mt-2 text-sm">{data.revision?.correction_reason}</p>
-          <ol className="my-3 space-y-1 text-sm">{data.revision?.scores.map((h) => {
-            const before = data.revisions[data.revisions.length - 2]?.scores.find((x) => x.hole_number === h.hole_number)
-            return before && (before.strokes !== h.strokes || before.completion !== h.completion) ? <li key={h.hole_number}>{t("personal.hole", { n: h.hole_number })}: {before.strokes ?? t(`personal.hole.${before.completion}`)} → {h.strokes ?? t(`personal.hole.${h.completion}`)}</li> : null
-          })}</ol>
-          {data.is_owner && <><p className="my-3 text-sm">{t("personal.lifecycle.refusalWarning")}</p>
-            <div className="flex flex-wrap gap-2"><button className={personalButton} disabled={busy} onClick={() => void run(() => resolve(true))}>{t("personal.lifecycle.accept")}</button>
-            <button className="rounded-lg border border-red-600 px-4 py-2.5 text-sm text-red-700" disabled={busy} onClick={() => void run(() => resolve(false))}>{t("personal.lifecycle.refuse")}</button></div>
-          </>}
         </section>
       )}
       {data.events.length > 0 && <details className="app-surface mt-5 p-4 text-xs text-primary/70"><summary className="cursor-pointer py-2 font-semibold">{t("personal.lifecycle.audit")}</summary><ol className="mt-2 space-y-2">{data.events.map((e) => <li key={e.id}>{displayTime(e.occurred_at)} · {t(`personal.event.${e.action}`)}{e.actor_name ? ` · ${e.actor_name}` : ""}{e.metadata.reason ? ` · ${e.metadata.reason}` : ""}</li>)}</ol></details>}

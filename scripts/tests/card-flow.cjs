@@ -117,3 +117,50 @@ test('review and correction actions preserve attendance, offline and changed-sco
   await Promise.resolve();await Promise.resolve();flight.current=false;state=[];tree=render();state[3]=true;tree=render();approve=button(tree,'Valider ces scores');approve.props.onClick();approve.props.onClick();await Promise.resolve();assert.equal(calls.length,2,'repeated tap cannot create duplicate reviews');assert.equal(calls[1][1].p_scores,null,'approval validates the unchanged revision');
  }finally{React.useState=originalState;React.useEffect=originalEffect;React.useRef=originalRef;mockedDraft=undefined;mockedRpc=undefined}
 });
+
+function correctedPlayerCard(count=9){
+ const base=receivedCard(count),previous={...base.revision,id:'previous',revision_number:1},current={...previous,id:'corrected',revision_number:2,scores:previous.scores.map((h,i)=>i?h:{...h,strokes:6}),correction_reason:'QA: one missed stroke'};
+ return {...base,is_owner:true,level:{value:18,status:'established'},round:{...base.round,status:'pending_player_confirmation'},revision:current,revisions:[current,previous]};
+}
+test('correction comparison finds the immediately preceding revision despite history order and shows only changed holes',()=>{
+ const {correctionComparison}=load('src/lib/personalCardFlow');const data=correctedPlayerCard(18);
+ const changes=correctionComparison(data.revision,data.revisions);assert.equal(changes.length,1);assert.equal(changes[0].before.strokes,5);assert.equal(changes[0].after.strokes,6);
+ assert.equal(correctionComparison(data.revision,[data.revision]),null);
+ assert.equal(correctionComparison({...data.revision,revision_number:3},[data.revisions[1]]),null,'missing intervening revision must not silently compare against an older version');
+});
+for(const language of ['fr','en'])for(const count of [9,18])test(`${language} ${count}: player sees changes and decisions before the full scorecard`,()=>{
+ locale=language;const data=correctedPlayerCard(count);mockedDraft={online:true,ready:true,state:{status:'saved',holes:data.holes}};
+ try{const {PersonalRoundEditor}=load('src/components/personal/PersonalRoundEditor');const html=renderToStaticMarkup(React.createElement(PersonalRoundEditor,{data,onReload:async()=>{}}));
+  assert.ok(html.indexOf('id="player-correction"')<html.indexOf('aria-label="'+(language==='fr'?'Scores':'Scores')+'"'));
+  assert.ok(html.includes('QA: one missed stroke'));assert.ok(!html.includes('role="dialog"'),'a choice requires a deliberate first tap');
+  assert.ok(!html.includes(language==='fr'?'Soumettre avant :':'Submit by:'));
+ }finally{mockedDraft=undefined}
+});
+function playerDecisionHarness({online=true,fail=false}={}){
+ const {PersonalCorrectionDecision}=load('src/components/personal/PersonalCorrectionDecision');const {ConfirmModal}=load('src/components/ConfirmModal');
+ const saved={state:React.useState,effect:React.useEffect,ref:React.useRef};let states=[],index=0,busy=false,data=correctedPlayerCard();const flight={current:false},calls=[],outcomes=[];let reloads=0;
+ locale='fr';React.useEffect=()=>{};React.useRef=()=>flight;React.useState=initial=>{const i=index++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;return[states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value}]};
+ mockedRpc=async(...args)=>{calls.push(args);if(fail)throw Error('lost response');return{data:{success:true},error:null}};
+ function find(node,predicate){if(!node||typeof node!=='object')return null;if(predicate(node))return node;for(const child of React.Children.toArray(node.props?.children)){const found=find(child,predicate);if(found)return found}return null}
+ const render=()=>{index=0;return PersonalCorrectionDecision({data,online,busy,onBusyChange:value=>{busy=value},onReload:async()=>{reloads++},onResolved:value=>outcomes.push(value)})};
+ return {render,button:(tree,label)=>find(tree,n=>n.type==='button'&&n.props.children===label),modal:tree=>find(tree,n=>n.type===ConfirmModal),calls,outcomes,reloads:()=>reloads,setData:value=>{data=value},close(){React.useState=saved.state;React.useEffect=saved.effect;React.useRef=saved.ref;mockedRpc=undefined}};
+}
+for(const accept of [true,false])test(`${accept?'accept':'refuse'}: choice opens a consequence-specific confirmation, cancellation writes nothing, repeated confirmation settles once`,async()=>{
+ const h=playerDecisionHarness();try{
+  let tree=h.render();h.button(tree,accept?'Accepter et valider':'Refuser la correction').props.onClick();assert.equal(h.calls.length,0);
+  tree=h.render();let modal=h.modal(tree);assert.equal(modal.props.open,true);assert.equal(modal.props.destructive,!accept);
+  if(!accept){assert.ok(modal.props.message.includes('Toute la carte'));assert.ok(modal.props.message.includes('ne seront pas rétablis'));}
+  modal.props.onCancel();assert.equal(h.modal(h.render()).props.open,false);assert.equal(h.calls.length,0);
+  h.button(h.render(),accept?'Accepter et valider':'Refuser la correction').props.onClick();modal=h.modal(h.render());modal.props.onConfirm();modal.props.onConfirm();await new Promise(setImmediate);
+  assert.equal(h.calls.length,1);assert.equal(h.calls[0][0],'resolve_personal_correction');assert.deepEqual(h.calls[0][1],{p_round:'qa-review',p_revision:'corrected',p_accept:accept});assert.deepEqual(h.outcomes,[accept]);assert.equal(h.reloads(),1);
+ }finally{h.close()}
+});
+test('offline or missing comparison cannot open a decision, and stale confirmations cannot write',()=>{
+ const offline=playerDecisionHarness({online:false});try{const tree=offline.render();const button=offline.button(tree,'Accepter et valider');assert.equal(button.props.disabled,true);button.props.onClick();assert.equal(offline.modal(offline.render()).props.open,false);assert.equal(offline.calls.length,0)}finally{offline.close()}
+ const h=playerDecisionHarness();try{h.button(h.render(),'Accepter et valider').props.onClick();let next=correctedPlayerCard();next={...next,revision:{...next.revision,id:'new-revision'}};h.setData(next);const modal=h.modal(h.render());assert.equal(modal.props.confirmDisabled,true);modal.props.onConfirm();assert.equal(h.calls.length,0);
+  h.setData({...next,revisions:[next.revision]});assert.equal(h.button(h.render(),'Accepter et valider').props.disabled,true);
+ }finally{h.close()}
+});
+test('a lost decision acknowledgement refreshes the card and never reports an unconfirmed success',async()=>{
+ const h=playerDecisionHarness({fail:true});try{h.button(h.render(),'Accepter et valider').props.onClick();h.modal(h.render()).props.onConfirm();await new Promise(setImmediate);assert.equal(h.calls.length,1);assert.equal(h.reloads(),1);assert.equal(h.outcomes.length,0);assert.equal(h.modal(h.render()).props.open,false)}finally{h.close()}
+});
