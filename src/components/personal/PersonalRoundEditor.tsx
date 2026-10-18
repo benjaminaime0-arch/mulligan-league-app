@@ -1,6 +1,9 @@
 "use client"
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
+import { trackOnce } from "@/lib/analytics"
+import { cardLeagueReview, leagueCardError } from "@/lib/cardLeagueReview"
+import { leagueContext } from "@/lib/personalCardFlow"
 import { ValidationTimer } from "./ValidationTimer"
 import { ConfirmModal } from "@/components/ConfirmModal"
 import { QuickScoreEntry } from "./QuickScoreEntry"
@@ -21,6 +24,7 @@ import {
   personalButton,
   type PersonalCard,
   type PersonalHole,
+  type PersonalLeague,
 } from "@/lib/personalRounds"
 export function PersonalRoundEditor({
   data,
@@ -60,6 +64,26 @@ export function PersonalRoundEditor({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const targetId = leagueContext(leagueId)
+  const contextKey = ownerDraft && targetId ? `${data.round.id}:${targetId}` : null
+  const [leagueState, setLeagueState] = useState<{ key: string; league: PersonalLeague | null; failed: boolean } | null>(null)
+  const [leagueAttempt, setLeagueAttempt] = useState(0)
+  const confirmFlight = useRef(false)
+  const contextLeague = contextKey && leagueState?.key === contextKey ? leagueState.league : null
+  const contextFailed = !!contextKey && leagueState?.key === contextKey && leagueState.failed
+  const policy = cardLeagueReview(data, contextLeague, validator)
+  const validators = contextKey ? policy.validators : data.validators
+  useEffect(() => {
+    if (!contextKey || !targetId) return
+    let active = true
+    setLeagueState(null)
+    void Promise.resolve(supabase.rpc("get_personal_league", { p_game: targetId })).then(result => {
+      const league = personalResult<PersonalLeague | null>(result)
+      if (active) setLeagueState({ key: contextKey, league, failed: !league })
+    }).catch(() => { if (active) setLeagueState({ key: contextKey, league: null, failed: true }) })
+    return () => { active = false }
+  }, [contextKey, targetId, leagueAttempt])
+
   useEffect(() => {
     setReviewHoles(
       data.reference_holes.map(
@@ -81,7 +105,8 @@ export function PersonalRoundEditor({
       await fn()
     } catch (e) {
       const message = e instanceof Error ? e.message : ""
-      setError(["offline", "session", "conflict", "invalid", "storageError", "blocked"].includes(message) ? t(`personal.autosave.${message}`) : message || t("personal.loadError"))
+      const rejected = leagueCardError(message)
+      setError(rejected ? t(`personal.reason.${rejected}`) : ["offline", "session", "conflict", "invalid", "storageError", "blocked"].includes(message) ? t(`personal.autosave.${message}`) : message || t("personal.loadError"))
     } finally {
       setBusy(false)
     }
@@ -110,7 +135,14 @@ export function PersonalRoundEditor({
     } finally { reviewFlight.current = false }
   }
   const complete = cardIsComplete(holes, data.tee.hole_count)
-  const entryReviewBlocked = busy || !complete || !data.tee.ready || !autosave.online || ['offline', 'conflict', 'blocked', 'session', 'invalid', 'storageError'].includes(autosave.state.status)
+  const entryDataBlocked = busy || !complete || !data.tee.ready || !autosave.online || ['offline', 'conflict', 'blocked', 'session', 'invalid', 'storageError'].includes(autosave.state.status)
+  const missingWitness = !!contextKey && policy.witnessRequired && !policy.validators.some(v => v.id === validator)
+  const entryReviewBlocked = (!!contextKey && !policy.ready) || entryDataBlocked
+  const focusWitness = () => {
+    const select = document.getElementById("card-witness") as HTMLSelectElement | null
+    select?.scrollIntoView({ block: "center", behavior: "smooth" })
+    select?.focus({ preventScroll: true })
+  }
   const summary = cardEntrySummary(holes)
   const entered = summary.entered
   const rules = (<details className="app-surface my-4 px-4 text-xs text-primary/70"><summary className="cursor-pointer py-3 font-semibold">{t("personal.ui.rules")}</summary>{ownerDraft && <div className="space-y-2 pb-1"><p>{t("personal.lifecycle.deadline")}: {displayTime(data.round.entry_deadline_at)} ({data.round.course_timezone})</p><p>{t("personal.lifecycle.validatorHelp")}</p></div>}<p className="mt-3 text-sm">
@@ -164,12 +196,19 @@ export function PersonalRoundEditor({
         {data.round.validated_at && <p className="mt-2 text-sm">{t("personal.lifecycle.validatedAt")}: {displayTime(data.round.validated_at)} · {t(`personal.method.${data.round.validation_method}`)}</p>}
         {data.round.status === "disputed" && <p className="mt-2 text-sm text-red-700">{t("personal.lifecycle.disputed")}</p>}
         {ownerDraft && <label className="mt-3 block text-sm">{t("personal.lifecycle.validator")}
-          <select aria-label={t("personal.lifecycle.validator")} className={personalInput} value={validator} onChange={(e) => setValidator(e.target.value)} disabled={busy}>
-            <option value="">{t("personal.lifecycle.self")}</option>
-            {data.validators.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+          <select id="card-witness" aria-label={t("personal.lifecycle.validator")} className={personalInput} value={validator} onChange={(e) => setValidator(e.target.value)} disabled={busy || (!!contextKey && !contextLeague)}>
+            <option value="">{t(contextKey && !contextLeague ? "common.loading" : contextKey && policy.witnessRequired ? "friendCard.chooseWitness" : "personal.lifecycle.self")}</option>
+            {validators.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
 
         </label>}
+        {ownerDraft && contextKey && <div className="mt-2 text-xs leading-relaxed text-primary/70">
+          {!contextLeague ? <p role={contextFailed ? "alert" : "status"}>{t(contextFailed ? "friendCard.rulesFailed" : "common.loading")}</p> : <p>{t(policy.witnessRequired ? "friendCard.witnessHint" : "friendCard.sendHint", { name: contextLeague.game.name })}</p>}
+          {contextLeague && !policy.witnessRequired && <p className="mt-1">{t("friendCard.newScores")}</p>}
+          {contextLeague && policy.witnessRequired && !validators.length && <Link href={`/games/${targetId}#league-invitation`} className="inline-flex min-h-[44px] items-center font-bold underline">{t("friendCard.inviteWitness")}</Link>}
+          {contextLeague && !policy.ready && (!policy.witnessRequired || !!validator) && <p role="alert" className="mt-1">{t("friendCard.checkRules")}</p>}
+          {contextFailed && <button type="button" className="min-h-[44px] font-bold underline" onClick={() => setLeagueAttempt(n => n + 1)}>{t("personal.refresh")}</button>}
+        </div>}
       </section>
       {!data.tee.ready && (
         <p className="my-3 text-sm text-amber-800">
@@ -198,6 +237,7 @@ export function PersonalRoundEditor({
       {notice && data.is_owner && (
         <p role="status" className="my-3 text-sm text-emerald-800">
           {notice}
+          {targetId && !ownerDraft && <Link href={`/games/${targetId}#league-cards`} className="mt-2 flex min-h-[44px] items-center text-sm font-bold">{t("friendCard.back")} →</Link>}
         </p>
       )}
       <section className="mt-5" aria-label={t("personal.ui.scores")}>
@@ -208,7 +248,7 @@ export function PersonalRoundEditor({
         </div>
         {editable ? <QuickScoreEntry references={data.reference_holes} holes={holes} onChange={change}
           disabled={busy || (ownerDraft && (!autosave.ready || ['conflict', 'blocked', 'session'].includes(autosave.state.status)))}
-          onDone={() => { if (ownerDraft) { if (!entryReviewBlocked) setEntryReview(true) } else document.getElementById("card-validation-actions")?.scrollIntoView({ block: "center", behavior: "smooth" }) }} /> : <div className="grid gap-4 md:grid-cols-2">
+          onDone={() => { if (ownerDraft) { if (missingWitness && !entryDataBlocked) focusWitness(); else if (!entryReviewBlocked) setEntryReview(true) } else document.getElementById("card-validation-actions")?.scrollIntoView({ block: "center", behavior: "smooth" }) }} /> : <div className="grid gap-4 md:grid-cols-2">
           {[0, ...(data.tee.hole_count === 18 ? [9] : [])].map(start => <div key={start} id={`holes-${start + 1}`} className="app-surface scroll-mt-20 overflow-hidden">
             <h3 className="border-b border-primary/10 bg-sage/25 px-3 py-3 text-sm font-bold">{t("personal.ui.hole")} {start + 1}–{Math.min(start + 9, data.tee.hole_count)}</h3>
             <table className="w-full text-left text-sm"><caption className="sr-only">{t("personal.ui.scores")} · {t("personal.ui.hole")} {start + 1}–{start + 9}</caption>
@@ -237,10 +277,10 @@ export function PersonalRoundEditor({
         </button>
         <button
           className={`${personalButton} flex-1 !px-3 !text-xs`}
-          disabled={entryReviewBlocked}
-          onClick={() => setEntryReview(true)}
+          disabled={missingWitness ? entryDataBlocked : entryReviewBlocked}
+          onClick={() => missingWitness ? focusWitness() : setEntryReview(true)}
         >
-          {t("cardFlow.review")}
+          {t(missingWitness ? "friendCard.jumpWitness" : "cardFlow.review")}
         </button>
       </div>}
       {notice && !data.is_owner && <aside role="status" className="app-surface my-4 p-4"><p className="text-sm font-semibold">{notice}</p><Link href="/home" className="mt-2 inline-flex min-h-[44px] items-center text-sm font-bold">{t("validation.backInbox")} →</Link></aside>}
@@ -269,17 +309,29 @@ export function PersonalRoundEditor({
           {t("personal.incomplete")}
         </p>
       )}
-      {data.is_owner && data.round.status !== "disputed" && (ownerDraft || data.revision) && <PersonalLeagueSubmission data={data} leagueId={leagueId} online={autosave.online} busy={busy} onBusyChange={setBusy} onReload={onReload} />}
-      <ConfirmModal open={entryReview && ownerDraft} title={t("cardFlow.reviewTitle")} confirmLabel={t("personal.confirm")} confirmDisabled={entryReviewBlocked} loading={busy} onCancel={() => setEntryReview(false)} onConfirm={() => {
-        if (entryReviewBlocked) return
+      {data.is_owner && data.round.status !== "disputed" && ((!ownerDraft && data.revision) || (ownerDraft && !targetId)) && <PersonalLeagueSubmission data={data} leagueId={leagueId} online={autosave.online} busy={busy} onBusyChange={setBusy} onReload={onReload} />}
+      <ConfirmModal open={entryReview && ownerDraft} title={t("cardFlow.reviewTitle")} confirmLabel={t(targetId ? "friendCard.send" : "personal.confirm")} confirmDisabled={entryReviewBlocked} loading={busy} onCancel={() => setEntryReview(false)} onConfirm={() => {
+        if (entryReviewBlocked || confirmFlight.current) return
+        confirmFlight.current = true
         setEntryReview(false)
         void run(async () => {
-          const v = await save()
-          personalResult(await supabase.rpc("request_personal_validation", { p_round: data.round.id, p_expected_version: v, p_validator: validator || null }))
-          await onReload()
-          setNotice(t(validator ? "personal.lifecycle.requested" : "personal.confirmed"))
-        })
+          try {
+            const v = await save()
+            personalResult(await supabase.rpc(targetId ? "confirm_card_into_league" : "request_personal_validation", {
+              p_round: data.round.id, p_expected_version: v, p_validator: validator || null,
+              ...(targetId ? { p_game: targetId } : {}),
+            }))
+            if (targetId) trackOnce("league_card_submitted", `${data.round.id}.${targetId}`, { league_id: targetId })
+            await onReload()
+            setNotice(t(targetId ? "friendCard.sent" : validator ? "personal.lifecycle.requested" : "personal.confirmed"))
+          } catch (e) {
+            // A lost response may already have committed. Reload before retrying.
+            if (targetId) { await onReload().catch(() => {}); setLeagueAttempt(n => n + 1) }
+            throw e
+          }
+        }).finally(() => { confirmFlight.current = false })
       }}>
+        {targetId && <p className="mt-3 rounded-xl bg-sage/25 p-3 text-sm font-semibold">{t("friendCard.sendTo", { name: contextLeague?.game.name ?? data.leagues.find(g => g.id === targetId)?.name ?? "" })}</p>}
         <p className="mt-3 text-sm font-bold">{data.tee.course_name} · {t("personal.picker.holeCount", { n: data.tee.hole_count })}</p>
         <p className="mt-1 text-xs text-primary/65">{data.round.played_on} · {data.tee.name}</p>
         <div className="my-4 flex justify-between rounded-xl bg-sage/25 p-3 text-sm"><span>{t("personal.gross")} <strong>{summary.gross ?? "—"}</strong></span><span>{t("cardFlow.pickedUpCount", { n: summary.pickedUp })}</span></div>

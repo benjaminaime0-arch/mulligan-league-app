@@ -17,8 +17,9 @@ export function NotificationItem({ notification, onTap }: {
     "Correction awaiting your decision": "validation.notice.correction",
     "Card validated": "validation.notice.validated",
   } as Record<string, string>)[notification.title] : undefined
-  const title = cardNotice ? t(`${cardNotice}.title`) : notification.title
-  const body = cardNotice ? t(`${cardNotice}.body`) : notification.body
+  const invitation = notification.type === "league_invitation" && notification.title === "League invitation" ? /^(.*?) invited you to ([\s\S]+)$/.exec(notification.body ?? "") : null
+  const title = invitation ? t("invite.notice.title") : cardNotice ? t(`${cardNotice}.title`) : notification.title
+  const body = invitation ? t("invite.notice.body", { name: invitation[1], league: invitation[2] }) : cardNotice ? t(`${cardNotice}.body`) : notification.body
   const unread = !notification.read_at
   const request = notification.type === "join_request" && !!notification.data?.request_id
   const clickable = notification.type !== "join_rejected" &&
