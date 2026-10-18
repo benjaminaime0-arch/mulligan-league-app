@@ -452,3 +452,29 @@ test('an open validation reminder closes when responsibility, revision or card s
  function dialog(data){let index=0;try{React.useState=v=>[index++===0?key:'https://app.mulliganclub.co',()=>{}];const tree=PersonalLeagueValidation({data,userId:'owner'});let found=false;function visit(n){if(!n||typeof n!=='object')return;if(n.type===LeagueReminderDialog)found=true;React.Children.forEach(n.props?.children,visit)}visit(tree);return found}finally{React.useState=state}}
  assert.equal(dialog(d),true);d.submissions[0].card_status='pending_player_confirmation';assert.equal(dialog(d),false);d.submissions[0].card_status='pending_validation';d.submissions[0].revision_number=2;assert.equal(dialog(d),false);d.submissions[0].revision_number=1;d.submissions[0].status='accepted';assert.equal(dialog(d),false);
 });
+for(const count of [9,18])test(`${count}: correction keyboard returns to review after one changed hole; incomplete cards still focus the missing score`,()=>{
+ const {QuickScoreEntry}=load('src/components/personal/QuickScoreEntry');const originalRef=React.useRef;const holes=receivedCard(count).holes.map((h,i)=>i?h:{...h,strokes:4});let done=0,focused=0;
+ const inputs=new Map([[1,{blur(){}}],[2,{focus(){focused++},select(){},scrollIntoView(){}}],[count,{focus(){focused++},scrollIntoView(){}}]]);
+ const find=(n,p)=>{if(!n||typeof n!=='object')return null;if(p(n))return n;for(const c of React.Children.toArray(n.props?.children)){const hit=find(c,p);if(hit)return hit}return null};
+ try{React.useRef=()=>({current:inputs});const props={references:receivedCard(count).reference_holes,holes,original:receivedCard(count).holes,reviewing:true,disabled:false,onChange(){},onDone(){done++}};
+ let tree=QuickScoreEntry(props);const input=find(tree,n=>n.type==='input');assert.equal(input.props.enterKeyHint,'done');input.props.onKeyDown({key:'Enter',preventDefault(){}});assert.equal(done,1);assert.equal(focused,0);
+ const missing=holes.map((h,i)=>i===count-1?{...h,completion:'not_played',strokes:null}:h);tree=QuickScoreEntry({...props,holes:missing});find(tree,n=>n.type==='input').props.onKeyDown({key:'Enter',preventDefault(){}});assert.equal(done,1);assert.equal(focused,1);
+ }finally{React.useRef=originalRef}
+});
+for(const language of ['fr','en'])for(const count of [9,18])test(`${language} ${count}: correction review shows exact changes and explains each blocked step`,()=>{
+ locale=language;const {PersonalRoundEditor}=load('src/components/personal/PersonalRoundEditor');const dict=load('src/lib/i18n/dictionaries').dictionaries[language],data=receivedCard(count);const original={state:React.useState,effect:React.useEffect,ref:React.useRef};
+ const changes=data.holes.map((h,i)=>i===count-1?{...h,strokes:4}:h);let index=0,values={5:true};mockedDraft={online:true,ready:true,state:{status:'saved',holes:data.holes}};
+ const html=()=>{index=0;return renderToStaticMarkup(PersonalRoundEditor({data,onReload:async()=>{}}))};
+ try{React.useEffect=()=>{};React.useRef=v=>({current:v});React.useState=v=>{const i=index++;return[i in values?values[i]:typeof v==='function'?v():v,()=>{}]};
+ assert.ok(html().includes(dict['validation.needChange']));values[0]=changes;let rendered=html();assert.ok(rendered.includes(dict['validation.needReason']));assert.ok(rendered.includes(dict['validation.changes'].replace('{n}','1')));assert.ok(rendered.includes(`>${count}</span>`));assert.ok(rendered.includes('→'));assert.ok(rendered.includes('>4</strong>'));
+ values[4]='One extra stroke';assert.ok(html().includes(dict['validation.needPresence']));values[3]=true;assert.ok(html().includes(dict['validation.correctionReady']));
+ const invalid=changes.map((h,i)=>i? h:{...h,strokes:null,completion:'not_played'});values[0]=invalid;assert.ok(html().includes(dict['personal.incomplete']));
+ }finally{React.useState=original.state;React.useEffect=original.effect;React.useRef=original.ref;mockedDraft=undefined}
+});
+for(const automatic of [false,true])test(automatic?'an elapsed timer reports automatic validation without claiming a correction was sent':'lost validation acknowledgement reloads current state and never claims approval',async()=>{
+ locale='fr';const {PersonalRoundEditor}=load('src/components/personal/PersonalRoundEditor'),dict=load('src/lib/i18n/dictionaries').dictionaries.fr;const original={state:React.useState,effect:React.useEffect,ref:React.useRef};const data=receivedCard(9);let index=0,states=[],reloads=0,calls=0;
+ const find=(n,p)=>{if(!n||typeof n!=='object')return null;if(p(n))return n;for(const c of React.Children.toArray(n.props?.children)){const hit=find(c,p);if(hit)return hit}return null};
+ try{React.useEffect=()=>{};React.useRef=v=>({current:v});React.useState=v=>{const i=index++;if(!(i in states))states[i]=i===3?true:typeof v==='function'?v():v;return[states[i],value=>states[i]=value]};mockedDraft={online:true,ready:true,state:{status:'saved',holes:data.holes}};mockedRpc=async()=>{calls++;if(automatic)return {data:{success:true,automatic:true},error:null};throw Error('lost acknowledgement')};
+ const tree=PersonalRoundEditor({data,onReload:async()=>{reloads++}});find(tree,n=>n.type==='button'&&n.props.children===dict['validation.approve']).props.onClick();await new Promise(setImmediate);assert.equal(calls,1);assert.equal(reloads,1);assert.equal(states[9],automatic?dict['validation.autoApproved']:null);assert.equal(states[8],automatic?null:dict['validation.retry']);
+ }finally{React.useState=original.state;React.useEffect=original.effect;React.useRef=original.ref;mockedDraft=undefined;mockedRpc=undefined}
+});
