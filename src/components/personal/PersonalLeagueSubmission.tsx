@@ -5,17 +5,18 @@ import { ConfirmModal } from "@/components/ConfirmModal"
 import { AppIcon } from "@/components/ui/AppIcon"
 import { useT } from "@/lib/i18n"
 import { supabase } from "@/lib/supabase"
-import { groupCardLeagues, selectedCardLeagues, type CardLeague } from "@/lib/personalCardFlow"
+import { groupCardLeagues, selectedCardLeagues, intendedCardLeague, type CardLeague } from "@/lib/personalCardFlow"
 import { personalButton, personalResult, type PersonalCard } from "@/lib/personalRounds"
 import { personalSubmissionStatusKey } from "@/lib/personalSubmissionStatus"
 import { track } from "@/lib/analytics"
 
 type BatchResponse = { success: boolean; reason?: string; submitted_count: number; results?: { game_id: string; reason?: string; success?: boolean; unchanged?: boolean }[] }
-export function PersonalLeagueSubmission({ data, online, busy, onBusyChange, onReload }: {
-  data: PersonalCard; online: boolean; busy: boolean; onBusyChange: (busy: boolean) => void; onReload: () => Promise<void>
+export function PersonalLeagueSubmission({ data, online, busy, onBusyChange, onReload, leagueId }: {
+  leagueId?: string | null; data: PersonalCard; online: boolean; busy: boolean; onBusyChange: (busy: boolean) => void; onReload: () => Promise<void>
 }) {
   const t = useT()
-  const [selected, setSelected] = useState<string[]>([])
+  const intended = intendedCardLeague(data.leagues, leagueId)
+  const [selected, setSelected] = useState<string[]>(() => intended ? [intended] : [])
   const [confirmation, setConfirmation] = useState<{ ids: string[]; revision: string; names: string[] } | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -23,7 +24,7 @@ export function PersonalLeagueSubmission({ data, online, busy, onBusyChange, onR
   const groups = groupCardLeagues(data.leagues)
   const chosen = selectedCardLeagues(data.leagues,selected)
   const draft = data.round.status === "draft"
-  useEffect(() => { setSelected([]); setConfirmation(null) }, [data.round.id,data.revision?.id])
+  useEffect(() => { setSelected(intended ? [intended] : []); setConfirmation(null) }, [data.round.id,data.revision?.id,intended])
   const submit = async () => {
     if (!confirmation || flight.current || busy || !online) return
     flight.current = true; onBusyChange(true); setError(null); setMessage(null)
@@ -49,7 +50,7 @@ export function PersonalLeagueSubmission({ data, online, busy, onBusyChange, onR
     } finally { flight.current = false; onBusyChange(false) }
   }
   const title = (g: CardLeague) => <Link href={`/games/${g.id}`} className="flex min-h-[44px] items-center justify-between gap-2 text-sm font-bold"><span>{g.name}</span><AppIcon name="arrow" className="h-4 w-4 shrink-0" /></Link>
-  return <section className="mt-8 space-y-3">
+  return <section id="card-league-submission" className="mt-8 scroll-mt-20 space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold">{t(draft ? "personal.lifecycle.draftLeagues" : "personal.submitTitle")}</h2>
       {!!groups.eligible.length && !draft && <button type="button" className="min-h-[44px] text-xs font-bold underline" disabled={busy || !online} onClick={() => setSelected(chosen.length === Math.min(groups.eligible.length,50) ? [] : groups.eligible.slice(0,50).map(g => g.id))}>{t(chosen.length === Math.min(groups.eligible.length,50) ? "cardFlow.clearSelection" : "cardFlow.selectAll")}</button>}
     </div>

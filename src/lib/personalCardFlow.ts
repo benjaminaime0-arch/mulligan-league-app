@@ -24,3 +24,15 @@ export function selectedCardLeagues(leagues: CardLeague[], selected: string[]): 
   const ids = new Set(selected)
   return groupCardLeagues(leagues).eligible.filter(g => ids.has(g.id))
 }
+
+// Keep a league handoff as a local, validated identifier. Eligibility still comes from the server.
+export function leagueContext(value: string | null | undefined): string | null {
+  return value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) ? value.toLowerCase() : null
+}
+export function withLeagueContext(path: string, leagueId?: string | null): string {
+  const id = leagueContext(leagueId)
+  return id ? `${path}${path.includes("?") ? "&" : "?"}league=${id}` : path
+}
+export function intendedCardLeague(leagues: CardLeague[], leagueId?: string | null): string | null {
+  return groupCardLeagues(leagues).eligible.find(g => g.id === leagueContext(leagueId))?.id ?? null
+}

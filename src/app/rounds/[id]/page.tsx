@@ -1,11 +1,18 @@
 "use client"
-import { useEffect, useRef, useState } from "react"
+import { useSearchParams } from "next/navigation"
+import { leagueContext } from "@/lib/personalCardFlow"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { useAuth } from "@/hooks/useAuth"
 import { useT } from "@/lib/i18n"
 import { loadPersonalCard, type PersonalCard } from "@/lib/personalRounds"
 import { cachePersonalCard, cachedPersonalCard, downloadLocalScores, hasLocalChanges, isCardNetworkError, isCardShellReady } from "@/lib/cardOffline"
 import { PersonalRoundEditor } from "@/components/personal/PersonalRoundEditor"
 export default function PersonalRoundPage({ params }: { params: { id: string } }) {
+  return <Suspense><PersonalRoundContent params={params} /></Suspense>
+}
+function PersonalRoundContent({ params }: { params: { id: string } }) {
+  const search = useSearchParams()
+  const leagueId = leagueContext(search.get("league"))
   const { user, loading } = useAuth()
   const t = useT()
   const [data, setData] = useState<PersonalCard | null>(null)
@@ -55,7 +62,7 @@ export default function PersonalRoundPage({ params }: { params: { id: string } }
   return <>
     {cached && data.is_owner && <p role="status" className="mx-auto max-w-2xl px-4 pt-4 text-xs text-primary/70">{t(cached ? "personal.offline.cached" : "personal.offline.prepared")}</p>}
     {localBackup && <aside className="mx-auto max-w-2xl px-4 pt-4 text-sm text-amber-800"><p>{t("personal.offline.lockedBackup")}</p><button className="min-h-[44px] underline" onClick={() => downloadLocalScores(user.id, data.round.id)}>{t("personal.offline.download")}</button></aside>}
-    <PersonalRoundEditor key={params.id} data={data} onReload={async () => { const request = ++requestId.current; const fresh = await loadPersonalCard(params.id); if (request !== requestId.current) return; cachePersonalCard(fresh); setCached(false); setData(fresh) }} />
+    <PersonalRoundEditor key={params.id} data={data} leagueId={leagueId} onReload={async () => { const request = ++requestId.current; const fresh = await loadPersonalCard(params.id); if (request !== requestId.current) return; cachePersonalCard(fresh); setCached(false); setData(fresh) }} />
     {prepared && !cached && data.is_owner && <p role="status" className="mx-auto max-w-[44rem] px-4 py-2 text-xs text-primary/70">{t("personal.offline.prepared")}</p>}
   </>
 }

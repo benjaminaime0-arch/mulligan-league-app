@@ -164,3 +164,13 @@ for (const language of ['fr','en']) {
     assert.ok(!html.includes(dictionary[language]['personal.differential']));
   });
 }
+
+test('a new member still gets a personal first-card action when friends already have counted cards',()=>{
+ locale='fr';const id='e885da51-9aa9-4b7a-a421-28c2854ff5f8';
+ const initial={game:{id,name:'Friends',start_date:'2026-10-18',end_date:'2026-11-17',scoring_cards_count:1},tee:{course_name:'QA',hole_count:9,name:'Yellow'},rules:{tee_id:'tee',format:'stroke_gross'},closure_status:'open',board:[{user_id:'owner',rounds_counted:1,player_name:'Owner'},{user_id:'friend',rounds_counted:0,player_name:'Friend'}],submissions:[]};
+ const html=renderToStaticMarkup(React.createElement(PersonalLeaguePanel,{initial,userId:'friend'}));
+ assert.ok(html.includes('Ajouter ma première carte'));
+ assert.ok(html.includes(`/rounds?tee=tee&amp;league=${id}`));
+ assert.ok(!html.includes(dictionary.fr['activation.launched']));
+ assert.ok(!html.includes('league-launch-title'));
+});

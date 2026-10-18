@@ -53,3 +53,34 @@ test('keyboard review obeys the same rating, session, offline and conflict gates
   }
  }finally{React.useState=originalState;React.useEffect=originalEffect;mockedDraft=undefined}
 });
+
+test('league handoff survives new and existing card paths, rejecting malformed destinations',()=>{
+ const {leagueContext,withLeagueContext}=load('src/lib/personalCardFlow');
+ const id='e885da51-9aa9-4b7a-a421-28c2854ff5f8';
+ assert.equal(leagueContext(id.toUpperCase()),id);
+ for(const raw of ['https://example.com','../games','a&league=b','',null])assert.equal(leagueContext(raw),null);
+ assert.equal(withLeagueContext('/rounds?tee=yellow',id),`/rounds?tee=yellow&league=${id}`);
+ assert.equal(withLeagueContext('/rounds/card',id),`/rounds/card?league=${id}`);
+ assert.equal(withLeagueContext('/rounds/card','//example.com'),'/rounds/card');
+ const {RoundList}=load('src/components/personal/RoundList');
+ const html=renderToStaticMarkup(React.createElement(RoundList,{leagueId:id,rounds:[{id:'card',status:'draft',course_name:'QA',played_on:'2026-10-18',hole_count:9,tee_name:'Yellow'}]}));
+ assert.ok(html.includes(`/rounds/card?league=${id}`));
+});
+test('intended league selection respects server eligibility, membership and previous submissions',()=>{
+ const {intendedCardLeague}=load('src/lib/personalCardFlow');
+ const id='e885da51-9aa9-4b7a-a421-28c2854ff5f8';
+ assert.equal(intendedCardLeague([{id}],id),id);
+ for(const league of [{id,reason:'wrong_layout_or_tee'},{id,reason:'not_member'},{id,submission_status:'accepted'},{id,reason:'submission_deadline'}])assert.equal(intendedCardLeague([league],id),null);
+ assert.equal(intendedCardLeague([],id),null);
+});
+test('an eligible invited league is preselected, while submission still requires explicit confirmation',()=>{
+ locale='fr'; const id='e885da51-9aa9-4b7a-a421-28c2854ff5f8';
+ const data={round:{id:'card',status:'validated',tee_id:'tee',played_on:'2026-10-18'},revision:{id:'rev'},tee:{course_name:'QA',hole_count:9},leagues:[{id,name:'Friends',format:'stroke_net',attestation:'self_declared'}]};
+ const props={data,online:true,busy:false,onBusyChange(){},onReload:async()=>{}};
+ const chosen=renderToStaticMarkup(React.createElement(PersonalLeagueSubmission,{...props,leagueId:id}));
+ assert.ok(chosen.includes('checked=""'));assert.ok(chosen.includes('Soumettre à la ligue'));assert.ok(!chosen.includes('role="dialog"'));
+ for(const league of [{...data.leagues[0],reason:'wrong_layout_or_tee'},{...data.leagues[0],submission_status:'accepted'}]){
+  const html=renderToStaticMarkup(React.createElement(PersonalLeagueSubmission,{...props,leagueId:id,data:{...data,leagues:[league]}}));
+  assert.ok(!html.includes('type="checkbox"'));assert.ok(!html.includes('checked=""'));
+ }
+});

@@ -194,7 +194,7 @@ function InviteLandingContent() {
         <Note>{t("invite.full", { max: preview.max_players ?? 0 })}</Note>
       ) : null}
 
-      {!preview.is_completed && !preview.is_full && <p className="mt-5 text-sm text-primary/70">{t("invite.nextStep")}</p>}
+      {!preview.is_completed && !preview.is_full && <p className="mt-5 text-sm text-primary/70">{t(user ? "invite.readyStep" : "invite.nextStep")}</p>}
       <div className="mt-6 flex flex-col gap-2">
         {user ? (
           preview.is_completed || preview.is_full ? (

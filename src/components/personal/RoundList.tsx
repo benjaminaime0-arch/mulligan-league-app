@@ -1,16 +1,17 @@
 "use client"
+import { withLeagueContext } from "@/lib/personalCardFlow"
 import Link from "next/link"
 import { AppIcon } from "@/components/ui/AppIcon"
 import { useI18n } from "@/lib/i18n"
 import type { PersonalRoundSummary } from "@/lib/personalRounds"
 
-export function RoundList({ rounds }: { rounds: PersonalRoundSummary[] }) {
+export function RoundList({ rounds, leagueId }: { rounds: PersonalRoundSummary[]; leagueId?: string | null }) {
   const { t, locale } = useI18n()
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 })
   return <ul className="space-y-3">{rounds.map(r => {
     const hasScores = [r.gross_total, r.net_total, r.stableford_points, r.differential].some(value => value != null)
     return <li key={r.id}>
-      <Link href={`/rounds/${r.id}`} className="app-surface group block p-4">
+      <Link href={withLeagueContext(`/rounds/${r.id}`, leagueId)} className="app-surface group block p-4">
         <div className="flex items-start gap-3">
           <span className="app-icon-tile h-10 w-10"><AppIcon name={r.status === "draft" ? "edit" : "flag"} className="h-5 w-5" /></span>
           <div className="min-w-0 flex-1"><p className="break-words font-bold leading-snug">{r.course_name}</p><p className="mt-1 text-xs leading-relaxed text-primary/70">{t("personal.picker.holeCount", { n: r.hole_count })} · {new Date(`${r.played_on}T12:00:00`).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })} · {r.tee_name}</p></div>

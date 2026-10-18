@@ -1,4 +1,6 @@
 "use client"
+import Link from "next/link"
+import { leagueContext, withLeagueContext } from "@/lib/personalCardFlow"
 import { Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
@@ -19,6 +21,7 @@ export default function PersonalRoundsPage() {
 function PersonalRoundsContent() {
   const { user, loading } = useAuth()
   const t = useT(), router = useRouter(), params = useSearchParams()
+  const leagueId = leagueContext(params.get("league"))
   const requested = params.get("tee"), course = params.get("course"), requestedNew = params.has("new")
   const [data, setData] = useState<PersonalOverview | null>(null)
   const [tee, setTee] = useState("")
@@ -66,6 +69,7 @@ function PersonalRoundsContent() {
       <div><h1 className="text-3xl font-bold">{t("personal.cards")}</h1></div>
       <button className={`${personalButton} gap-2`} disabled={!data || offline} aria-expanded={showNew} aria-controls="new-card" onClick={() => setShowNew(v => !v)}><AppIcon name={showNew ? "close" : "plus"} className="h-4 w-4" />{showNew ? t("personal.ui.close") : t("app.newCard")}</button>
     </div>
+    {leagueId && <Link href={`/games/${leagueId}`} className="mt-4 inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold">← {t("friend.backLeague")}</Link>}
     {offline && <p role="status" className="mt-4 text-sm text-primary/70">{t("personal.offline.list")}</p>}
     {error && <p role="alert" className="my-4 text-sm text-red-700">{error}</p>}
     {data && <>
@@ -74,7 +78,7 @@ function PersonalRoundsContent() {
         e.preventDefault(); setBusy(true); setError(null)
         try {
           const r = personalResult<{ id: string }>(await supabase.rpc("create_personal_round", { p_tee: tee, p_played_on: date }))
-          router.push(`/rounds/${r.id}`)
+          router.push(withLeagueContext(`/rounds/${r.id}`, leagueId))
         } catch (e) { setError(e instanceof Error ? e.message : t("personal.loadError")); setBusy(false) }
       }}>
         <h2 className="font-bold">{t("personal.new")}</h2>
@@ -87,7 +91,7 @@ function PersonalRoundsContent() {
         {(["all", "drafts", "pending", "validated"] as const).map(value => <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} className={`min-h-[44px] rounded-full border px-3 text-xs font-semibold transition-colors ${filter === value ? "border-primary bg-primary text-white" : "border-primary/10 bg-white text-primary/70 hover:border-primary/30"}`}>{t(value === "all" ? "app.filterAll" : `app.${value}`)}{value === "all" && <span className="ml-1.5 opacity-75">{data.rounds.length}</span>}</button>)}
       </div>
       <section className="my-6" aria-label={t("personal.history")}>
-        {rounds.length === 0 ? <p className="app-surface p-5 text-sm text-primary/70">{t(data.rounds.length ? "app.noResults" : "personal.empty")}</p> : <RoundList rounds={rounds} />}
+        {rounds.length === 0 ? <p className="app-surface p-5 text-sm text-primary/70">{t(data.rounds.length ? "app.noResults" : "personal.empty")}</p> : <RoundList rounds={rounds} leagueId={leagueId} />}
       </section>
       {!offline && <details><summary className="mb-3 cursor-pointer py-3 text-sm font-semibold">{t("app.levelDetails")}</summary><PersonalLevelCard overview={data} editableIndex showHistory onIndexChange={reload} /></details>}
     </>}
