@@ -330,3 +330,14 @@ test('an open reminder disappears when refresh shows the friend joined or submit
  const joined={...d,board:[...d.board,{user_id:'invited',player_name:'Invited friend',rounds_counted:0}]};assert.equal(hasDialog(joined,'invited:join'),false);assert.equal(hasDialog(joined,'invited:card'),true);
  const submitted={...joined,submissions:[...joined.submissions,{user_id:'invited',status:'pending',card_status:'pending_validation'}]};assert.equal(hasDialog(submitted,'invited:card'),false);
 });
+
+for(const language of ['fr','en'])test(`${language}: reminder preview stays compact while copy retains the full authentication link`,()=>{
+ locale=language;const {LeagueReminderDialog}=load('src/components/personal/LeagueReminderDialog');const dict=load('src/lib/i18n/dictionaries').dictionaries[language];
+ const text='Hi friend\nhttps://app.mulliganclub.co/?tab=login&redirect=%2Frounds%3Fleague%3Dgroup';
+ const html=renderToStaticMarkup(React.createElement(LeagueReminderDialog,{name:'Friend',kind:'card',message:text,onClose(){}}));
+ assert.ok(html.includes('Hi friend'));assert.ok(html.includes(dict['reminder.link.card']));assert.ok(!html.includes('%2Frounds'));
+ const state=React.useState,ref=React.useRef;const priorNavigator=global.navigator;let copied;
+ try{React.useState=v=>[v,()=>{}];React.useRef=v=>({current:v});Object.defineProperty(global,'navigator',{value:{clipboard:{writeText:async value=>{copied=value}}},configurable:true});
+  const tree=LeagueReminderDialog({name:'Friend',kind:'card',message:text,onClose(){}});tree.props.onConfirm();assert.equal(copied,text);
+ }finally{React.useState=state;React.useRef=ref;Object.defineProperty(global,'navigator',{value:priorNavigator,configurable:true})}
+});

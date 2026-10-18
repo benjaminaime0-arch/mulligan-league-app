@@ -41,6 +41,6 @@ export function PersonalLeagueProgress({ data, userId, onInvite }: { data: Perso
       <button type="button" onClick={onInvite} className="min-h-[44px] text-xs font-semibold underline">{t("group.share")}</button>
       {progress.submitted > 0 && <a href="#league-cards" className="inline-flex min-h-[44px] items-center text-xs font-semibold underline">{t("group.cards")}</a>}
     </div>
-    {reminder && origin && <LeagueReminderDialog key={`${reminder.id}:${reminder.kind}`} name={reminder.name} message={reminderMessage(reminder, data.game.name, origin, t)} onClose={() => setSelected(null)} />}
+    {reminder && origin && <LeagueReminderDialog key={`${reminder.id}:${reminder.kind}`} name={reminder.name} kind={reminder.kind} message={reminderMessage(reminder, data.game.name, origin, t)} onClose={() => setSelected(null)} />}
   </section>
 }
