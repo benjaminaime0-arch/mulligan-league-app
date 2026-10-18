@@ -157,7 +157,7 @@ export function PersonalRoundEditor({
       </section>}
       <section className="app-surface my-4 p-4" aria-label={t("personal.lifecycle.title")}>
         <h2 className={`app-pill ${data.round.status === "disputed" ? "bg-red-50 text-red-800" : data.round.status.startsWith("pending") ? "bg-amber-50 text-amber-900" : "bg-sage/35"}`}><AppIcon name={data.round.status === "validated" ? "check" : "clock"} className="h-3.5 w-3.5" />{t(`personal.status.${data.round.status}`)}</h2>
-        {!ownerDraft && <p className="mt-3 text-xs text-primary/70">{t("personal.lifecycle.deadline")}: {displayTime(data.round.entry_deadline_at)} ({data.round.course_timezone})</p>}
+        {!ownerDraft && data.is_owner && <p className="mt-3 text-xs text-primary/70">{t("personal.lifecycle.deadline")}: {displayTime(data.round.entry_deadline_at)} ({data.round.course_timezone})</p>}
         {data.round.status === "pending_validation" && data.round.auto_validation_at && (
           <div><p className="mt-2 text-sm">{t("personal.lifecycle.timer")}: {displayTime(data.round.auto_validation_at)} ({data.round.course_timezone})</p><ValidationTimer due={data.round.auto_validation_at} serverNow={data.server_now} /><button className="mt-2 text-sm underline" disabled={busy} onClick={() => void run(onReload)}>{t("personal.refresh")}</button></div>
         )}
@@ -186,9 +186,9 @@ export function PersonalRoundEditor({
             {t("personal.level.title")}: {data.level.value ?? "—"} ·{" "}
             {t(`personal.level.${data.level.status}`)}
           </p>}
-          <p className="mt-2 text-xs text-sage">
+          {!validatorReview && <p className="mt-2 text-xs text-sage">
             {t("personal.lifecycle.lockNotice")}
-          </p>
+          </p>}
         </section>
       )}
       {error && !validatorReview && (
