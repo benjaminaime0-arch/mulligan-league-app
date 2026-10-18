@@ -17,6 +17,7 @@ import { LeaderboardTable } from "@/app/games/[id]/components/LeaderboardTable"
 import { GameInviteCode } from "@/app/games/[id]/components/GameInviteCode"
 import { LeagueLaunchChecklist } from "./LeagueLaunchChecklist"
 import { hasPreparedInvite, leagueActivation, rememberPreparedInvite } from "@/lib/leagueActivation"
+import { withLeagueContext } from "@/lib/personalCardFlow"
 import { AnalyticsView } from "@/components/AnalyticsView"
 export function PersonalLeaguePanel({
   initial,
@@ -58,7 +59,9 @@ export function PersonalLeaguePanel({
   const date = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })
   const countedCards = data.board.reduce((sum, row) => sum + row.rounds_counted, 0)
   const progress = leagueActivation(data.board.length, countedCards, invitePrepared)
-  const cardHref = `/rounds?tee=${data.rules.tee_id}`
+  const cardHref = withLeagueContext(`/rounds?tee=${data.rules.tee_id}`, data.game.id)
+  const firstCard = data.board.length > 1 && (mine?.rounds_counted ?? 0) === 0
+  const submittedMine = data.submissions.find(s => s.user_id === userId)
   return (
     <main className="app-page">
       <AnalyticsView event="league_progress_viewed" viewKey={`${data.game.id}.${progress.friendJoined}.${progress.firstCard}`} params={{ league_id: data.game.id, league_stage: progress.activeGroup ? "active_group" : progress.friendJoined ? "group_no_card" : progress.firstCard ? "solo_with_card" : "solo_no_card", friend_joined: Number(progress.friendJoined), first_card_counted: Number(progress.firstCard), active_group: Number(progress.activeGroup), member_count: data.board.length }} />
@@ -73,8 +76,8 @@ export function PersonalLeaguePanel({
         </div>
         {data.closure_status === "open" && remaining != null && remaining >= 0 && <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-sage"><AppIcon name="clock" className="h-3.5 w-3.5" />{t(remaining === 0 ? "app.lastDay" : "app.daysLeft", { n: remaining + 1 })}</p>}
       </section>
-      <div className="my-4 flex items-center gap-2"><Link href={cardHref} className={`${personalButton} flex-1 gap-2`}><AppIcon name="plus" className="h-4 w-4" />{t("personal.addOrSubmit")}</Link><button aria-label={t("personal.refresh")} title={t("personal.refresh")} className="app-surface flex h-12 w-12 shrink-0 items-center justify-center disabled:opacity-50" disabled={busy} onClick={() => { setBusy(true); setError(null); void refresh().catch(e => setError(e.message)).finally(() => setBusy(false)) }}><AppIcon name="refresh" className={busy ? "animate-spin" : ""} /></button></div>
-      {(data.closure_status === "open" || data.closure_status === "upcoming") && <LeagueLaunchChecklist memberCount={data.board.length} countedCards={countedCards} invitePrepared={invitePrepared} cardHref={cardHref} onInvite={() => setInviteOpen(true)} />}
+      <div className="my-4 flex items-center gap-2"><Link href={cardHref} className={`${personalButton} flex-1 gap-2`}><AppIcon name="plus" className="h-4 w-4" />{t(firstCard && !submittedMine ? "friend.firstCard" : "personal.addOrSubmit")}</Link><button aria-label={t("personal.refresh")} title={t("personal.refresh")} className="app-surface flex h-12 w-12 shrink-0 items-center justify-center disabled:opacity-50" disabled={busy} onClick={() => { setBusy(true); setError(null); void refresh().catch(e => setError(e.message)).finally(() => setBusy(false)) }}><AppIcon name="refresh" className={busy ? "animate-spin" : ""} /></button></div>
+      {(data.closure_status === "open" || data.closure_status === "upcoming") && (firstCard ? <p className="app-surface mb-4 px-4 py-3 text-sm leading-relaxed text-primary/70">{submittedMine ? t(personalSubmissionStatusKey(submittedMine.status, submittedMine.card_status)) : t("friend.cardHint")}</p> : <LeagueLaunchChecklist memberCount={data.board.length} countedCards={countedCards} invitePrepared={invitePrepared} cardHref={cardHref} onInvite={() => setInviteOpen(true)} />)}
       <div className="app-surface mb-5 px-4">
         <details><summary className="cursor-pointer py-3 text-sm font-semibold">{t("personal.ui.rules")}</summary><div className="space-y-2 pb-4 text-xs leading-relaxed text-primary/70"><p>{date(data.game.start_date)} → {date(data.game.end_date)} · {data.rules.timezone ?? "Europe/Paris"}</p><p>{t(`personal.format.${data.rules.format}`)} · {data.rules.duration_months ? t(data.rules.duration_months === 1 ? "personal.calendar.monthOne" : "personal.calendar.months", { n: data.rules.duration_months }) : t("personal.calendar.historical")}</p><p>{t("personal.leagueRules")} · {data.rules.attestation === "peer_required" ? t("personal.witnessRequired") : t("personal.selfDeclared")}</p></div></details>
         <details id="league-invitation" open={inviteOpen} onToggle={e => setInviteOpen(e.currentTarget.open)} className="scroll-mt-20 border-t border-primary/10"><summary className="cursor-pointer py-3 text-sm font-semibold">{t("detail.invite")}</summary><div className="pb-4"><GameInviteCode gameId={data.game.id} inviteCode={data.game.invite_code} gameName={data.game.name} variant="bottom" onInvitePrepared={() => { rememberPreparedInvite(data.game.id); setInvitePrepared(true) }} /></div></details>

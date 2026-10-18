@@ -5,7 +5,7 @@ import { ValidationTimer } from "./ValidationTimer"
 import { ConfirmModal } from "@/components/ConfirmModal"
 import { QuickScoreEntry } from "./QuickScoreEntry"
 import { PersonalLeagueSubmission } from "./PersonalLeagueSubmission"
-import { cardEntrySummary } from "@/lib/personalCardFlow"
+import { cardEntrySummary, withLeagueContext, intendedCardLeague } from "@/lib/personalCardFlow"
 import { AppIcon } from "@/components/ui/AppIcon"
 import { ScoreSummary } from "./ScoreSummary"
 import { useI18n } from "@/lib/i18n"
@@ -23,8 +23,10 @@ import {
 export function PersonalRoundEditor({
   data,
   onReload,
+  leagueId,
 }: {
   data: PersonalCard
+  leagueId?: string | null
   onReload: () => Promise<void>
 }) {
   const { t, locale } = useI18n()
@@ -42,6 +44,7 @@ export function PersonalRoundEditor({
   const [validator, setValidator] = useState("")
   const [present, setPresent] = useState(false)
   const [correctionReason, setCorrectionReason] = useState("")
+  const intended = intendedCardLeague(data.leagues, leagueId)
   const ownerDraft = data.is_owner && data.round.status === "draft"
   const autosave = useCardDraft(data, ownerDraft)
   const holes = ownerDraft ? autosave.state.holes : reviewHoles
@@ -114,7 +117,11 @@ export function PersonalRoundEditor({
       </details>)
   return (
     <main className={`app-page !pt-2 ${ownerDraft ? "!pb-28 md:!pb-4" : ""}`}>
-      <Link href="/rounds" className="inline-flex min-h-[44px] items-center gap-2 text-xs font-semibold text-primary/70">
+      {leagueId && data.is_owner && <aside className="my-2 rounded-xl bg-sage/25 px-4 py-3 text-sm">
+        <Link href={`/games/${leagueId}`} className="inline-flex min-h-[44px] items-center font-semibold">{data.leagues.find(g => g.id === leagueId)?.name ?? t("friend.backLeague")} <span className="ml-2" aria-hidden="true">↗</span></Link>
+        {intended && data.revision && !ownerDraft && data.round.status !== "disputed" && <a href="#card-league-submission" className={`${personalButton} mt-2 w-full`}>{t("friend.submitLeague")}</a>}
+      </aside>}
+      <Link href={withLeagueContext("/rounds", leagueId)} className="inline-flex min-h-[44px] items-center gap-2 text-xs font-semibold text-primary/70">
         ← {t("personal.cards")}
       </Link>
       <header className="mt-2 flex items-start gap-3"><span className="app-icon-tile"><AppIcon name="flag" /></span><div className="min-w-0"><h1 className="break-words text-2xl font-bold leading-tight tracking-tight">{data.tee.course_name}</h1><p className="mt-1 text-xs text-primary/70">{t("personal.picker.holeCount", { n: data.tee.hole_count })} · {data.tee.name}</p></div></header>
@@ -253,7 +260,7 @@ export function PersonalRoundEditor({
           {t("personal.incomplete")}
         </p>
       )}
-      {data.is_owner && data.round.status !== "disputed" && (ownerDraft || data.revision) && <PersonalLeagueSubmission data={data} online={autosave.online} busy={busy} onBusyChange={setBusy} onReload={onReload} />}
+      {data.is_owner && data.round.status !== "disputed" && (ownerDraft || data.revision) && <PersonalLeagueSubmission data={data} leagueId={leagueId} online={autosave.online} busy={busy} onBusyChange={setBusy} onReload={onReload} />}
       <ConfirmModal open={entryReview && ownerDraft} title={t("cardFlow.reviewTitle")} confirmLabel={t("personal.confirm")} confirmDisabled={entryReviewBlocked} loading={busy} onCancel={() => setEntryReview(false)} onConfirm={() => {
         if (entryReviewBlocked) return
         setEntryReview(false)
