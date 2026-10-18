@@ -10,7 +10,7 @@ import { QuickScoreEntry } from "./QuickScoreEntry"
 import { PersonalCorrectionDecision } from "./PersonalCorrectionDecision"
 import { PersonalCardStandings } from "./PersonalCardStandings"
 import { PersonalLeagueSubmission } from "./PersonalLeagueSubmission"
-import { cardEntrySummary, withLeagueContext, intendedCardLeague, cardScoresChanged } from "@/lib/personalCardFlow"
+import { correctionComparison, cardEntrySummary, withLeagueContext, intendedCardLeague, cardScoresChanged } from "@/lib/personalCardFlow"
 import { AppIcon } from "@/components/ui/AppIcon"
 import { ScoreSummary } from "./ScoreSummary"
 import { useI18n } from "@/lib/i18n"
@@ -122,16 +122,24 @@ export function PersonalRoundEditor({
   }, [data.round.id, data.revision?.id, data.round.status])
   const changed = cardScoresChanged(holes, data.revision?.scores ?? [])
   const correctionReady = correcting && changed && cardIsComplete(holes, data.tee.hole_count) && correctionReason.trim().length >= 3 && correctionReason.trim().length <= 500
+  const correctionChanges = data.revision ? correctionComparison(
+    { ...data.revision, revision_number: data.revision.revision_number + 1, scores: holes }, [data.revision],
+  ) : null
+  const correctionStep = !changed ? "validation.needChange" : !cardIsComplete(holes, data.tee.hole_count) ? "personal.incomplete" : correctionReason.trim().length < 3 ? "validation.needReason" : !present ? "validation.needPresence" : "validation.correctionReady"
   const review = async (correct: boolean) => {
     if (!validatorReview || !data.revision || !present || !autosave.online || reviewFlight.current || (correct ? !correctionReady : correcting)) return
     reviewFlight.current = true
     try {
-      personalResult(await supabase.rpc("review_personal_card", {
+      const result = personalResult<{ success: boolean; automatic?: boolean }>(await supabase.rpc("review_personal_card", {
         p_round: data.round.id, p_revision: data.revision.id, p_present: present,
         p_scores: correct ? holesAsJson(holes) : null, p_reason: correct ? correctionReason.trim() : null,
       }))
+      if (!result.success) throw new Error("review_failed")
       await onReload()
-      setNotice(t(correct ? "validation.correctionSent" : "validation.approved"))
+      setNotice(t(result.automatic ? "validation.autoApproved" : correct ? "validation.correctionSent" : "validation.approved"))
+    } catch {
+      await onReload().catch(() => {})
+      throw new Error(t("validation.retry"))
     } finally { reviewFlight.current = false }
   }
   const complete = cardIsComplete(holes, data.tee.hole_count)
@@ -246,9 +254,12 @@ export function PersonalRoundEditor({
           {editable && <div role="progressbar" aria-label={t("personal.enterScores")} aria-valuemin={0} aria-valuemax={data.tee.hole_count} aria-valuenow={entered} className="mt-3 h-1.5 overflow-hidden rounded-full bg-primary/10"><div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${entered / data.tee.hole_count * 100}%` }} /></div>}
           {data.tee.hole_count === 18 && <nav aria-label={t("detail.scoreSections")} className="mt-3 flex gap-2">{[1, 10].map(n => <a key={n} href={`#holes-${n}`} className="inline-flex min-h-[44px] items-center rounded-full bg-primary/5 px-4 text-xs font-bold">{t("personal.ui.hole")} {n}–{n + 8}</a>)}</nav>}
         </div>
-        {editable ? <QuickScoreEntry references={data.reference_holes} holes={holes} onChange={change}
+        {editable ? <QuickScoreEntry reviewing={validatorReview && correcting} original={data.revision?.scores} references={data.reference_holes} holes={holes} onChange={change}
           disabled={busy || (ownerDraft && (!autosave.ready || ['conflict', 'blocked', 'session'].includes(autosave.state.status)))}
-          onDone={() => { if (ownerDraft) { if (missingWitness && !entryDataBlocked) focusWitness(); else if (!entryReviewBlocked) setEntryReview(true) } else document.getElementById("card-validation-actions")?.scrollIntoView({ block: "center", behavior: "smooth" }) }} /> : <div className="grid gap-4 md:grid-cols-2">
+          onDone={() => { if (ownerDraft) { if (missingWitness && !entryDataBlocked) focusWitness(); else if (!entryReviewBlocked) setEntryReview(true) } else {
+            document.getElementById("card-validation-actions")?.scrollIntoView({ block: "start", behavior: "smooth" })
+            document.getElementById("correction-reason")?.focus({ preventScroll: true })
+          } }} /> : <div className="grid gap-4 md:grid-cols-2">
           {[0, ...(data.tee.hole_count === 18 ? [9] : [])].map(start => <div key={start} id={`holes-${start + 1}`} className="app-surface scroll-mt-20 overflow-hidden">
             <h3 className="border-b border-primary/10 bg-sage/25 px-3 py-3 text-sm font-bold">{t("personal.ui.hole")} {start + 1}–{Math.min(start + 9, data.tee.hole_count)}</h3>
             <table className="w-full text-left text-sm"><caption className="sr-only">{t("personal.ui.scores")} · {t("personal.ui.hole")} {start + 1}–{start + 9}</caption>
@@ -289,8 +300,13 @@ export function PersonalRoundEditor({
         <section id="card-validation-actions" className="app-surface mt-4 scroll-mt-20 space-y-3 p-4">
           <h2 className="font-bold">{t(correcting ? "validation.correctTitle" : "validation.title")}</h2>
           {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+          {correcting && <div className="rounded-xl bg-sage/20 p-3">
+            <h3 className="text-xs font-bold">{t("validation.changes", { n: correctionChanges?.length ?? 0 })}</h3>
+            {!!correctionChanges?.length && <ul className="mt-2 space-y-1 text-sm">{correctionChanges.map(({ before, after }) => <li key={after.hole_number} className="flex flex-wrap justify-between gap-2"><span>{t("personal.ui.hole")} {after.hole_number}</span><span><span className="text-primary/60">{before.completion === "completed" ? before.strokes ?? "—" : t(`personal.hole.${before.completion}`)}</span> → <strong>{after.completion === "completed" ? after.strokes ?? "—" : t(`personal.hole.${after.completion}`)}</strong></span></li>)}</ul>}
+            <p role="status" className="mt-2 text-xs leading-relaxed text-primary/70">{t(correctionStep)}</p>
+          </div>}
           {correcting && <label className="block text-sm">{t("personal.lifecycle.correctionReason")}
-            <textarea className={personalInput} maxLength={500} value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} disabled={busy} />
+            <textarea id="correction-reason" className={personalInput} minLength={3} maxLength={500} value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} disabled={busy} />
           </label>}
           <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-primary/5 p-3 text-sm"><input type="checkbox" checked={present} disabled={busy || !autosave.online} onChange={(e) => setPresent(e.target.checked)} className="h-5 w-5 shrink-0 accent-primary" />{t("personal.present")}</label>
           {correcting ? <>
