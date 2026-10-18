@@ -104,7 +104,7 @@ export function GameInviteCode({ gameId, inviteCode, gameName, variant, onInvite
       {joinUrl && <a className="inline-flex min-h-[44px] items-center rounded-xl border border-primary/30 bg-white px-3 text-xs font-medium text-primary hover:bg-primary/5" href={`https://wa.me/?text=${encodeURIComponent(`${t("invite.share.message.link", { name: gameName })}\n${joinUrl}`)}`} target="_blank" rel="noopener noreferrer" onClick={() => prepared("whatsapp")}>{t("invite.share.whatsapp")}</a>}
       {variant === "bottom" && <p className="w-full text-center text-[11px] text-primary/60">{t("invite.share.code", { code: inviteCode })}</p>}
       {feedback && <p role="status" className="w-full text-center text-xs text-primary">{feedback}</p>}
-      {gameId && <LeaguePlayerInvite gameId={gameId} />}
+      {gameId && <LeaguePlayerInvite gameId={gameId} onInvited={onInvitePrepared} />}
     </div>
   )
 }

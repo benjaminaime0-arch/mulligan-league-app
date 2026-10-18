@@ -4,7 +4,7 @@ import { useId, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { useT } from "@/lib/i18n"
 
-export function LeaguePlayerInvite({ gameId }: { gameId: string }) {
+export function LeaguePlayerInvite({ gameId, onInvited }: { gameId: string; onInvited?: () => void }) {
   const t = useT()
   const id = useId()
   const [username, setUsername] = useState("")
@@ -17,6 +17,7 @@ export function LeaguePlayerInvite({ gameId }: { gameId: string }) {
     try {
       const { data, error } = await supabase.rpc("invite_league_player", { p_game: gameId, p_username: username.trim() })
       if (error) throw error
+      onInvited?.()
       setMessage(data && typeof data === "object" && !Array.isArray(data) && data.duplicate ? "duplicate" : "sent")
     } catch { setMessage("error") }
     finally { setBusy(false) }

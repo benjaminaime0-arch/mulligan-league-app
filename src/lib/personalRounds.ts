@@ -106,6 +106,7 @@ export type PersonalCard = {
   }[]
 }
 export type PersonalLeague = {
+  organizer_progress?: { awaiting_join: { user_id: string; player_name: string }[] } | null
   closure_status: string
   rules: { tee_id: string; format: string; attestation: string; duration_months?: number | null; timezone?: string }
   game: {
