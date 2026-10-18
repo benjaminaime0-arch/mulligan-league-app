@@ -1,7 +1,10 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),ts=require('typescript'),React=require('react');
 const {renderToStaticMarkup}=require('react-dom/server');
-const root=path.resolve(__dirname,'../..');let locale='fr';let mockedDraft;let mockedRpc;const cache=new Map();
+const root=path.resolve(__dirname,'../..');let locale='fr';let mockedDraft;let mockedRpc;let mockedUser={id:'owner'};const cache=new Map();
 function load(relative){let file=path.join(root,relative);if(!path.extname(file))file+=fs.existsSync(file+'.tsx')?'.tsx':'.ts';if(cache.has(file))return cache.get(file);const m=new Module(file,module);m.paths=module.paths;m.require=name=>{
+ if(name==='@/components/AuthProvider')return{useAuthContext:()=>({user:mockedUser,loading:false})};
+ if(name==='next/navigation')return{useParams:()=>({code:'B583DG1HQP'}),useRouter:()=>({replace(){}})};
+ if(name==='next/image')return({priority,...props})=>React.createElement('img',props);
  if(name==='@/lib/supabase')return{supabase:{rpc:(...args)=>mockedRpc?.(...args)}};
  if(name==='@/lib/useCardDraft')return{useCardDraft:()=>mockedDraft};
  if(name==='next/link')return({children,...p})=>React.createElement('a',p,children);
@@ -164,3 +167,70 @@ test('offline or missing comparison cannot open a decision, and stale confirmati
 test('a lost decision acknowledgement refreshes the card and never reports an unconfirmed success',async()=>{
  const h=playerDecisionHarness({fail:true});try{h.button(h.render(),'Accepter et valider').props.onClick();h.modal(h.render()).props.onConfirm();await new Promise(setImmediate);assert.equal(h.calls.length,1);assert.equal(h.reloads(),1);assert.equal(h.outcomes.length,0);assert.equal(h.modal(h.render()).props.open,false)}finally{h.close()}
 });
+
+const {cardLeagueReview,leagueCardError,leagueCardWindow}=load('src/lib/cardLeagueReview');
+const targetId='074339b8-ee19-47f3-8c82-62c24aa47c6e';
+function leagueDraft(){const holes=Array.from({length:9},(_,i)=>({hole_number:i+1,completion:'completed',strokes:5}));return {is_owner:true,server_now:'2026-10-18T12:00:00Z',round:{id:'qa-handoff',user_id:'owner',tee_id:'tee',status:'draft',played_on:'2026-10-18',entry_deadline_at:'2026-10-20T00:00:00Z',course_timezone:'Europe/Paris',handicap_index:18,handicap_source:'declared_official'},tee:{ready:true,hole_count:9,name:'Yellow',course_name:'QA'},reference_holes:holes.map(h=>({...h,par:4,stroke_index:h.hole_number})),holes,events:[],revisions:[],validators:[{id:'owner',name:'Me'},{id:'partner',name:'Partner'},{id:'other',name:'Other league friend'}],leagues:[{id:targetId,name:'New season',attestation:'peer_required',format:'stroke_net',reason:'unconfirmed_card'}]};}
+function reviewLeague(){return {closure_status:'open',game:{id:targetId,name:'New season',start_date:'2026-10-18',end_date:'2026-11-17'},rules:{tee_id:'tee',attestation:'peer_required',format:'stroke_net'},board:[{user_id:'owner'},{user_id:'partner'}]};}
+test('a peer league only offers its other members; solo and another league’s friend cannot confirm',()=>{
+ const data=leagueDraft(),league=reviewLeague();let policy=cardLeagueReview(data,league,'');assert.equal(policy.witnessRequired,true);assert.deepEqual(policy.validators.map(v=>v.id),['partner']);assert.equal(policy.ready,false);
+ assert.equal(cardLeagueReview(data,league,'other').ready,false);assert.equal(cardLeagueReview(data,league,'owner').ready,false);assert.equal(cardLeagueReview(data,league,'partner').ready,true);
+ assert.equal(cardLeagueReview(data,null,'partner').ready,false);
+ for(const changed of [{...league,rules:{...league.rules,tee_id:'wrong'}},{...league,closure_status:'finalized'},{...league,game:{...league.game,start_date:'2026-10-19'}}])assert.equal(cardLeagueReview(data,changed,'partner').ready,false);
+ const solo={...league,rules:{...league.rules,attestation:'self_declared'}};assert.equal(cardLeagueReview(data,solo,'').ready,true);
+});
+test('new-league entry keeps course-local intake dates inside the season and blocks closed/future seasons',()=>{
+ const league=reviewLeague();assert.deepEqual(leagueCardWindow(league,'2026-10-18'),{min:'2026-10-18',max:'2026-10-18',initial:'2026-10-18',open:true});
+ assert.equal(leagueCardWindow(league,'2026-10-20').min,'2026-10-19');assert.equal(leagueCardWindow(league,'2026-10-17').open,false);
+ assert.equal(leagueCardWindow({...league,closure_status:'finalized'},'2026-11-18').open,false);
+ assert.equal(leagueCardError('league_card_rejected:validator_required'),'validator_required');assert.equal(leagueCardError('network'),null);
+});
+function handoffHarness({validator='partner',context=true,online=true,fail=false,standalone=false}={}){
+ const {PersonalRoundEditor}=load('src/components/personal/PersonalRoundEditor'),{ConfirmModal}=load('src/components/ConfirmModal');
+ const saved={state:React.useState,ref:React.useRef,effect:React.useEffect};let index=0,refIndex=0,reloads=0,flushes=0;const values=[],refs=[],calls=[];const data=leagueDraft(),league=reviewLeague();
+ React.useEffect=()=>{};React.useRef=initial=>refs[refIndex++]??(refs[refIndex-1]={current:initial});
+ React.useState=initial=>{const i=index++;if(!(i in values))values[i]=i===1?true:i===2?validator:i===10&&context?{key:`qa-handoff:${targetId}`,league,failed:false}:typeof initial==='function'?initial():initial;return[values[i],value=>{values[i]=typeof value==='function'?value(values[i]):value}]};
+ mockedDraft={ready:true,online,state:{status:'saved',holes:data.holes},flush:async()=>{flushes++;return 17}};
+ mockedRpc=async(name,args)=>{calls.push([name,args]);if(fail)throw new Error('network');return{data:{success:true},error:null}};
+ const render=()=>{index=0;refIndex=0;return PersonalRoundEditor({data,leagueId:standalone?null:targetId,onReload:async()=>{reloads++}})};
+ const modal=tree=>{let result;function visit(n){if(!n||typeof n!=='object')return;if(n.type===ConfirmModal)result=n;React.Children.forEach(n.props?.children,visit)}visit(tree);return result};
+ return{render,modal,calls,values,flushes:()=>flushes,reloads:()=>reloads,close(){React.useState=saved.state;React.useRef=saved.ref;React.useEffect=saved.effect;mockedDraft=undefined;mockedRpc=undefined}};
+}
+test('confirming a league card uses one atomic request and repeated taps cannot double-submit',async()=>{
+ locale='fr';const h=handoffHarness();try{const modal=h.modal(h.render());assert.equal(modal.props.confirmDisabled,false);modal.props.onConfirm();modal.props.onConfirm();await new Promise(setImmediate);assert.equal(h.flushes(),1);assert.equal(h.calls.length,1);assert.equal(h.calls[0][0],'confirm_card_into_league');assert.deepEqual(h.calls[0][1],{p_round:'qa-handoff',p_expected_version:17,p_validator:'partner',p_game:targetId});assert.equal(h.reloads(),1)}finally{h.close()}
+});
+test('missing witness, wrong member, missing rules and offline state prevent irreversible requests',()=>{
+ for(const options of [{validator:''},{validator:'other'},{context:false},{online:false}]){const h=handoffHarness(options);try{const modal=h.modal(h.render());assert.equal(modal.props.confirmDisabled,true);modal.props.onConfirm();assert.equal(h.flushes(),0);assert.equal(h.calls.length,0)}finally{h.close()}}
+});
+test('a lost handoff acknowledgement reloads before retry; a personal card keeps its separate workflow',async()=>{
+ const failed=handoffHarness({fail:true});try{failed.modal(failed.render()).props.onConfirm();await new Promise(setImmediate);assert.equal(failed.calls.length,1);assert.equal(failed.reloads(),1);assert.equal(failed.values[9],null)}finally{failed.close()}
+ const personal=handoffHarness({standalone:true,validator:''});try{personal.modal(personal.render()).props.onConfirm();await new Promise(setImmediate);assert.equal(personal.calls[0][0],'request_personal_validation');assert.ok(!('p_game' in personal.calls[0][1]))}finally{personal.close()}
+});
+
+const InvitePage=load('src/app/join/[code]/page').default;
+const {NotificationItem}=load('src/components/NotificationItem');
+function invitationPreview(extra={}){return {found:true,name:'Friends Cup',course_name:'QA course',format:'stroke_net',member_count:2,max_players:10,start_date:'2026-10-18',end_date:'2026-11-17',hole_count:9,tee_name:'Yellow',attestation:'peer_required',...extra};}
+function renderInvitation(preview,user={id:'owner'}){
+ const original=React.useState;let index=0;mockedUser=user;
+ React.useState=initial=>{const i=index++;return[i===0?preview:i===1?false:typeof initial==='function'?initial():initial,()=>{}]};
+ try{return renderToStaticMarkup(React.createElement(InvitePage));}finally{React.useState=original;mockedUser={id:'owner'}}
+}
+for(const language of ['fr','en']){
+ test(`${language}: a reopened invitation returns a current member to its exact league, even full or ended`,()=>{
+  locale=language;const dict=load('src/lib/i18n/dictionaries').dictionaries[language];
+  for(const flags of [{},{is_full:true},{is_completed:true}]){
+   const html=renderInvitation(invitationPreview({...flags,member_game_id:targetId}));
+   assert.ok(html.includes(`href="/games/${targetId}"`));assert.ok(html.includes(dict['invite.openLeague']));assert.ok(!html.includes(`>${dict['invite.join']}<`));
+  }
+ });
+ test(`${language}: an invitation explains the season, repere and witness rule before joining`,()=>{
+  locale=language;const dict=load('src/lib/i18n/dictionaries').dictionaries[language];const html=renderInvitation(invitationPreview());
+  assert.ok(html.includes(dict['invite.season']));assert.ok(html.includes('Yellow'));assert.ok(html.includes(dict['invite.witnessRule']));assert.ok(html.includes(dict['invite.join']));
+  const anonymous=renderInvitation(invitationPreview(),null);assert.ok(anonymous.includes(encodeURIComponent('/join/B583DG1HQP')));assert.ok(!anonymous.includes(dict['invite.openLeague']));
+ });
+ test(`${language}: the existing invitation notice is localized while preserving sender, league and destination`,()=>{
+  locale=language;const html=renderToStaticMarkup(React.createElement(NotificationItem,{notification:{id:'invite',type:'league_invitation',title:'League invitation',body:'Partner invited you to Friends Cup',created_at:new Date().toISOString(),read_at:null,data:{invite_code:'B583DG1HQP'}},onTap(){}}));
+  assert.ok(html.includes('Partner'));assert.ok(html.includes('Friends Cup'));assert.ok(html.includes(load('src/lib/i18n/dictionaries').dictionaries[language]['invite.notice.title']));
+  if(language==='fr')assert.ok(!html.includes(' invited you to '));
+ });
+}

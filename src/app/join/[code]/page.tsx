@@ -36,6 +36,12 @@ type Preview = {
   max_players?: number | null
   is_full?: boolean
   is_completed?: boolean
+  member_game_id?: string | null
+  start_date?: string | null
+  end_date?: string | null
+  hole_count?: number | null
+  tee_name?: string | null
+  attestation?: string | null
 }
 
 function formatLabel(f: string | null | undefined, t: (key: string) => string): string {
@@ -57,7 +63,7 @@ function InviteLandingContent() {
   const params = useParams<{ code: string }>()
   const router = useRouter()
   const { user, loading: authLoading } = useAuthContext()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
 
   const code = normalizeInviteCode(params?.code || "")
   const [preview, setPreview] = useState<Preview | null>(null)
@@ -91,7 +97,7 @@ function InviteLandingContent() {
     return () => {
       cancelled = true
     }
-  }, [code, t, lookupAttempt])
+  }, [code, t, lookupAttempt, user?.id])
 
   // Join only after the user confirms the preview; allow retries on failure.
   const joinLeague = useCallback(async () => {
@@ -110,9 +116,13 @@ function InviteLandingContent() {
         router.replace(`/games/${res.game_id}`)
         return
       }
-      // Already a member → just go there, that's a success from the user's view.
+      // A stale preview or lost join acknowledgement must retain this league.
       if (res.error && /already a member/i.test(res.error)) {
-        router.replace("/games")
+        const { data: refreshed, error: refreshError } = await supabase.rpc("get_invite_preview", { p_code: code })
+        if (refreshError) throw refreshError
+        const memberId = (refreshed as Preview | null)?.member_game_id
+        if (!memberId) throw new Error(t("invite.failed"))
+        router.replace(`/games/${memberId}`)
         return
       }
       setError(res.error || t("invite.failed"))
@@ -153,6 +163,8 @@ function InviteLandingContent() {
     )
   }
 
+  const memberId = user ? preview.member_game_id : null
+  const shortDate = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })
   const spotsLeft =
     preview.max_players != null && preview.member_count != null
       ? preview.max_players - preview.member_count
@@ -169,6 +181,8 @@ function InviteLandingContent() {
       <dl className="mt-4 space-y-1.5 text-sm">
         <Row label={t("invite.course")} value={preview.course_name || t("invite.notset")} />
         <Row label={t("invite.format")} value={formatLabel(preview.format, t)} />
+        {!!preview.hole_count && <Row label={t("invite.tee")} value={`${t("personal.picker.holeCount", { n: preview.hole_count })} · ${preview.tee_name ?? ""}`} />}
+        {preview.start_date && preview.end_date && <Row label={t("invite.season")} value={`${shortDate(preview.start_date)} → ${shortDate(preview.end_date)}`} />}
         <Row
           label={t("invite.players")}
           value={
@@ -186,17 +200,18 @@ function InviteLandingContent() {
       )}
 
       {/* Dead ends that still show the game details */}
-      {preview.is_completed ? (
+      {!memberId && preview.is_completed ? (
         <Note>
           {t("invite.completed")}
         </Note>
-      ) : preview.is_full ? (
+      ) : !memberId && preview.is_full ? (
         <Note>{t("invite.full", { max: preview.max_players ?? 0 })}</Note>
       ) : null}
 
-      {!preview.is_completed && !preview.is_full && <p className="mt-5 text-sm text-primary/70">{t(user ? "invite.readyStep" : "invite.nextStep")}</p>}
+      {memberId ? <p className="mt-5 text-sm text-primary/70">{t("invite.memberReady")}</p> : !preview.is_completed && !preview.is_full && <p className="mt-5 text-sm text-primary/70">{t(user ? "invite.readyStep" : "invite.nextStep")}</p>}
+      {!!preview.hole_count && !preview.is_completed && <p className="mt-2 text-xs leading-relaxed text-primary/65">{t(preview.attestation === "peer_required" ? "invite.witnessRule" : "invite.freshRule")}</p>}
       <div className="mt-6 flex flex-col gap-2">
-        {user ? (
+        {memberId ? <Link href={`/games/${memberId}`} className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-cream">{t("invite.openLeague")}</Link> : user ? (
           preview.is_completed || preview.is_full ? (
             <Link href="/games" className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 py-3 text-center text-sm font-medium text-cream hover:bg-primary/90">
               {t("invite.browse")}
