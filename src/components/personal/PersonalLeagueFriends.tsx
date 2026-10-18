@@ -32,6 +32,7 @@ export function PersonalLeagueFriends({ sourceId, gameId, userId, memberIds, onP
     return () => { active = false }
   }, [sourceId, gameId, userId])
   const candidates = friends.filter(friend => !memberIds.includes(friend.id) && !sent.includes(friend.id))
+  const selectionCount = candidates.filter(f => f.username && selected.includes(f.id)).length
   async function invite() {
     if (sending.current || loading) return
     const recipients = candidates.filter(f => selected.includes(f.id) && !!f.username)
@@ -48,10 +49,10 @@ export function PersonalLeagueFriends({ sourceId, gameId, userId, memberIds, onP
     <p className="mt-1 text-xs leading-relaxed text-primary/70">{t("season.friendsHint")}</p>
     {loading ? <p role="status" className="mt-2 text-xs">{t("common.loading")}</p> : error ? <p role="alert" className="mt-2 text-xs text-red-700">{t("season.friendsError")}</p> : <>
       <ul className="mt-2">{candidates.map(friend => <li key={friend.id}><label className="flex min-h-[44px] items-center gap-2 text-sm"><input type="checkbox" checked={selected.includes(friend.id)} disabled={busy || !friend.username} onChange={e => setSelected(prev => e.target.checked ? [...prev, friend.id] : prev.filter(id => id !== friend.id))} /><span className="min-w-0 break-words">{friend.name}{!friend.username && <span className="block text-xs text-primary/60">{t("season.shareInstead")}</span>}</span></label></li>)}</ul>
-      {!!sent.length && <p role="status" className="my-2 text-xs font-semibold">{t("season.sent", { n: sent.length })}</p>}
+      {!!sent.length && <p role="status" className="my-2 text-xs font-semibold">{t(sent.length === 1 ? "season.sentOne" : "season.sent", { n: sent.length })}</p>}
       {!!failed.length && <p role="alert" className="my-2 text-xs text-red-700">{t("season.failed", { names: friends.filter(f => failed.includes(f.id)).map(f => f.name).join(", ") })}</p>}
       {!friends.length && <p className="mt-2 text-xs">{t("season.noFriends")}</p>}
-      {!!candidates.length && <button type="button" className={`${personalButton} mt-2 w-full`} disabled={busy || !candidates.some(f => f.username && selected.includes(f.id))} onClick={() => void invite()}>{t(busy ? "invite.player.sending" : "season.inviteSelected", { n: candidates.filter(f => f.username && selected.includes(f.id)).length })}</button>}
+      {!!candidates.length && <button type="button" className={`${personalButton} mt-2 w-full`} disabled={busy || !candidates.some(f => f.username && selected.includes(f.id))} onClick={() => void invite()}>{t(busy ? "invite.player.sending" : selectionCount === 1 ? "season.inviteOne" : "season.inviteSelected", { n: selectionCount })}</button>}
       {!!friends.length && !candidates.length && !sent.length && <p className="mt-2 text-xs">{t("season.alreadyJoined")}</p>}
     </>}
   </section>

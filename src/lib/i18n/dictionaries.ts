@@ -22,13 +22,18 @@ export const DEFAULT_LOCALE: Locale = "fr"
 type Dict = Record<string, string>
 
 export const en: Dict = {
+  "season.pendingOne": "One card still awaits a decision. The ranking can still change.",
+  "season.inviteOne": "Invite this friend",
+  "season.sentOne": "Invitation sent. Your friend still needs to join.",
+  "season.provisionalQualification": "{n} validated card(s) missing at this stage.",
+
   "season.finalRule": "Results are final. No new cards can enter this season.",
   "season.provisionalRule": "The remaining card decisions can still change totals and rankings.",
   "season.unqualified": "{n} required card(s) missing: you finish unranked.",
 
   "season.final": "Final standings",
   "season.provisional": "Provisional standings",
-  "season.pending": "{n} card(s) still awaiting a decision. The ranking can still change.",
+  "season.pending": "{n} cards still await a decision. The ranking can still change.",
   "season.review": "Review pending cards",
   "season.winner": "Winner: {name}",
   "season.tied": "Joint winners: {name}",
@@ -42,10 +47,10 @@ export const en: Dict = {
   "season.friendsHint": "Choose who to invite. Each friend joins by accepting the invitation.",
   "season.friendsError": "The group could not be loaded. Share the invitation link below.",
   "season.shareInstead": "Use the invitation link below.",
-  "season.sent": "{n} invitation(s) sent. Waiting for your friends to join.",
+  "season.sent": "{n} invitations sent. Waiting for your friends to join.",
   "season.failed": "Not confirmed for: {names}. Retry or share the link below.",
   "season.noFriends": "No other players to invite. Share the link below.",
-  "season.inviteSelected": "Invite {n} friend(s)",
+  "season.inviteSelected": "Invite {n} friends",
   "season.alreadyJoined": "Your friends have already joined.",
 
   "standings.cardTitle": "Validated. Back to the league.",
@@ -1217,13 +1222,18 @@ export const en: Dict = {
 }
 
 export const fr: Dict = {
+  "season.pendingOne": "Une carte attend encore une décision. Le classement peut encore changer.",
+  "season.inviteOne": "Inviter cet ami",
+  "season.sentOne": "Invitation envoyée. Votre ami doit encore rejoindre la ligue.",
+  "season.provisionalQualification": "Il manque {n} carte(s) validée(s) à ce stade.",
+
   "season.finalRule": "Résultats définitifs. Aucune nouvelle carte ne peut entrer dans cette saison.",
   "season.provisionalRule": "Les dernières décisions sur les cartes peuvent encore modifier les totaux et les rangs.",
   "season.unqualified": "{n} carte(s) requise(s) manquante(s) : vous terminez non classé.",
 
   "season.final": "Classement final",
   "season.provisional": "Classement provisoire",
-  "season.pending": "{n} carte(s) attendent encore une décision. Le classement peut encore changer.",
+  "season.pending": "{n} cartes attendent encore une décision. Le classement peut encore changer.",
   "season.review": "Voir les cartes à valider",
   "season.winner": "Vainqueur : {name}",
   "season.tied": "Vainqueurs ex æquo : {name}",
@@ -1237,10 +1247,10 @@ export const fr: Dict = {
   "season.friendsHint": "Choisissez les amis à inviter. Chacun rejoint la ligue en acceptant l’invitation.",
   "season.friendsError": "Le groupe n’a pas pu être chargé. Partagez le lien ci-dessous.",
   "season.shareInstead": "Utilisez le lien d’invitation ci-dessous.",
-  "season.sent": "{n} invitation(s) envoyée(s). Vos amis doivent encore rejoindre la ligue.",
+  "season.sent": "{n} invitations envoyées. Vos amis doivent encore rejoindre la ligue.",
   "season.failed": "Envoi non confirmé pour : {names}. Réessayez ou partagez le lien ci-dessous.",
   "season.noFriends": "Pas d’autre joueur à réinviter. Partagez le lien ci-dessous.",
-  "season.inviteSelected": "Inviter {n} ami(s)",
+  "season.inviteSelected": "Inviter {n} amis",
   "season.alreadyJoined": "Vos amis ont déjà rejoint la ligue.",
 
   "standings.cardTitle": "Carte validée. Place au classement.",
