@@ -13,6 +13,7 @@ interface ConfirmModalProps {
   cancelLabel?: string
   loading?: boolean
   destructive?: boolean
+  focusTitle?: boolean
   onConfirm: () => void
   onCancel: () => void
 }
@@ -27,20 +28,23 @@ export function ConfirmModal({
   cancelLabel,
   loading = false,
   destructive = false,
+  focusTitle = false,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
   const t = useT()
   const titleId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
+  const headingRef = useRef<HTMLHeadingElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!open) return
     const previous = document.activeElement as HTMLElement | null
-    cancelRef.current?.focus()
+    if (focusTitle) headingRef.current?.focus({ preventScroll: true })
+    else cancelRef.current?.focus()
     return () => previous?.focus()
-  }, [open])
+  }, [open, focusTitle])
 
   useEffect(() => {
     if (!open) return
@@ -50,7 +54,7 @@ export function ConfirmModal({
         const buttons = panelRef.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")
         if (!buttons?.length) { e.preventDefault(); return }
         const first = buttons[0], last = buttons[buttons.length - 1]
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+        if (e.shiftKey && (document.activeElement === first || document.activeElement === headingRef.current)) { e.preventDefault(); last.focus() }
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
       }
     }
@@ -74,7 +78,7 @@ export function ConfirmModal({
         aria-labelledby={titleId}
         className="relative max-h-[85dvh] w-full max-w-sm overflow-y-auto rounded-2xl border border-primary/15 bg-white p-6 shadow-lg"
       >
-        <h2 id={titleId} className="break-words text-lg font-bold text-primary">
+        <h2 ref={headingRef} tabIndex={focusTitle ? -1 : undefined} id={titleId} className="outline-none break-words text-lg font-bold text-primary">
           {title}
         </h2>
         {message && <p className="mt-2 text-sm text-primary/70">{message}</p>}

@@ -478,3 +478,33 @@ for(const automatic of [false,true])test(automatic?'an elapsed timer reports aut
  const tree=PersonalRoundEditor({data,onReload:async()=>{reloads++}});find(tree,n=>n.type==='button'&&n.props.children===dict['validation.approve']).props.onClick();await new Promise(setImmediate);assert.equal(calls,1);assert.equal(reloads,1);assert.equal(states[9],automatic?dict['validation.autoApproved']:null);assert.equal(states[8],automatic?null:dict['validation.retry']);
  }finally{React.useState=original.state;React.useEffect=original.effect;React.useRef=original.ref;mockedDraft=undefined;mockedRpc=undefined}
 });
+for(const language of ['fr','en'])for(const count of [9,18])test(`${language} ${count}: correction consequences precede both choices and only changed holes are shown`,()=>{
+ locale=language;const {PersonalCorrectionDecision}=load('src/components/personal/PersonalCorrectionDecision');const dict=load('src/lib/i18n/dictionaries').dictionaries[language];const d=correctedPlayerCard(count);d.events=[{action:'correction_proposed',actor_name:'QA Witness'}];
+ const html=renderToStaticMarkup(React.createElement(PersonalCorrectionDecision,{data:d,online:true,busy:false,onBusyChange(){},onReload:async()=>{},onResolved(){}}));
+ assert.ok(html.includes(dict['correction.proposedBy'].replace('{name}','QA Witness')));assert.ok(html.includes(dict['validation.changes'].replace('{n}','1')));
+ assert.ok(html.indexOf(dict['correction.acceptNotice'])<html.indexOf('>'+dict['correction.accept']+'</button>'));assert.ok(html.indexOf(dict['correction.refusalHint'])<html.indexOf('>'+dict['correction.refuse']+'</button>'));
+ assert.ok(html.includes('>5</span><strong>6</strong>'));assert.ok(!html.includes('>2</span><span>5</span>'),'unchanged hole2 must stay out of the decision comparison');
+});
+for(const accept of [true,false])test(`${accept?'accept':'refuse'} confirmation retains exact changed scores and closes immediately for a newer revision`,()=>{
+ const h=playerDecisionHarness();try{h.setData(correctedPlayerCard(18));h.button(h.render(),accept?'Accepter et valider':'Refuser la correction').props.onClick();let modal=h.modal(h.render());assert.equal(modal.props.open,true);assert.equal(modal.props.focusTitle,true);
+ const html=renderToStaticMarkup(React.createElement('div',null,modal.props.children));assert.ok(html.includes('Trous modifiés · 1'));assert.ok(html.includes('>5</span><strong>6</strong>'));assert.ok(html.includes('Révision 2'));
+ const newer=correctedPlayerCard(18);newer.revision={...newer.revision,id:'newer'};h.setData(newer);modal=h.modal(h.render());assert.equal(modal.props.open,false);modal.props.onConfirm();assert.equal(h.calls.length,0);
+ }finally{h.close()}
+});
+test('pending correction focuses on the decision; league submission returns after validation',()=>{
+ locale='fr';const {PersonalRoundEditor}=load('src/components/personal/PersonalRoundEditor');const d=correctedPlayerCard(9);mockedDraft={online:true,ready:true,state:{status:'saved',holes:d.holes}};
+ try{let html=renderToStaticMarkup(React.createElement(PersonalRoundEditor,{data:d,onReload:async()=>{}}));assert.ok(!html.includes('id="card-league-submission"'));
+ html=renderToStaticMarkup(React.createElement(PersonalRoundEditor,{data:{...d,round:{...d.round,status:'validated'}},onReload:async()=>{}}));assert.ok(html.includes('id="card-league-submission"'));
+ }finally{mockedDraft=undefined}
+});
+test('long correction confirmation starts at its title, traps keyboard focus and restores the previous action',()=>{
+ const {ConfirmModal}=load('src/components/ConfirmModal');const saved={effect:React.useEffect,ref:React.useRef,id:React.useId,document:global.document};const effects=[];let index=0,headingFocus=0,cancelFocus=0,confirmFocus=0,restored=0,cancelled=0,keyHandler;
+ const heading={focus(){headingFocus++;document.activeElement=heading}},cancel={focus(){cancelFocus++;document.activeElement=cancel}},confirm={focus(){confirmFocus++;document.activeElement=confirm}},previous={focus(){restored++}};const refs=[{querySelectorAll:()=>[confirm,cancel]},heading,cancel];
+ try{global.document={activeElement:previous,addEventListener:(name,fn)=>{keyHandler=fn},removeEventListener(){}};React.useEffect=fn=>effects.push(fn);React.useRef=()=>({current:refs[index++]});React.useId=()=> 'correction-dialog';
+ ConfirmModal({open:true,title:'Correction',focusTitle:true,onCancel(){cancelled++},onConfirm(){}});const restore=effects[0]();effects[1]();assert.equal(headingFocus,1);assert.equal(cancelFocus,0);keyHandler({key:'Tab',shiftKey:true,preventDefault(){}});assert.equal(cancelFocus,1);keyHandler({key:'Tab',shiftKey:false,preventDefault(){}});assert.equal(confirmFocus,1);keyHandler({key:'Escape'});assert.equal(cancelled,1);restore();assert.equal(restored,1);
+ }finally{React.useEffect=saved.effect;React.useRef=saved.ref;React.useId=saved.id;global.document=saved.document}
+});
+test('pending correction keeps affected-league status without offering new submissions',()=>{
+ locale='fr';const {PersonalLeagueSubmission}=load('src/components/personal/PersonalLeagueSubmission');const d=correctedPlayerCard(9);d.leagues=[{id:'already',name:'Existing group',submission_status:'pending'},{id:'new',name:'Another group'}];
+ const html=renderToStaticMarkup(React.createElement(PersonalLeagueSubmission,{data:d,online:true,busy:false,onBusyChange(){},onReload:async()=>{}}));assert.ok(html.includes('Ligues concernées'));assert.ok(html.includes('Existing group'));assert.ok(html.includes('href="/games/already"'));assert.ok(html.includes('En attente de confirmation du joueur'));assert.ok(!html.includes('type="checkbox"'));assert.ok(!html.includes('Another group'));assert.ok(!html.includes('role="dialog"'));
+});
