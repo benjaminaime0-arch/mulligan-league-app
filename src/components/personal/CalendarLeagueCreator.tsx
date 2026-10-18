@@ -8,13 +8,14 @@ import { useI18n } from "@/lib/i18n"
 import { AppIcon } from "@/components/ui/AppIcon"
 import { supabase } from "@/lib/supabase"
 import { track } from "@/lib/analytics"
+import { AnalyticsView } from "@/components/AnalyticsView"
 import { todayLocalIso } from "@/lib/date"
 import { calendarLeagueEnd } from "@/lib/leagueCalendar"
 import { loadPersonalOverview, personalButton, personalInput, personalResult, type PersonalTee } from "@/lib/personalRounds"
 export function CalendarLeagueCreator() {
   const { user, loading } = useAuth()
   const { t, locale } = useI18n(), router = useRouter(), params = useSearchParams()
-  const requestedTee = params.get("tee"), requestedStart = params.get("start")
+  const requestedTee = params.get("tee"), requestedStart = params.get("start"), requestedCourse = params.get("course")
   const [tees, setTees] = useState<PersonalTee[]>([])
   const [tee, setTee] = useState(""), [name, setName] = useState("")
   const [start, setStart] = useState(() => requestedStart && calendarLeagueEnd(requestedStart, 1) ? requestedStart : todayLocalIso())
@@ -28,13 +29,14 @@ export function CalendarLeagueCreator() {
     loadPersonalOverview().then(d => {
       if (!active) return
       const available = d.tees.filter(x => x.ready)
-      setTees(available); setTee(available.find(x => x.id === requestedTee)?.id ?? available[0]?.id ?? "")
+      setTees(available); setTee(available.find(x => x.id === requestedTee)?.id ?? available.find(x => x.course_id === requestedCourse)?.id ?? available[0]?.id ?? "")
     }).catch(e => { if (active) setError(e.message) })
     return () => { active = false }
-  }, [user, requestedTee])
+  }, [user, requestedTee, requestedCourse])
   if (loading || !user) return <main className="app-page" role="status">{t("common.loading")}</main>
   const endLabel = end ? new Date(`${end}T12:00:00`).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" }) : "—"
   return <main className="app-page !pt-2">
+    <AnalyticsView event="league_create_viewed" viewKey="creator" />
     <Link href="/games" className="inline-flex min-h-[44px] items-center text-xs font-semibold text-primary/70">← {t("nav.games")}</Link>
     <header className="mt-2 flex items-start gap-3"><span className="app-icon-tile"><AppIcon name="trophy" /></span><div><h1 className="text-2xl font-bold tracking-tight">{t("personal.createLeague")}</h1><p className="mt-1 text-sm text-primary/70">{t("personal.calendar.intro")}</p></div></header>
     <form className="mt-5 space-y-4" onSubmit={async e => {
@@ -45,7 +47,7 @@ export function CalendarLeagueCreator() {
           p_name: name.trim(), p_tee: tee, p_start: start, p_duration_months: months,
           p_format: format, p_cards: cards, p_attestation: witness ? "peer_required" : "self_declared",
         }))
-        track("game_created", { format, duration_months: months })
+        track("game_created", { league_id: result.game_id, format, duration_months: months })
         router.push(`/games/${result.game_id}`)
       } catch (e) { setError(e instanceof Error ? e.message : t("common.error.generic")); setBusy(false) }
     }}>

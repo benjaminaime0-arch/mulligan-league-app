@@ -1,4 +1,5 @@
 "use client"
+import { track } from "@/lib/analytics"
 
 import { normalizeInviteCode, isInviteCode } from "@/lib/inviteCodes"
 
@@ -78,6 +79,7 @@ function JoinGameContent() {
       }
 
       setSuccessGameName(result.game_name ?? null)
+      track("invite_joined", { league_id: String(result.game_id), method: "code" })
 
       // Fetch additional game details for the success card
       const [gameRes, membersRes] = await Promise.all([

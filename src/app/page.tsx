@@ -10,6 +10,7 @@ import { OAuthButtons } from "@/components/auth/OAuthButtons"
 import { useI18n } from "@/lib/i18n"
 import { signupDestination, signupRedirectPath } from "@/lib/signupFlow"
 import { track } from "@/lib/analytics"
+import { AnalyticsView } from "@/components/AnalyticsView"
 
 export default function Home() {
   return (
@@ -46,7 +47,7 @@ function HomeContent() {
   const [tab, setTab] = useState<Tab>(initialTab)
   const signupConfirmed = searchParams.get("signup") === "confirmed"
   const redirectTo = signupRedirectPath(searchParams.get("redirect"))
-  const isCreate = redirectTo === "/games/create"
+  const isCreate = redirectTo?.split("?")[0] === "/games/create"
   const inviteCode = redirectTo?.match(/^\/join\/([A-Z0-9]{6}|[A-Z0-9]{10})$/i)?.[1]
   const [inviteName, setInviteName] = useState<string | null>(null)
 
@@ -77,6 +78,7 @@ function HomeContent() {
 
   return (
     <main className={`flex min-h-screen flex-col lg:flex-row ${NAV_PAD_CANCEL}`}>
+      {tab === "signup" && <AnalyticsView event="signup_viewed" viewKey={inviteCode ? "invitation" : isCreate ? "league" : "app"} params={{ intent: inviteCode ? "join_league" : isCreate ? "create_league" : "app" }} />}
       {/* Brand panel — full-height left split on desktop, top band on mobile. */}
       <section className="flex flex-col bg-primary px-6 py-6 text-cream lg:min-h-screen lg:w-[55%] lg:px-14 lg:py-12">
         <div className="flex items-center gap-3">

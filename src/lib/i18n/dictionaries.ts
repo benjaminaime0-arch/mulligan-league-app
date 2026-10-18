@@ -22,6 +22,16 @@ export const DEFAULT_LOCALE: Locale = "fr"
 type Dict = Record<string, string>
 
 export const en: Dict = {
+  "activation.title": "Launch your league",
+  "activation.launched": "Your season is underway",
+  "activation.done": "Done",
+  "activation.todo": "To do",
+  "activation.step.created": "League created",
+  "activation.step.invite": "Invite your friends",
+  "activation.step.card": "First card counted",
+  "activation.inviteHint": "Copy or share your invitation, then send it to your group.",
+  "activation.cardHint": "Play on your league’s course and tee, then submit your validated card.",
+
   "detail.scoreSections": "Scorecard sections",
   "detail.leagueSections": "League sections",
   "detail.invite": "Invite friends",
@@ -1111,6 +1121,16 @@ export const en: Dict = {
 }
 
 export const fr: Dict = {
+  "activation.title": "Lancez votre ligue",
+  "activation.launched": "Votre saison est lancée",
+  "activation.done": "Terminé",
+  "activation.todo": "À faire",
+  "activation.step.created": "Ligue créée",
+  "activation.step.invite": "Invitez vos amis",
+  "activation.step.card": "Première carte comptée",
+  "activation.inviteHint": "Copiez ou partagez votre invitation, puis envoyez-la à votre groupe.",
+  "activation.cardHint": "Jouez sur le parcours et le départ de la ligue, puis soumettez votre carte validée.",
+
   "detail.scoreSections": "Sections de la carte",
   "detail.leagueSections": "Sections de la ligue",
   "detail.invite": "Inviter des amis",
