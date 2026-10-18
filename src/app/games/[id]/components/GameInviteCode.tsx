@@ -28,9 +28,9 @@ export function GameInviteCode({ gameId, inviteCode, gameName, variant, onInvite
   const handleCopy = async () => {
     if (typeof navigator === "undefined" || !navigator.clipboard) { setFeedback(t("invite.share.failed")); return }
     try {
-      await navigator.clipboard.writeText(inviteCode)
-      prepared("code")
-      setFeedback(t("invite.code.copied"))
+      await navigator.clipboard.writeText(`${window.location.origin}/join/${encodeURIComponent(inviteCode)}`)
+      prepared("link")
+      setFeedback(t("invite.share.copied"))
     } catch {
       setFeedback(t("invite.share.failed"))
     }
@@ -67,16 +67,14 @@ export function GameInviteCode({ gameId, inviteCode, gameName, variant, onInvite
 
   return (
     <div className={containerClass}>
-      {/* Fixed h-8 on both so they read as a pair and align with the
-          h-8 destructive icon button in the Game Settings row. */}
       <button
         type="button"
         onClick={handleCopy}
-        className="flex min-h-[44px] items-center rounded-xl bg-primary/10 px-2.5 font-mono text-sm tracking-[0.15em] text-primary hover:bg-primary/15"
-        title={t("invite.code.copy.click")}
-        aria-label={t("invite.code.copy.click")}
+        className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary px-4 text-xs font-semibold text-white hover:bg-primary/90"
+        title={t("invite.share.copyLink")}
+        aria-label={t("invite.share.copyLink")}
       >
-        {inviteCode}
+        {t("invite.share.copyLink")}
       </button>
       <button
         type="button"
@@ -104,6 +102,7 @@ export function GameInviteCode({ gameId, inviteCode, gameName, variant, onInvite
         {t("games.share.cta")}
       </button>
       {joinUrl && <a className="inline-flex min-h-[44px] items-center rounded-xl border border-primary/30 bg-white px-3 text-xs font-medium text-primary hover:bg-primary/5" href={`https://wa.me/?text=${encodeURIComponent(`${t("invite.share.message.link", { name: gameName })}\n${joinUrl}`)}`} target="_blank" rel="noopener noreferrer" onClick={() => prepared("whatsapp")}>{t("invite.share.whatsapp")}</a>}
+      {variant === "bottom" && <p className="w-full text-center text-[11px] text-primary/60">{t("invite.share.code", { code: inviteCode })}</p>}
       {feedback && <p role="status" className="w-full text-center text-xs text-primary">{feedback}</p>}
       {gameId && <LeaguePlayerInvite gameId={gameId} />}
     </div>

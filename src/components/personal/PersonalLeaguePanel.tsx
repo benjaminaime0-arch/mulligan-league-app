@@ -44,6 +44,14 @@ export function PersonalLeaguePanel({
     setInvitePrepared(hasPreparedInvite(initial.game.id))
     setInviteOpen(initial.board.length === 1)
   }, [initial.game.id, initial.board.length])
+  useEffect(() => {
+    if (window.location.hash !== "#league-invitation") return
+    setInviteOpen(true)
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("league-invitation")?.scrollIntoView({ block: "start" })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [initial.game.id])
   const mine = data.board.find(row => row.user_id === userId)
   const ranked = mine?.position != null && mine.rounds_counted > 0
   const remaining = leagueDays(data.game.end_date, data.rules.timezone)
