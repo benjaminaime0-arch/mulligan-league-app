@@ -250,3 +250,20 @@ for(const language of ['fr','en']){
     assert.ok(html.includes(dictionary[language]['season.provisional']));assert.ok(!html.includes(dictionary[language]['season.winner'].replace('{name}','QA')));assert.ok(html.includes('#league-cards'));
   });
 }
+
+const { PersonalLeagueFriends } = load('src/components/personal/PersonalLeagueFriends.tsx');
+for(const language of ['fr','en']){
+  test(`${language}: live membership refresh replaces waiting invitation status with joined confirmation`,()=>{
+    locale=language;
+    const original=React.useState;
+    function render(memberIds){
+      const queue=[[{id:'friend',name:'Friend',username:'Friend'}],['friend'],['friend'],['friend'],false,false,false];
+      React.useState=()=>[queue.shift(),()=>{}];
+      try{return renderToStaticMarkup(React.createElement(PersonalLeagueFriends,{sourceId:'source',gameId:'new',userId:'owner',memberIds,onPrepared:()=>{}}));}
+      finally{React.useState=original;}
+    }
+    const pending=render(['owner']);assert.ok(pending.includes(dictionary[language]['season.sentOne']));
+    const joined=render(['owner','friend']);assert.ok(joined.includes(dictionary[language]['season.alreadyJoined']));
+    assert.ok(!joined.includes(dictionary[language]['season.sentOne']));assert.ok(!joined.includes(dictionary[language]['season.failed'].replace('{names}','Friend')));
+  });
+}
