@@ -2,120 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* BEGIN generated: nobel-trial-watermark-fallback */
-/* Do not edit by hand — run scripts/gen_nobel_fallback_range.py.
-   Nobel TRIAL draws a rotated "TRIAL" watermark instead of the real
-   glyph for 481 of its codepoints (ASCII punctuation such as - @ ? ( )
-   % / & + =, every accented Latin letter, the euro sign, dashes, smart
-   quotes, the bullet, the ellipsis and U+2212 MINUS). These faces hand
-   exactly those code points to a system font and leave the rest on Nobel.
-   This family is listed FIRST in the Tailwind sans stack; its faces only
-   cover the watermarked range, so every other character falls through to
-   Nobel. Do NOT switch this back to re-declaring next/font's hashed family
-   — same-family unicode-range loses to the later-bundled next/font CSS in
-   production and the whole block silently does nothing (it only appeared to
-   work in dev, where the injection order is reversed).
-   One face per weight AND style: CSS prefers an exact weight/style match,
-   and omitting font-style would leave italic text on watermarked Nobel.
-   Derived from 12 font files. Deleting this block AND its entry in
-   tailwind.config.ts is the first step after licensing the retail font. */
-@font-face {
-  font-family: "nobel-trial-patch";
-  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
-  font-weight: 200;
-  font-style: normal;
-  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
-  font-display: swap;
-}
-@font-face {
-  font-family: "nobel-trial-patch";
-  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
-  font-weight: 200;
-  font-style: italic;
-  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
-  font-display: swap;
-}
-@font-face {
-  font-family: "nobel-trial-patch";
-  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
-  font-weight: 300;
-  font-style: normal;
-  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
-  font-display: swap;
-}
-@font-face {
-  font-family: "nobel-trial-patch";
-  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
-  font-weight: 300;
-  font-style: italic;
-  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
-  font-display: swap;
-}
-@font-face {
-  font-family: "nobel-trial-patch";
-  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
-  font-weight: 400;
-  font-style: normal;
-  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
-  font-display: swap;
-}
-@font-face {
-  font-family: "nobel-trial-patch";
-  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
-  font-weight: 400;
-  font-style: italic;
-  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
-  font-display: swap;
-}
-@font-face {
-  font-family: "nobel-trial-patch";
-  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
-  font-weight: 500;
-  font-style: normal;
-  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
-  font-display: swap;
-}
-@font-face {
-  font-family: "nobel-trial-patch";
-  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
-  font-weight: 500;
-  font-style: italic;
-  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
-  font-display: swap;
-}
-@font-face {
-  font-family: "nobel-trial-patch";
-  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
-  font-weight: 700;
-  font-style: normal;
-  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
-  font-display: swap;
-}
-@font-face {
-  font-family: "nobel-trial-patch";
-  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
-  font-weight: 700;
-  font-style: italic;
-  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
-  font-display: swap;
-}
-@font-face {
-  font-family: "nobel-trial-patch";
-  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
-  font-weight: 900;
-  font-style: normal;
-  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
-  font-display: swap;
-}
-@font-face {
-  font-family: "nobel-trial-patch";
-  src: local("Helvetica Neue"), local("Helvetica"), local("Arial"), local("Segoe UI"), local("Roboto");
-  font-weight: 900;
-  font-style: italic;
-  unicode-range: U+0021-002B, U+002D, U+002F, U+003A-0040, U+005B-005D, U+005F-0060, U+007B-007D, U+00A1-00A3, U+00A5, U+00A7-00AB, U+00AD-00B0, U+00B4, U+00B6-00B8, U+00BA-00BB, U+00BF-0131, U+0134-0137, U+0139-013E, U+0141-0148, U+014A-017E, U+018F, U+01A0-01A1, U+01AF-01B0, U+01CD-01DC, U+01E6-01E7, U+01EA-01EB, U+01F0, U+01F8-01F9, U+0218-021B, U+0226-0227, U+022E-022F, U+0232-0233, U+0237, U+0259, U+02B9-02BC, U+02C6-02C7, U+02CD, U+02D8-02DD, U+1E06-1E07, U+1E0C-1E0F, U+1E12-1E13, U+1E20-1E21, U+1E24-1E25, U+1E28-1E2B, U+1E32-1E4B, U+1E58-1E5F, U+1E62-1E63, U+1E6C-1E71, U+1E7E-1E85, U+1E8C-1E96, U+1E9E, U+1EA0-1EF9, U+2011, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2039-203A, U+20AC, U+2117, U+2120, U+2122, U+2212, U+2260, U+A788, U+FB00-FB04;
-  font-display: swap;
-}
-/* END generated: nobel-trial-watermark-fallback */
+
 
 :root {
   --primary: #003800;
@@ -127,13 +14,8 @@
 body {
   color: var(--primary);
   background: var(--cream);
-  /* Brand kit sets `body { letter-spacing: -0.02em }` and the type spec calls
-     for -0.02 to -0.05em throughout. Comments in layout.tsx and
-     tailwind.config.ts had long claimed this default was already applied, but
-     nothing ever set it — every element outside the handful with an explicit
-     `tracking-*` class rendered at 0. Tighter headings opt in per element
-     (-0.03em headings, -0.04em display); `tracking-brand` is the -0.05em end. */
-  letter-spacing: -0.02em;
+  letter-spacing: normal;
+  font-optical-sizing: auto;
 }
 
 

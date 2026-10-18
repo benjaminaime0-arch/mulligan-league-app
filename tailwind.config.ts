@@ -8,26 +8,10 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        // Nobel TRIAL is the Mulligan brand font (loaded via next/font/local
-        // in src/app/layout.tsx, exposed as the --font-nobel CSS variable).
-        // Making it the default `font-sans` means anything that doesn't opt
-        // out of Tailwind's sans stack picks up the brand typography.
-        //
-        // "nobel-trial-patch" MUST come first. It is the generated block in
-        // globals.css (scripts/gen_nobel_fallback_range.py) and declares ONLY
-        // the 481 codepoints Nobel TRIAL renders as a "TRIAL" watermark, so
-        // every other character falls through to Nobel. Font-stack order is
-        // what makes this work — an earlier attempt re-declared next/font's
-        // own hashed family instead and was silently inert in production,
-        // because same-family unicode-range loses to the later-bundled
-        // next/font CSS. Drop this entry only when the retail font is licensed.
-        sans: ["nobel-trial-patch", "var(--font-nobel)", "system-ui", "sans-serif"],
-        nobel: ["nobel-trial-patch", "var(--font-nobel)", "system-ui", "sans-serif"],
+        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
       letterSpacing: {
-        // -50 in design-tool tracking units = -0.05em, the tight end of the
-        // brand's -0.02..-0.05em range. This is only an opt-in utility; the
-        // -0.02em default lives on `body` in globals.css.
+        // Tight display tracking remains opt-in; body text uses natural spacing.
         brand: "-0.05em",
       },
       colors: {

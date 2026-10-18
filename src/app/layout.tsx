@@ -18,35 +18,13 @@ const GA_MEASUREMENT_ID = (() => {
   return raw && /^G-[A-Z0-9]{6,}$/.test(raw) ? raw : undefined
 })()
 
-// Nobel — Mulligan brand font. The brand's default tracking (-0.02em)
-// is set on `body` in globals.css so every element inherits it without
-// per-class repetition; headings opt into tighter values themselves.
-//
-// These are SUBSET WOFF2 files (~7.5KB each, was ~155KB OTF) built by
-// scripts/build_nobel_woff2.py from the archived TRIAL OTFs in
-// assets/fonts/nobel-trial/. The subsets contain ONLY the clean glyphs —
-// the 481 codepoints the trial cut watermarks (most punctuation, every
-// accented letter) are simply absent, so a "TRIAL" label can no longer
-// render from these files at all. Those codepoints are still served by
-// the generated "nobel-trial-patch" system-font fallback in globals.css,
-// placed FIRST in the Tailwind sans stack — keep it there, and re-run
-// both scripts if the source fonts ever change.
-const nobel = localFont({
+// Self-hosted Inter keeps French text, UI labels, and score tables consistent.
+const inter = localFont({
   src: [
-    { path: "../fonts/nobel/NobelTRIAL-ExtraLight.woff2",       weight: "200", style: "normal" },
-    { path: "../fonts/nobel/NobelTRIAL-ExtraLightItalic.woff2", weight: "200", style: "italic" },
-    { path: "../fonts/nobel/NobelTRIAL-Light.woff2",            weight: "300", style: "normal" },
-    { path: "../fonts/nobel/NobelTRIAL-LightItalic.woff2",      weight: "300", style: "italic" },
-    { path: "../fonts/nobel/NobelTRIAL-Book.woff2",             weight: "400", style: "normal" },
-    { path: "../fonts/nobel/NobelTRIAL-BookItalic.woff2",       weight: "400", style: "italic" },
-    { path: "../fonts/nobel/NobelTRIAL-Regular.woff2",          weight: "500", style: "normal" },
-    { path: "../fonts/nobel/NobelTRIAL-RegularItalic.woff2",    weight: "500", style: "italic" },
-    { path: "../fonts/nobel/NobelTRIAL-Bold.woff2",             weight: "700", style: "normal" },
-    { path: "../fonts/nobel/NobelTRIAL-BoldItalic.woff2",       weight: "700", style: "italic" },
-    { path: "../fonts/nobel/NobelTRIAL-Black.woff2",            weight: "900", style: "normal" },
-    { path: "../fonts/nobel/NobelTRIAL-BlackItalic.woff2",      weight: "900", style: "italic" },
+    { path: "../fonts/inter/InterVariable.woff2", weight: "100 900", style: "normal" },
+    { path: "../fonts/inter/InterVariable-Italic.woff2", weight: "100 900", style: "italic" },
   ],
-  variable: "--font-nobel",
+  variable: "--font-inter",
   display: "swap",
 })
 
@@ -100,13 +78,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  // nobel.variable exposes --font-nobel; the font is applied through Tailwind's
-  // `sans` stack (font-sans on <body>), NOT nobel.className. nobel.className
-  // hard-sets font-family to next/font's own families, which would bypass the
-  // "nobel-trial-patch" entry that must sit first in the stack for the
-  // TRIAL-watermark fallback to take effect.
   return (
-    <html lang="fr" className={nobel.variable}>
+    <html lang="fr" className={inter.variable}>
       <body
         className="min-h-screen bg-white font-sans text-primary antialiased"
       >
