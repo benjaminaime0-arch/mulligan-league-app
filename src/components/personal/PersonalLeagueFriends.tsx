@@ -6,8 +6,8 @@ import { leagueHasEnded, inviteReturningFriends } from "@/lib/nextLeague"
 import { personalResult, personalButton, type PersonalLeague } from "@/lib/personalRounds"
 
 type Friend = { id: string; name: string; username: string | null }
-export function PersonalLeagueFriends({ sourceId, gameId, userId, memberIds, onPrepared }: {
-  sourceId: string; gameId: string; userId: string; memberIds: string[]; onPrepared: () => void
+export function PersonalLeagueFriends({ sourceId, gameId, userId, memberIds, invitedIds = [], onPrepared }: {
+  sourceId: string; gameId: string; userId: string; memberIds: string[]; invitedIds?: string[]; onPrepared: () => void
 }) {
   const { t } = useI18n()
   const [friends, setFriends] = useState<Friend[]>([])
@@ -31,8 +31,8 @@ export function PersonalLeagueFriends({ sourceId, gameId, userId, memberIds, onP
     })().catch(() => { if (active) setError(true) }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [sourceId, gameId, userId])
-  const candidates = friends.filter(friend => !memberIds.includes(friend.id) && !sent.includes(friend.id))
-  const awaiting = sent.filter(id => !memberIds.includes(id))
+  const candidates = friends.filter(friend => !memberIds.includes(friend.id) && !sent.includes(friend.id) && !invitedIds.includes(friend.id))
+  const awaiting = Array.from(new Set([...sent, ...invitedIds])).filter(id => !memberIds.includes(id))
   const unresolved = failed.filter(id => !memberIds.includes(id))
   const allJoined = friends.length > 0 && friends.every(friend => memberIds.includes(friend.id))
   const selectionCount = candidates.filter(f => f.username && selected.includes(f.id)).length

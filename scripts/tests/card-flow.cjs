@@ -239,3 +239,50 @@ test('a complete card missing its witness offers a direct jump instead of a disa
  global.document={getElementById:id=>id==='card-witness'?{scrollIntoView(){},focus(){focused++}}:null};
  try{const tree=h.render();let action;function visit(n){if(!n||typeof n!=='object')return;if(n.type==='button'&&React.Children.toArray(n.props.children).includes('Choisir le témoin'))action=n;React.Children.forEach(n.props?.children,visit)}visit(tree);assert.ok(action);assert.equal(action.props.disabled,false);action.props.onClick();assert.equal(focused,1);assert.equal(h.calls.length,0);assert.equal(h.modal(tree).props.confirmDisabled,true)}finally{h.close();global.document=originalDocument}
 });
+
+function groupLeague() {
+ return {closure_status:'open',game:{id:'group'},board:[
+  {user_id:'owner',player_name:'Organizer',rounds_counted:0},
+  {user_id:'waiting',player_name:'Waiting witness',rounds_counted:0},
+  {user_id:'correcting',player_name:'Correction',rounds_counted:0},
+  {user_id:'ranked',player_name:'Already counted',rounds_counted:1},
+  {user_id:'rejected',player_name:'Replacement',rounds_counted:0}],
+  submissions:[{user_id:'waiting',round_id:'pending-card',status:'pending',card_status:'pending_validation',validator_id:'owner'},
+   {user_id:'correcting',round_id:'correction-card',status:'pending',card_status:'pending_player_confirmation',validator_id:'owner'},
+   {user_id:'ranked',status:'accepted',card_status:'validated'},
+   {user_id:'rejected',status:'rejected',card_status:'disputed'}],
+  organizer_progress:{awaiting_join:[{user_id:'invited',player_name:'Invited friend'},{user_id:'invited',player_name:'Invited friend'},{user_id:'waiting',player_name:'Already joined'}]}};
+}
+test('organizer progress separates first submission from rank, validation, correction and rejection',()=>{
+ const {leagueGroupProgress}=load('src/lib/leagueGroupProgress');const p=leagueGroupProgress(groupLeague(),'owner');
+ assert.equal(p.missing,1);assert.equal(p.submitted,4);assert.deepEqual(p.members.map(m=>m.status),['missing','pending','correction','counted','replace']);
+ assert.equal(p.members[1].reviewRound,'pending-card');assert.equal(p.members[2].reviewRound,undefined);
+ assert.deepEqual(p.awaiting.map(m=>m.user_id),['invited']);
+ const revised=groupLeague();revised.submissions=[{user_id:'owner',status:'superseded',card_status:'validated'}];assert.equal(leagueGroupProgress(revised,'owner').members[0].status,'missing');
+});
+test('fresh membership replaces a pending invitation without relying on session state',()=>{
+ const {leagueGroupProgress}=load('src/lib/leagueGroupProgress');const d=groupLeague();d.board.push({user_id:'invited',player_name:'Invited friend',rounds_counted:0});
+ const p=leagueGroupProgress(d,'owner');assert.equal(p.awaiting.length,0);assert.equal(p.missing,2);assert.equal(p.members.at(-1).status,'missing');
+});
+for(const language of ['fr','en'])test(`${language}: compact organizer roster names the next action and never gives the wrong witness a validation link`,()=>{
+ locale=language;const {PersonalLeagueProgress}=load('src/components/personal/PersonalLeagueProgress');const d=groupLeague(),dict=load('src/lib/i18n/dictionaries').dictionaries[language];
+ const html=renderToStaticMarkup(React.createElement(PersonalLeagueProgress,{data:d,userId:'owner',onInvite(){}}));
+ for(const state of ['missing','pending','correction','counted','replace'])assert.ok(html.includes(dict[`group.status.${state}`]),state);
+ assert.ok(html.includes('href="/rounds/pending-card"'));assert.ok(!html.includes('href="/rounds/correction-card"'));assert.equal((html.match(/Invited friend/g)||[]).length,1);
+ assert.ok(html.includes(dict['group.linkHint']));assert.ok(html.includes(dict['group.you']));assert.ok(!html.includes('remind'));
+ const other=renderToStaticMarkup(React.createElement(PersonalLeagueProgress,{data:d,userId:'other',onInvite(){}}));assert.ok(!other.includes('href="/rounds/pending-card"'));
+ const hidden=renderToStaticMarkup(React.createElement(PersonalLeagueProgress,{data:{...d,organizer_progress:null},userId:'owner',onInvite(){}}));assert.equal(hidden,'');
+});
+test('one received card is enough for activation even when ranking needs several cards',()=>{
+ const {leagueGroupProgress}=load('src/lib/leagueGroupProgress');const d=groupLeague();d.board=[{user_id:'owner',player_name:'Me',rounds_counted:1,position:null}];d.submissions=[{user_id:'owner',status:'accepted',card_status:'validated'}];
+ const p=leagueGroupProgress(d,'owner');assert.equal(p.missing,0);assert.equal(p.submitted,1);assert.equal(p.members[0].status,'counted');
+});
+for(const language of ['fr','en'])test(`${language}: retained invitations are not offered again when returning to the old-group selector`,()=>{
+ locale=language;const {PersonalLeagueFriends}=load('src/components/personal/PersonalLeagueFriends');
+ const state=React.useState,effect=React.useEffect,ref=React.useRef;let index=0;
+ try{
+  React.useEffect=()=>{};React.useRef=v=>({current:v});React.useState=v=>{const i=index++;return [i===0?[{id:'invited',name:'Still invited',username:'invited'},{id:'joined',name:'Already joined',username:'joined'},{id:'new',name:'Not invited yet',username:'new'}]:i===1?['invited','joined','new']:i===5?false:typeof v==='function'?v():v,()=>{}]};
+  const html=renderToStaticMarkup(PersonalLeagueFriends({sourceId:'old',gameId:'next',userId:'owner',memberIds:['joined'],invitedIds:['invited'],onPrepared(){}}));
+  assert.equal((html.match(/type="checkbox"/g)||[]).length,1);assert.ok(html.includes('Not invited yet'));assert.ok(!html.includes('Still invited'));assert.ok(!html.includes('Already joined'));
+ }finally{React.useState=state;React.useEffect=effect;React.useRef=ref}
+});

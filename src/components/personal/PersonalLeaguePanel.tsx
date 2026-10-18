@@ -14,6 +14,7 @@ import {
   type PersonalLeague,
 } from "@/lib/personalRounds"
 import { PersonalSeasonEnd } from "./PersonalSeasonEnd"
+import { PersonalLeagueProgress } from "./PersonalLeagueProgress"
 import { PersonalLeagueFriends } from "./PersonalLeagueFriends"
 import { leagueHasEnded, sourceLeagueId } from "@/lib/nextLeague"
 import { PersonalStandings } from "./PersonalStandings"
@@ -60,6 +61,14 @@ export function PersonalLeaguePanel({
     })
     return () => window.cancelAnimationFrame(frame)
   }, [initial.game.id])
+  function openInvite() {
+    setInviteOpen(true)
+    window.requestAnimationFrame(() => document.getElementById("league-invitation")?.scrollIntoView({ block: "start" }))
+  }
+  function preparedInvite() {
+    rememberPreparedInvite(data.game.id); setInvitePrepared(true)
+    void refresh().catch(e => setError(e.message))
+  }
   const ended = leagueHasEnded(data)
   const sourceId = sourceLeagueId(returningFrom)
   const mine = data.board.find(row => row.user_id === userId)
@@ -89,10 +98,10 @@ export function PersonalLeaguePanel({
       </section>
       <PersonalSeasonEnd data={data} />
       <div className="my-4 flex items-center gap-2"><Link href={ended ? `/games/create?from=${data.game.id}` : cardHref} className={`${personalButton} flex-1 gap-2`}><AppIcon name="plus" className="h-4 w-4" />{t(ended ? "season.next" : firstCard && !submittedMine ? "friend.firstCard" : "personal.addOrSubmit")}</Link><button aria-label={t("personal.refresh")} title={t("personal.refresh")} className="app-surface flex h-12 w-12 shrink-0 items-center justify-center disabled:opacity-50" disabled={busy} onClick={() => { setBusy(true); setError(null); void refresh().catch(e => setError(e.message)).finally(() => setBusy(false)) }}><AppIcon name="refresh" className={busy ? "animate-spin" : ""} /></button></div>
-      {(data.closure_status === "open" || data.closure_status === "upcoming") && (firstCard ? <p className="app-surface mb-4 px-4 py-3 text-sm leading-relaxed text-primary/70">{submittedMine ? t(personalSubmissionStatusKey(submittedMine.status, submittedMine.card_status)) : t("friend.cardHint")}</p> : <LeagueLaunchChecklist memberCount={data.board.length} countedCards={countedCards} invitePrepared={invitePrepared} cardHref={cardHref} onInvite={() => setInviteOpen(true)} />)}
+      {(data.closure_status === "open" || data.closure_status === "upcoming") && (data.organizer_progress ? <PersonalLeagueProgress data={data} userId={userId} onInvite={openInvite} /> : firstCard ? <p className="app-surface mb-4 px-4 py-3 text-sm leading-relaxed text-primary/70">{submittedMine ? t(personalSubmissionStatusKey(submittedMine.status, submittedMine.card_status)) : t("friend.cardHint")}</p> : <LeagueLaunchChecklist memberCount={data.board.length} countedCards={countedCards} invitePrepared={invitePrepared} cardHref={cardHref} onInvite={() => setInviteOpen(true)} />)}
       <div className="app-surface mb-5 px-4">
         <details><summary className="cursor-pointer py-3 text-sm font-semibold">{t("personal.ui.rules")}</summary><div className="space-y-2 pb-4 text-xs leading-relaxed text-primary/70"><p>{date(data.game.start_date)} → {date(data.game.end_date)} · {data.rules.timezone ?? "Europe/Paris"}</p><p>{t(`personal.format.${data.rules.format}`)} · {data.rules.duration_months ? t(data.rules.duration_months === 1 ? "personal.calendar.monthOne" : "personal.calendar.months", { n: data.rules.duration_months }) : t("personal.calendar.historical")}</p><p>{t("personal.leagueRules")} · {data.rules.attestation === "peer_required" ? t("personal.witnessRequired") : t("personal.selfDeclared")}</p></div></details>
-        {!ended && <details id="league-invitation" open={inviteOpen} onToggle={e => setInviteOpen(e.currentTarget.open)} className="scroll-mt-20 border-t border-primary/10"><summary className="cursor-pointer py-3 text-sm font-semibold">{t("detail.invite")}</summary><div className="pb-4">{sourceId && <PersonalLeagueFriends sourceId={sourceId} gameId={data.game.id} userId={userId} memberIds={data.board.map(row => row.user_id)} onPrepared={() => { rememberPreparedInvite(data.game.id); setInvitePrepared(true) }} />}<GameInviteCode gameId={data.game.id} inviteCode={data.game.invite_code} gameName={data.game.name} variant="bottom" onInvitePrepared={() => { rememberPreparedInvite(data.game.id); setInvitePrepared(true) }} /></div></details>}
+        {!ended && <details id="league-invitation" open={inviteOpen} onToggle={e => setInviteOpen(e.currentTarget.open)} className="scroll-mt-20 border-t border-primary/10"><summary className="cursor-pointer py-3 text-sm font-semibold">{t("detail.invite")}</summary><div className="pb-4">{sourceId && <PersonalLeagueFriends sourceId={sourceId} gameId={data.game.id} userId={userId} memberIds={data.board.map(row => row.user_id)} invitedIds={data.organizer_progress?.awaiting_join.map(row => row.user_id)} onPrepared={preparedInvite} />}<GameInviteCode gameId={data.game.id} inviteCode={data.game.invite_code} gameName={data.game.name} variant="bottom" onInvitePrepared={preparedInvite} /></div></details>}
       </div>
       <nav aria-label={t("detail.leagueSections")} className="mb-4 flex flex-wrap gap-2"><a href="#league-standings" className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-primary px-4 text-xs font-semibold text-white"><AppIcon name="trophy" className="h-4 w-4" />{t("games.standings.title")}</a><a href="#league-cards" className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-primary/10 bg-white px-4 text-xs font-semibold"><AppIcon name="cards" className="h-4 w-4" />{t("personal.leagueCards")} <span className="text-primary/60">{currentSubmissions.length}</span></a></nav>
       {error && (
