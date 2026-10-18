@@ -39,7 +39,7 @@ export function CalendarLeagueCreator() {
     <AnalyticsView event="league_create_viewed" viewKey="creator" />
     <Link href="/games" className="inline-flex min-h-[44px] items-center text-xs font-semibold text-primary/70">← {t("nav.games")}</Link>
     <header className="mt-2 flex items-start gap-3"><span className="app-icon-tile"><AppIcon name="trophy" /></span><div><h1 className="text-2xl font-bold tracking-tight">{t("personal.createLeague")}</h1><p className="mt-1 text-sm text-primary/70">{t("personal.calendar.intro")}</p></div></header>
-    <form className="mt-5 space-y-4" onSubmit={async e => {
+    <form className="mt-5 space-y-4 pb-28 md:pb-0" onSubmit={async e => {
       e.preventDefault(); if (!end) return
       setBusy(true); setError(null)
       try {
@@ -48,12 +48,12 @@ export function CalendarLeagueCreator() {
           p_format: format, p_cards: cards, p_attestation: witness ? "peer_required" : "self_declared",
         }))
         track("game_created", { league_id: result.game_id, format, duration_months: months })
-        router.push(`/games/${result.game_id}`)
+        router.push(`/games/${result.game_id}#league-invitation`)
       } catch (e) { setError(e instanceof Error ? e.message : t("common.error.generic")); setBusy(false) }
     }}>
       <section className="app-surface space-y-4 p-4 sm:p-5" aria-labelledby="league-course-title">
       <h2 id="league-course-title" className="flex items-center gap-2 text-sm font-bold"><AppIcon name="flag" className="h-4 w-4" />{t("league.design.course")}</h2>
-      <label className="block text-sm font-medium">{t("personal.leagueName")}<input aria-label={t("personal.leagueName")} className={personalInput} required maxLength={80} value={name} onChange={e => setName(e.target.value)} disabled={busy} /></label>
+      <label className="block text-sm font-medium">{t("personal.leagueName")}<input aria-label={t("personal.leagueName")} className={personalInput} required maxLength={80} placeholder={t("personal.leagueNameExample")} value={name} onChange={e => setName(e.target.value)} disabled={busy} /></label>
       <CourseTeePicker tees={tees} value={tee} onChange={setTee} disabled={busy} />
       </section>
       <section className="app-surface space-y-4 p-4 sm:p-5" aria-labelledby="league-season-title">
@@ -73,7 +73,7 @@ export function CalendarLeagueCreator() {
       </details>
       </section>
       {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      <button className={`${personalButton} w-full gap-2`} disabled={busy || !tee || !end}><AppIcon name="plus" className="h-4 w-4" />{busy ? t("common.loading") : t("personal.createLeague")}</button>
+      <div className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 mx-auto max-w-[42rem] rounded-2xl border border-primary/10 bg-white/95 p-3 shadow-lg backdrop-blur md:static md:mt-4 md:max-w-none md:border-0 md:bg-transparent md:p-0 md:shadow-none"><button type="submit" className={`${personalButton} w-full gap-2`} disabled={busy || !tee || !end}><AppIcon name="plus" className="h-4 w-4" />{busy ? t("common.loading") : t("personal.createAndInvite")}</button></div>
     </form>
   </main>
 }

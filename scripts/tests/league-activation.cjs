@@ -53,3 +53,58 @@ test('local search pages have correct nine-hole pars and keep the selected cours
     assert.equal(url.searchParams.get('redirect'),'/games/create?course=course-id');assert.equal(url.searchParams.get('entry'),c.entry);assert.equal(url.searchParams.get('tab'),'signup');
   }
 });
+
+function invitationControls({ clipboardFails = false, share } = {}) {
+  const events = [], copied = [], feedback = [];
+  let prepared = 0;
+  const filename = path.join(__dirname, '../../src/app/games/[id]/components/GameInviteCode.tsx');
+  const source = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  const context = {
+    exports: {},
+    window: { location: { origin: 'https://app.mulliganclub.co' } },
+    navigator: { clipboard: { writeText: async text => {
+      if (clipboardFails) throw new Error('Clipboard unavailable');
+      copied.push(text);
+    } }, ...(share ? { share } : {}) },
+    require: name => {
+      if (name === 'react') return { useEffect: () => {}, useState: value => [value, value => feedback.push(value)] };
+      if (name === '@/lib/i18n') return { useT: () => key => key };
+      if (name === '@/lib/analytics') return { track: (...event) => events.push(event) };
+      if (name === '@/components/LeaguePlayerInvite') return { LeaguePlayerInvite: () => null };
+      return require(name);
+    },
+  };
+  vm.runInNewContext(source, context);
+  const tree = context.exports.GameInviteCode({ gameId: 'league', gameName: 'Friends', inviteCode: 'ABC1234567', variant: 'bottom', onInvitePrepared: () => prepared++ });
+  function find(node, label) {
+    if (!node || typeof node !== 'object') return null;
+    if (node.props?.['aria-label'] === label) return node;
+    for (const child of [node.props?.children].flat()) { const found = find(child, label); if (found) return found; }
+    return null;
+  }
+  return { copied, events, feedback, prepared: () => prepared, click: label => find(tree, label).props.onClick() };
+}
+test('copy invitation gives friends an actionable join URL and records preparation only after copying', async () => {
+  const controls = invitationControls();
+  await controls.click('invite.share.copyLink');
+  assert.deepEqual(controls.copied, ['https://app.mulliganclub.co/join/ABC1234567']);
+  assert.equal(controls.prepared(), 1);
+  assert.equal(controls.events[0][0], 'invite_shared');
+  assert.equal(controls.events[0][1].method, 'link');
+  assert.equal(controls.events[0][1].league_id, 'league');
+});
+test('clipboard failure does not claim that an invitation was prepared', async () => {
+  const controls = invitationControls({ clipboardFails: true });
+  await controls.click('invite.share.copyLink');
+  assert.equal(controls.prepared(), 0);
+  assert.equal(controls.events.length, 0);
+  assert.deepEqual(controls.feedback, ['invite.share.failed']);
+});
+test('cancelling native sharing does not claim that an invitation was prepared', async () => {
+  const controls = invitationControls({ share: async () => { throw new Error('User cancelled'); } });
+  await controls.click('invite.share.cta');
+  assert.equal(controls.prepared(), 0);
+  assert.equal(controls.events.length, 0);
+});
