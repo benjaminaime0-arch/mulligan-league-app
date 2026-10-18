@@ -4,6 +4,8 @@ import { notFound } from "next/navigation"
 import { supabaseAnonServer } from "@/lib/supabaseServer"
 import { MyCourseStats } from "./MyCourseStats"
 import { PracticeCta } from "./PracticeCta"
+import { LocalLeagueGuide } from "./LocalLeagueGuide"
+import { courseLeagueContent, courseLeagueSignupHref } from "@/lib/courseLeagueContent"
 
 /**
  * /courses/[slug] — one course's public page (Phase F): header facts, the
@@ -77,21 +79,22 @@ export async function generateMetadata({
     .join(", ")
   const title = `${course.name} — carte de score et infos`
   const description = `${course.name} (${facts}) : carte de score trou par trou, distances et index. Découvrez aussi Mulligan pour organiser une ligue de golf privée entre amis.`
+  const local = courseLeagueContent[course.slug]
   return {
     // Root layout's title.template appends "| Mulligan" — never hardcode it
     // here or tabs render "… | Mulligan | Mulligan".
-    title,
-    description,
+    title: local?.title ?? title,
+    description: local?.description ?? description,
     robots: { index: true, follow: true },
     alternates: { canonical: `https://app.mulliganclub.co/courses/${course.slug}` },
     openGraph: {
-      title: `${course.name} — ${facts}`,
-      description,
+      title: local?.title ?? `${course.name} — ${facts}`,
+      description: local?.description ?? description,
       type: "website",
       siteName: "Mulligan",
       url: `https://app.mulliganclub.co/courses/${course.slug}`,
     },
-    twitter: { card: "summary", title: `${course.name} — ${facts}`, description },
+    twitter: { card: "summary", title: local?.title ?? `${course.name} — ${facts}`, description: local?.description ?? description },
   }
 }
 
@@ -99,6 +102,12 @@ export default async function CoursePage({ params }: { params: { slug: string } 
   const res = await fetchCourse(params.slug)
   if (!res) notFound()
   const { course, holes } = res
+  const local = courseLeagueContent[course.slug]
+  const coursePar = local?.par ?? course.par
+  const yellowDistance = local
+    ? (holes.length === course.holes && holes.every(h => h.dist_yellow_m != null)
+      ? holes.reduce((sum, h) => sum + (h.dist_yellow_m ?? 0), 0) : null)
+    : course.dist_yellow
   const tee = holes.find((h) => h.tee_note)?.tee_note
 
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -110,6 +119,7 @@ export default async function CoursePage({ params }: { params: { slug: string } 
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl px-4 py-10">
+      {local && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Golfs d’Île-de-France", item: "https://app.mulliganclub.co/courses" }, { "@type": "ListItem", position: 2, name: course.name, item: `https://app.mulliganclub.co/courses/${course.slug}` }] }).replace(/</g, "\\u003c") }} />}
       <nav className="text-sm text-primary/50">
         <Link href="/courses" className="hover:underline">
           Golfs d&apos;Île-de-France
@@ -135,14 +145,14 @@ export default async function CoursePage({ params }: { params: { slug: string } 
               {course.holes} trous
             </span>
           )}
-          {course.par != null && (
+          {coursePar != null && (
             <span className="rounded-full bg-cream px-3 py-1 font-medium text-primary">
-              Par {course.par}
+              Par {coursePar}
             </span>
           )}
-          {course.dist_yellow != null && (
+          {yellowDistance != null && (
             <span className="rounded-full bg-cream px-3 py-1 font-medium text-primary">
-              {course.dist_yellow} m (jaunes)
+              {yellowDistance} m (jaunes)
             </span>
           )}
           <a
@@ -155,6 +165,8 @@ export default async function CoursePage({ params }: { params: { slug: string } 
           </a>
         </div>
       </header>
+
+      <LocalLeagueGuide slug={course.slug} courseId={course.id} />
 
       {holes.length > 0 ? (
         <section className="mt-8">
@@ -243,7 +255,7 @@ export default async function CoursePage({ params }: { params: { slug: string } 
       {/* Signed-in viewer's record on this course — renders nothing when
           logged out or never played (client island; the page stays static
           HTML for crawlers either way). */}
-      <MyCourseStats courseId={course.id} coursePar={course.par} courseHoles={course.holes} />
+      <MyCourseStats courseId={course.id} coursePar={coursePar} courseHoles={course.holes} />
 
       {/* Solo practice round — one tap from course page to scorecard.
           Logged-out visitors route through auth with ?redirect back here. */}
@@ -255,7 +267,7 @@ export default async function CoursePage({ params }: { params: { slug: string } 
           Invitez votre groupe, partagez vos cartes et suivez votre saison. Vérifiez les parcours et départs disponibles dans l’application.
         </p>
         <Link
-          href="/?lang=fr&tab=signup&redirect=%2Fgames%2Fcreate"
+          href={local ? courseLeagueSignupHref(course.id, local.entry) : "/?lang=fr&tab=signup&redirect=%2Fgames%2Fcreate"}
           className="mt-4 inline-block rounded-lg bg-cream px-5 py-2.5 font-semibold text-primary"
         >
           Créer ma ligue privée

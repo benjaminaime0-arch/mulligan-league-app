@@ -11,6 +11,7 @@ import { AppIcon } from "@/components/ui/AppIcon"
 import { Logo } from "@/components/Logo"
 import { useI18n } from "@/lib/i18n"
 import { track } from "@/lib/analytics"
+import { AnalyticsView } from "@/components/AnalyticsView"
 
 /**
  * Invite deep link — `/join/[code]` (T1.3).
@@ -45,6 +46,15 @@ function formatLabel(f: string | null | undefined, t: (key: string) => string): 
 
 export default function InviteLandingPage() {
   const params = useParams<{ code: string }>()
+  const code = normalizeInviteCode(params?.code || "")
+  return <>
+    {isInviteCode(code) && <AnalyticsView event="invite_link_opened" viewKey="invitation" params={{ code_len: code.length }} />}
+    <InviteLandingContent />
+  </>
+}
+
+function InviteLandingContent() {
+  const params = useParams<{ code: string }>()
   const router = useRouter()
   const { user, loading: authLoading } = useAuthContext()
   const { t } = useI18n()
@@ -64,7 +74,6 @@ export default function InviteLandingPage() {
       setLoading(true)
       setError(null)
       if (!isInviteCode(code)) { setPreview({ found: false }); setLoading(false); return }
-      track("invite_link_opened", { code_len: code.length })
       const { data, error: rpcError } = await supabase.rpc("get_invite_preview", {
         p_code: code,
       })
@@ -75,7 +84,6 @@ export default function InviteLandingPage() {
       } else {
         const p = (data || { found: false }) as Preview
         setPreview(p)
-        if (p.found) track("invite_preview_viewed", {})
       }
       setLoading(false)
     }
@@ -98,7 +106,7 @@ export default function InviteLandingPage() {
       if (rpcError) throw rpcError
       const res = (data || {}) as { success?: boolean; game_id?: string; error?: string }
       if (res.success && res.game_id) {
-        track("invite_joined", {})
+        track("invite_joined", { league_id: res.game_id, member_count: (preview?.member_count ?? 0) + 1 })
         router.replace(`/games/${res.game_id}`)
         return
       }
@@ -114,7 +122,7 @@ export default function InviteLandingPage() {
       joinAttempted.current = false
       setJoining(false)
     }
-  }, [code, router, t])
+  }, [code, router, t, preview?.member_count])
 
   if (loading || authLoading) {
     return (
@@ -152,6 +160,7 @@ export default function InviteLandingPage() {
 
   return (
     <Shell>
+      <AnalyticsView event="invite_preview_viewed" viewKey="invitation" />
       <p className="text-xs font-semibold uppercase tracking-wide text-primary/40">
         {t("invite.invited")}
       </p>

@@ -10,6 +10,7 @@ on:
       - "src/**"
       - "scripts/test_scoring_ui.cjs"
       - "scripts/tests/signup-flow.cjs"
+      - "scripts/tests/league-activation.cjs"
       - "scripts/tests/personal-submission-status.cjs"
       - "scripts/tests/unified-flow.cjs"
       - "scripts/tests/card-autosave-offline.cjs"
@@ -29,6 +30,7 @@ on:
       - "src/**"
       - "scripts/test_scoring_ui.cjs"
       - "scripts/tests/signup-flow.cjs"
+      - "scripts/tests/league-activation.cjs"
       - "scripts/tests/personal-submission-status.cjs"
       - "scripts/tests/unified-flow.cjs"
       - "scripts/tests/card-autosave-offline.cjs"
@@ -62,6 +64,7 @@ jobs:
       - run: npx next lint
       - run: node scripts/test_scoring_ui.cjs
       - run: node --test scripts/tests/signup-flow.cjs
+      - run: node --test scripts/tests/league-activation.cjs
       - run: node --test scripts/tests/personal-submission-status.cjs
       - run: node --test scripts/tests/unified-flow.cjs
       - run: node --test scripts/tests/card-autosave-offline.cjs

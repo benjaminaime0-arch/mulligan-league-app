@@ -8,8 +8,9 @@ import { supabase } from "@/lib/supabase"
 import { groupCardLeagues, selectedCardLeagues, type CardLeague } from "@/lib/personalCardFlow"
 import { personalButton, personalResult, type PersonalCard } from "@/lib/personalRounds"
 import { personalSubmissionStatusKey } from "@/lib/personalSubmissionStatus"
+import { track } from "@/lib/analytics"
 
-type BatchResponse = { success: boolean; reason?: string; submitted_count: number; results?: { game_id: string; reason?: string }[] }
+type BatchResponse = { success: boolean; reason?: string; submitted_count: number; results?: { game_id: string; reason?: string; success?: boolean; unchanged?: boolean }[] }
 export function PersonalLeagueSubmission({ data, online, busy, onBusyChange, onReload }: {
   data: PersonalCard; online: boolean; busy: boolean; onBusyChange: (busy: boolean) => void; onReload: () => Promise<void>
 }) {
@@ -34,6 +35,8 @@ export function PersonalLeagueSubmission({ data, online, busy, onBusyChange, onR
         const reasons = result.results?.map(row => `${data.leagues.find(g => g.id === row.game_id)?.name ?? ""} · ${t(`personal.reason.${row.reason}`)}`) ?? []
         setError(result.reason === "card_changed" ? t("cardFlow.cardChanged") : [t("cardFlow.noneSent"),...reasons].join(" "))
       } else {
+        // The RPC returns one status per league; only newly accepted writes count.
+        result.results?.filter(row => row.success && row.unchanged === false).forEach(row => track("league_card_submitted", { league_id: row.game_id }))
         setSelected([])
         setMessage(t(result.submitted_count === 1 ? "cardFlow.sentOne" : result.submitted_count ? "cardFlow.sent" : "cardFlow.alreadySent", { n: result.submitted_count }))
       }

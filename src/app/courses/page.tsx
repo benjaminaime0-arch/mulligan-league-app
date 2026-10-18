@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { supabaseAnonServer } from "@/lib/supabaseServer"
+import { courseLeagueContent } from "@/lib/courseLeagueContent"
 
 /**
  * /courses — public directory of the Île-de-France referential (Phase F).
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
   title: "Golfs d'Île-de-France — annuaire des parcours",
   description:
-    "Les parcours de golf d'Île-de-France : trous, par, distances et cartes de score. Créez votre ligue entre amis sur votre parcours avec Mulligan.",
+    "Les parcours de golf d'Île-de-France : trous, par, distances et cartes de score. Découvrez aussi les ligues privées entre amis sur les parcours disponibles dans Mulligan.",
   alternates: { canonical: "https://app.mulliganclub.co/courses" },
 }
 
@@ -102,7 +103,7 @@ export default async function CoursesPage() {
                   </span>
                   <span className="shrink-0 text-sm tabular-nums text-primary/60">
                     {c.holes ? `${c.holes} trous` : ""}
-                    {c.par ? ` · Par ${c.par}` : ""}
+                    {(courseLeagueContent[c.slug ?? ""]?.par ?? c.par) ? ` · Par ${courseLeagueContent[c.slug ?? ""]?.par ?? c.par}` : ""}
                   </span>
                 </Link>
               </li>
@@ -112,16 +113,16 @@ export default async function CoursesPage() {
       ))}
 
       <section className="mt-12 rounded-xl bg-primary p-6 text-center text-cream">
-        <h2 className="text-lg font-bold">Votre ligue sur votre parcours</h2>
+        <h2 className="text-lg font-bold">Votre ligue de golf entre amis</h2>
         <p className="mt-1 text-sm opacity-80">
-          Créez une partie entre amis, saisissez vos cartes trou par trou et suivez
-          le classement toute la saison.
+          Commencez à Rueil-Malmaison ou au Haras de Jardy : choisissez votre parcours,
+          invitez votre groupe et partagez le classement de votre saison.
         </p>
         <Link
-          href="/"
+          href="/?lang=fr&tab=signup&redirect=%2Fgames%2Fcreate"
           className="mt-4 inline-block rounded-lg bg-cream px-5 py-2.5 font-semibold text-primary"
         >
-          Commencer gratuitement
+          Créer ma ligue privée
         </Link>
       </section>
     </main>

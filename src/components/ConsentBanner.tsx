@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import Script from "next/script"
-import { CONSENT_KEY, consentState } from "@/lib/analytics"
+import { ANALYTICS_READY, CONSENT_CHANGED, CONSENT_KEY, consentState, flushAnalytics } from "@/lib/analytics"
 import { useI18n } from "@/lib/i18n"
 
 /**
@@ -36,6 +36,7 @@ export function ConsentBanner({ measurementId }: { measurementId?: string }) {
       // storage disabled — the choice applies for this page view only
     }
     setState(value)
+    window.dispatchEvent(new Event(CONSENT_CHANGED))
   }
 
   // No GA configured → nothing to consent to.
@@ -53,7 +54,7 @@ export function ConsentBanner({ measurementId }: { measurementId?: string }) {
           {/* JSON.stringify, not raw interpolation: the id is spliced into
               executable JS, so any unexpected character in the env value
               (the trailing-newline incident) must arrive escaped, not live. */}
-          <Script id="google-analytics" strategy="afterInteractive">
+          <Script id="google-analytics" strategy="afterInteractive" onReady={() => { flushAnalytics(); window.dispatchEvent(new Event(ANALYTICS_READY)) }}>
             {`
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
