@@ -174,3 +174,65 @@ test('a new member still gets a personal first-card action when friends already 
  assert.ok(!html.includes(dictionary.fr['activation.launched']));
  assert.ok(!html.includes('league-launch-title'));
 });
+
+const { countedLeagueCards, leagueCardContribution } = load('src/lib/personalStandings.ts');
+const { PersonalCardStandings } = load('src/components/personal/PersonalCardStandings.tsx');
+const { PersonalStandings } = load('src/components/personal/PersonalStandings.tsx');
+function standingsFixture(format = 'stroke_gross', n = 1) {
+  const submission = (id, gross, net, points, extras = {}) => ({ id, round_id: id, user_id: 'owner', player_name: 'QA', played_on: '2026-10-18', status: 'accepted', card_status: 'validated', revision_number: 1, scores: [], gross_total: gross, net_total: net, stableford_points: points, ...extras });
+  const submissions = [submission('b', 91, 65, 35), submission('a', 90, 66, 36), submission('old', 70, 40, 50, { round_id: 'b', status: 'superseded' }), submission('pending', 60, 30, 60, { status: 'pending', card_status: 'pending_validation' }), submission('refused', 60, 30, 60, { status: 'rejected', card_status: 'disputed' })];
+  const values = format === 'stroke_gross' ? [90, 91] : format === 'stroke_net' ? [65, 66] : [36, 35];
+  return { rules: { format }, game: { id: 'league', scoring_cards_count: n }, board: [{ user_id: 'owner', player_name: 'QA', rounds_played: 2, rounds_counted: Math.min(n, 2), total_score: values.slice(0,n).reduce((a,b)=>a+b,0), position: n > 2 ? null : 1 }], submissions };
+}
+for (const format of ['stroke_gross', 'stroke_net', 'stableford_net']) {
+  test(`${format}: best-N contribution agrees with board; pending, refused and replaced excluded`, () => {
+    const data = standingsFixture(format);
+    const counted = countedLeagueCards(data);
+    assert.deepEqual([...counted], [format === 'stroke_net' ? 'b' : 'a']);
+    assert.equal(leagueCardContribution(data, data.submissions.find(s => s.id === (format === 'stroke_net' ? 'a' : 'b')), counted), 'reserve');
+    assert.equal(leagueCardContribution(data, data.submissions[2], counted), 'excluded');
+    assert.equal(leagueCardContribution(data, data.submissions[3], counted), 'pending');
+    assert.equal(leagueCardContribution(data, data.submissions[4], counted), 'excluded');
+    assert.equal(countedLeagueCards(standingsFixture(format, 2)).size, 2);
+    assert.equal(countedLeagueCards(standingsFixture(format, 3)).size, 2);
+  });
+}
+test('attribution fails closed when server board or eligible revisions disagree', () => {
+  for (const change of [data => data.board[0].total_score++, data => data.board[0].rounds_played++, data => data.submissions[0].gross_total = null, data => data.submissions[0].round_id = 'a', data => data.rules.format = 'unknown']) {
+    const data = standingsFixture(); change(data);
+    const counted = countedLeagueCards(data);
+    assert.equal(counted.size, 0);
+    assert.equal(leagueCardContribution(data, data.submissions[1], counted), 'accepted');
+  }
+});
+test('equal scores select oldest date, then submission UUID, regardless of response order', () => {
+  const data = standingsFixture(); data.submissions[0].gross_total = 90; data.board[0].total_score = 90;
+  assert.deepEqual([...countedLeagueCards(data)], ['a']);
+  data.submissions[0].played_on = '2026-10-17';
+  assert.deepEqual([...countedLeagueCards(data)], ['b']);
+  assert.equal(data.submissions[0].id, 'b', 'original array order retained');
+});
+for (const language of ['fr','en']) {
+  test(`${language}: validated owner has a direct top-of-card standings link; pending and validator views do not`, () => {
+    locale = language;
+    const data = { is_owner: true, round: { status: 'validated' }, leagues: [{ id: 'league', name: 'Friends', submission_status: 'accepted' }, { id: 'waiting', name: 'Pending', submission_status: 'pending' }] };
+    const html = renderToStaticMarkup(React.createElement(PersonalCardStandings, { data }));
+    assert.ok(html.includes('/games/league#league-standings'));
+    assert.ok(!html.includes('/games/waiting'));
+    assert.ok(html.includes(dictionary[language]['standings.cardHint']));
+    assert.equal(renderToStaticMarkup(React.createElement(PersonalCardStandings, { data: { ...data, is_owner: false } })), '');
+    assert.equal(renderToStaticMarkup(React.createElement(PersonalCardStandings, { data: { ...data, round: { status: 'pending_validation' } } })), '');
+  });
+  test(`${language}: mobile standings expose scoring direction, counted total, qualification and card links`, () => {
+    locale = language;
+    for (const format of ['stroke_gross','stroke_net','stableford_net']) {
+      const data = standingsFixture(format, 3);
+      const html = renderToStaticMarkup(React.createElement(PersonalStandings, { data, userId: 'owner' }));
+      assert.ok(html.includes(dictionary[language][format === 'stableford_net' ? 'standings.higher' : 'standings.lower']));
+      assert.ok(html.includes(dictionary[language]['standings.fraction']));
+      assert.ok(html.includes('2/3'));
+      assert.ok(html.includes('/rounds/a') && html.includes('/rounds/b'));
+      assert.ok(!html.includes('/rounds/old'));
+    }
+  });
+}

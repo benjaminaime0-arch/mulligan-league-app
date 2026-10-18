@@ -13,7 +13,8 @@ import {
   personalButton,
   type PersonalLeague,
 } from "@/lib/personalRounds"
-import { LeaderboardTable } from "@/app/games/[id]/components/LeaderboardTable"
+import { PersonalStandings } from "./PersonalStandings"
+import { countedLeagueCards, leagueCardContribution } from "@/lib/personalStandings"
 import { GameInviteCode } from "@/app/games/[id]/components/GameInviteCode"
 import { LeagueLaunchChecklist } from "./LeagueLaunchChecklist"
 import { hasPreparedInvite, leagueActivation, rememberPreparedInvite } from "@/lib/leagueActivation"
@@ -46,10 +47,11 @@ export function PersonalLeaguePanel({
     setInviteOpen(initial.board.length === 1)
   }, [initial.game.id, initial.board.length])
   useEffect(() => {
-    if (window.location.hash !== "#league-invitation") return
-    setInviteOpen(true)
+    const target = window.location.hash.slice(1)
+    if (!["league-invitation", "league-standings", "league-cards"].includes(target)) return
+    if (target === "league-invitation") setInviteOpen(true)
     const frame = window.requestAnimationFrame(() => {
-      document.getElementById("league-invitation")?.scrollIntoView({ block: "start" })
+      document.getElementById(target)?.scrollIntoView({ block: "start" })
     })
     return () => window.cancelAnimationFrame(frame)
   }, [initial.game.id])
@@ -61,6 +63,8 @@ export function PersonalLeaguePanel({
   const progress = leagueActivation(data.board.length, countedCards, invitePrepared)
   const cardHref = withLeagueContext(`/rounds?tee=${data.rules.tee_id}`, data.game.id)
   const firstCard = data.board.length > 1 && (mine?.rounds_counted ?? 0) === 0
+  const counted = countedLeagueCards(data)
+  const currentSubmissions = data.submissions.filter(s => s.status !== "superseded")
   const submittedMine = data.submissions.find(s => s.user_id === userId)
   return (
     <main className="app-page">
@@ -82,26 +86,21 @@ export function PersonalLeaguePanel({
         <details><summary className="cursor-pointer py-3 text-sm font-semibold">{t("personal.ui.rules")}</summary><div className="space-y-2 pb-4 text-xs leading-relaxed text-primary/70"><p>{date(data.game.start_date)} → {date(data.game.end_date)} · {data.rules.timezone ?? "Europe/Paris"}</p><p>{t(`personal.format.${data.rules.format}`)} · {data.rules.duration_months ? t(data.rules.duration_months === 1 ? "personal.calendar.monthOne" : "personal.calendar.months", { n: data.rules.duration_months }) : t("personal.calendar.historical")}</p><p>{t("personal.leagueRules")} · {data.rules.attestation === "peer_required" ? t("personal.witnessRequired") : t("personal.selfDeclared")}</p></div></details>
         <details id="league-invitation" open={inviteOpen} onToggle={e => setInviteOpen(e.currentTarget.open)} className="scroll-mt-20 border-t border-primary/10"><summary className="cursor-pointer py-3 text-sm font-semibold">{t("detail.invite")}</summary><div className="pb-4"><GameInviteCode gameId={data.game.id} inviteCode={data.game.invite_code} gameName={data.game.name} variant="bottom" onInvitePrepared={() => { rememberPreparedInvite(data.game.id); setInvitePrepared(true) }} /></div></details>
       </div>
-      <nav aria-label={t("detail.leagueSections")} className="mb-4 flex flex-wrap gap-2"><a href="#league-standings" className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-primary px-4 text-xs font-semibold text-white"><AppIcon name="trophy" className="h-4 w-4" />{t("games.standings.title")}</a><a href="#league-cards" className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-primary/10 bg-white px-4 text-xs font-semibold"><AppIcon name="cards" className="h-4 w-4" />{t("personal.leagueCards")} <span className="text-primary/60">{data.submissions.length}</span></a></nav>
+      <nav aria-label={t("detail.leagueSections")} className="mb-4 flex flex-wrap gap-2"><a href="#league-standings" className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-primary px-4 text-xs font-semibold text-white"><AppIcon name="trophy" className="h-4 w-4" />{t("games.standings.title")}</a><a href="#league-cards" className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-primary/10 bg-white px-4 text-xs font-semibold"><AppIcon name="cards" className="h-4 w-4" />{t("personal.leagueCards")} <span className="text-primary/60">{currentSubmissions.length}</span></a></nav>
       {error && (
         <p role="alert" className="mb-3 text-sm text-red-700">
           {error}
         </p>
       )}
-      <div id="league-standings" className="scroll-mt-20"><LeaderboardTable
-        leaderboard={data.board}
-        currentUserId={userId}
-        scoringCardsCount={data.game.scoring_cards_count}
-        gameFormat={
-          data.rules.format === "stableford_net" ? "stableford" : "stroke_play"
-        }
-      />
+      <div id="league-standings" className="scroll-mt-20"><PersonalStandings data={data} userId={userId} />
       </div><h2 id="league-cards" className="mb-3 mt-6 scroll-mt-20 font-bold">{t("personal.leagueCards")}</h2>
       {data.submissions.length === 0 && <p className="app-surface p-5 text-sm text-primary/70">{t("personal.empty")}</p>}
       <ul className="space-y-3">
-        {data.submissions.map((s) => (
+        {currentSubmissions.map((s) => (
           <li key={s.id} className="app-surface p-4">
             <div className="mb-3 flex items-center gap-2"><Avatar src={data.board.find(row => row.user_id === s.user_id)?.avatar_url} alt="" fallback={s.player_name} size={36} /><div className="min-w-0"><p className="break-words text-sm font-bold">{s.player_name}</p><p className="mt-0.5 text-xs text-primary/70">{date(s.played_on)}</p></div></div>
+            <p className="mb-2 text-sm font-bold">{t(`standings.contribution.${leagueCardContribution(data, s, counted)}`)}</p>
+            {leagueCardContribution(data, s, counted) === "reserve" && <p className="mb-2 text-xs text-primary/70">{t("standings.reserveHint")}</p>}
             <p className="app-pill bg-sage/25">
               {t("personal.confirmedRevision", { n: s.revision_number })} ·{" "}
               {t(personalSubmissionStatusKey(s.status, s.card_status))} · {t(`personal.status.${s.card_status}`)}
@@ -141,6 +140,7 @@ export function PersonalLeaguePanel({
           </li>
         ))}
       </ul>
+      {data.submissions.some(s => s.status === "superseded") && <details className="app-surface mt-4 p-4"><summary className="cursor-pointer text-xs font-semibold">{t("standings.history")}</summary><p className="mt-2 text-xs text-primary/70">{t("standings.historyHint")}</p><ul>{data.submissions.filter(s => s.status === "superseded").map(s => <li key={s.id} className="mt-3 break-words text-xs">{s.player_name} · {date(s.played_on)} · {t("personal.confirmedRevision", { n: s.revision_number })} · {t("personal.submission.superseded")}</li>)}</ul></details>}
     </main>
   )
 }
