@@ -37,6 +37,7 @@ export type PersonalRevision = {
   playing_handicap: number
 }
 export type PersonalRoundSummary = {
+  tee_id?: string
   id: string
   played_on: string
   status: string
