@@ -78,7 +78,7 @@ export function PersonalLeaguePanel({
       <AnalyticsView event="league_progress_viewed" viewKey={`${data.game.id}.${progress.friendJoined}.${progress.firstCard}`} params={{ league_id: data.game.id, league_stage: progress.activeGroup ? "active_group" : progress.friendJoined ? "group_no_card" : progress.firstCard ? "solo_with_card" : "solo_no_card", friend_joined: Number(progress.friendJoined), first_card_counted: Number(progress.firstCard), active_group: Number(progress.activeGroup), member_count: data.board.length }} />
       <Link href="/games" className="inline-flex min-h-[44px] items-center text-xs font-semibold text-primary/70">← {t("nav.games")}</Link>
       <section className="mt-2 rounded-[20px] bg-primary p-5 text-white">
-        <div className="mb-3 flex items-center justify-between gap-3"><AppIcon name="trophy" className="text-sage" /><span className="app-pill bg-white/10 text-sage">{t(`personal.closure.${data.closure_status}`)}</span></div>
+        <div className="mb-3 flex items-center justify-between gap-3"><AppIcon name="trophy" className="text-sage" /><span className="app-pill bg-white/10 text-sage">{t(ended ? data.closure_status === "finalized" ? "season.final" : "season.provisional" : `personal.closure.${data.closure_status}`)}</span></div>
         <h1 className="break-words text-2xl font-bold leading-tight tracking-tight">{data.game.name}</h1>
         <p className="mt-2 text-xs leading-relaxed text-sage">{data.tee.course_name} · {t("personal.picker.holeCount", { n: data.tee.hole_count })} · {data.tee.name}</p>
         <div className={`${ended ? "mt-3" : "mt-5"} flex items-end justify-between gap-3 border-t border-white/15 pt-4`}>
