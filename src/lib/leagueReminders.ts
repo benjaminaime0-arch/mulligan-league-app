@@ -1,9 +1,10 @@
+import { leagueValidationQueue } from "./leagueValidationQueue"
 import type { PersonalLeague } from "./personalRounds"
 import { leagueGroupProgress } from "./leagueGroupProgress"
 import { leagueCardWindow } from "./cardLeagueReview"
 import { leagueContext } from "./personalCardFlow"
 
-export type LeagueReminder = { id: string; name: string; kind: "join" | "card"; path: string }
+export type LeagueReminder = { id: string; name: string; kind: "join" | "card" | "validation" | "correction"; path: string; player?: string; playedOn?: string }
 
 /** A reminder is a message to prepare, never proof of sending or completion. */
 export function leagueReminders(data: PersonalLeague, viewer: string, today: string): LeagueReminder[] {
@@ -27,7 +28,7 @@ export function leagueReminders(data: PersonalLeague, viewer: string, today: str
 }
 
 export function reminderMessage(reminder: LeagueReminder, leagueName: string, origin: string, t: (key: string, vars?: Record<string, string | number>) => string) {
-  return `${t(`reminder.message.${reminder.kind}`, { name: reminder.name, league: leagueName })}\n${new URL(reminder.path, origin).href}`
+  return `${t(`reminder.message.${reminder.kind}`, { name: reminder.name, league: leagueName, player: reminder.player ?? "", date: reminder.playedOn ?? "" })}\n${new URL(reminder.path, origin).href}`
 }
 
 export function reminderWhatsAppUrl(message: string) {
@@ -40,4 +41,13 @@ export async function copyLeagueReminder(message: string, clipboard?: { writeTex
     await clipboard.writeText(message)
     return "copied"
   } catch { return "failed" }
+}
+
+/** Review stays available after league entry closes; never remind an unknown witness. */
+export function leagueValidationReminders(data: PersonalLeague, viewer: string): (LeagueReminder & { key: string })[] {
+  return leagueValidationQueue(data, viewer).flatMap(item => item.actorId && item.actorName && !item.mine ? [{
+    key: item.key, id: item.actorId, name: item.actorName, kind: item.kind,
+    player: item.card.player_name, playedOn: item.card.played_on,
+    path: `/?tab=login&redirect=${encodeURIComponent(`/rounds/${item.card.round_id}`)}`,
+  }] : [])
 }

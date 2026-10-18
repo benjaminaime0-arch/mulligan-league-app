@@ -14,6 +14,7 @@ import {
   type PersonalLeague,
 } from "@/lib/personalRounds"
 import { PersonalSeasonEnd } from "./PersonalSeasonEnd"
+import { PersonalLeagueValidation } from "./PersonalLeagueValidation"
 import { PersonalLeagueProgress } from "./PersonalLeagueProgress"
 import { PersonalLeagueFriends } from "./PersonalLeagueFriends"
 import { leagueHasEnded, sourceLeagueId } from "@/lib/nextLeague"
@@ -129,6 +130,7 @@ export function PersonalLeaguePanel({
       </section>
       <PersonalSeasonEnd data={data} />
       <div className="my-4 flex items-center gap-2"><Link href={ended ? `/games/create?from=${data.game.id}` : cardHref} className={`${personalButton} flex-1 gap-2`}><AppIcon name="plus" className="h-4 w-4" />{t(ended ? "season.next" : firstCard && !submittedMine ? "friend.firstCard" : "personal.addOrSubmit")}</Link><button aria-label={t("personal.refresh")} title={t("personal.refresh")} className="app-surface flex h-12 w-12 shrink-0 items-center justify-center disabled:opacity-50" disabled={busy} onClick={() => { setBusy(true); setError(null); void refresh().catch(e => setError(e.message)).finally(() => setBusy(false)) }}><AppIcon name="refresh" className={busy ? "animate-spin" : ""} /></button></div>
+      {data.closure_status === "closed_provisional" && data.organizer_progress && <div className="app-surface mb-4 p-4"><PersonalLeagueValidation data={data} userId={userId} /></div>}
       {(data.closure_status === "open" || data.closure_status === "upcoming") && (data.organizer_progress ? <PersonalLeagueProgress data={data} userId={userId} onInvite={openInvite} /> : firstCard ? <p className="app-surface mb-4 px-4 py-3 text-sm leading-relaxed text-primary/70">{submittedMine ? t(personalSubmissionStatusKey(submittedMine.status, submittedMine.card_status)) : t("friend.cardHint")}</p> : <LeagueLaunchChecklist memberCount={data.board.length} countedCards={countedCards} invitePrepared={invitePrepared} cardHref={cardHref} onInvite={() => setInviteOpen(true)} />)}
       <div className="app-surface mb-5 px-4">
         <details><summary className="cursor-pointer py-3 text-sm font-semibold">{t("personal.ui.rules")}</summary><div className="space-y-2 pb-4 text-xs leading-relaxed text-primary/70"><p>{date(data.game.start_date)} → {date(data.game.end_date)} · {data.rules.timezone ?? "Europe/Paris"}</p><p>{t(`personal.format.${data.rules.format}`)} · {data.rules.duration_months ? t(data.rules.duration_months === 1 ? "personal.calendar.monthOne" : "personal.calendar.months", { n: data.rules.duration_months }) : t("personal.calendar.historical")}</p><p>{t("personal.leagueRules")} · {data.rules.attestation === "peer_required" ? t("personal.witnessRequired") : t("personal.selfDeclared")}</p></div></details>
