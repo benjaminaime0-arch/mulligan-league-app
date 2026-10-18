@@ -1,5 +1,5 @@
 "use client"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { AppIcon } from "@/components/ui/AppIcon"
 import { Avatar } from "@/components/Avatar"
@@ -39,13 +39,16 @@ export function PersonalLeaguePanel({
   const [error, setError] = useState<string | null>(null)
   const [invitePrepared, setInvitePrepared] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(initial.board.length === 1)
+  const refreshVersion = useRef({ value: 0 })
   const refresh = useCallback(async () => {
+    const version = ++refreshVersion.current.value
     const d = personalResult<PersonalLeague | null>(
       await supabase.rpc("get_personal_league", { p_game: initial.game.id }),
     )
-    if (d) setData(d)
+    if (d && version === refreshVersion.current.value) { setData(d); setError(null) }
   }, [initial.game.id])
   useEffect(() => {
+    ++refreshVersion.current.value
     setData(initial)
   }, [initial])
   useEffect(() => {
@@ -61,6 +64,34 @@ export function PersonalLeaguePanel({
     })
     return () => window.cancelAnimationFrame(frame)
   }, [initial.game.id])
+  useEffect(() => {
+    const generation = refreshVersion.current
+    let running = false
+    let disposed = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const update = () => {
+      if (document.visibilityState !== "visible" || running || disposed) return
+      running = true
+      void refresh().catch(e => { if (!disposed) setError(e.message) }).finally(() => { running = false })
+    }
+    const returning = () => {
+      clearTimeout(timer)
+      timer = setTimeout(update, 150)
+    }
+    window.addEventListener("focus", returning)
+    window.addEventListener("online", returning)
+    document.addEventListener("visibilitychange", returning)
+    const interval = window.setInterval(update, 30000)
+    return () => {
+      disposed = true
+      ++generation.value
+      clearTimeout(timer)
+      window.clearInterval(interval)
+      window.removeEventListener("focus", returning)
+      window.removeEventListener("online", returning)
+      document.removeEventListener("visibilitychange", returning)
+    }
+  }, [refresh])
   function openInvite() {
     setInviteOpen(true)
     window.requestAnimationFrame(() => document.getElementById("league-invitation")?.scrollIntoView({ block: "start" }))

@@ -267,7 +267,7 @@ test('fresh membership replaces a pending invitation without relying on session 
 for(const language of ['fr','en'])test(`${language}: compact organizer roster names the next action and never gives the wrong witness a validation link`,()=>{
  locale=language;const {PersonalLeagueProgress}=load('src/components/personal/PersonalLeagueProgress');const d=groupLeague(),dict=load('src/lib/i18n/dictionaries').dictionaries[language];
  const html=renderToStaticMarkup(React.createElement(PersonalLeagueProgress,{data:d,userId:'owner',onInvite(){}}));
- for(const state of ['missing','pending','correction','counted','replace'])assert.ok(html.includes(dict[`group.status.${state}`]),state);
+ for(const state of ['missing','review','correction','counted','replace'])assert.ok(html.includes(dict[`group.status.${state}`]),state);
  assert.ok(html.includes('href="/rounds/pending-card"'));assert.ok(!html.includes('href="/rounds/correction-card"'));assert.equal((html.replace(/aria-label="[^"]*"/g,'').match(/Invited friend/g)||[]).length,1);
  assert.ok(html.includes(dict['group.linkHint']));assert.ok(html.includes(dict['group.you']));
  const other=renderToStaticMarkup(React.createElement(PersonalLeagueProgress,{data:d,userId:'other',onInvite(){}}));assert.ok(!other.includes('href="/rounds/pending-card"'));
@@ -384,4 +384,36 @@ for(const language of ['fr','en'])test(`${language}: the actual reminder entry p
    const html=renderToStaticMarkup(React.createElement(Page));assert.ok(html.includes(dict[submitted?'cardReturn.sentTitle':'cardReturn.resume']));assert.ok(!html.includes(dict['personal.start']));assert.ok(!html.includes('id="new-card"'));
   }
  }finally{React.useState=state;mockedRpc=originalRpc;mockedSearchParams=new URLSearchParams()}
+});
+
+test('counted cards never hide a newer validation or correction from the organizer',()=>{
+ const {leagueGroupProgress}=load('src/lib/leagueGroupProgress');const d=groupLeague();
+ d.submissions.push({user_id:'ranked',round_id:'new-card',status:'pending',card_status:'pending_validation',validator_id:'owner'});
+ let p=leagueGroupProgress(d,'owner');assert.equal(p.members[3].status,'pending');assert.equal(p.members[3].reviewRound,'new-card');assert.equal(p.toReview,2);assert.equal(p.needsAction,6);assert.equal(p.submitted,4);
+ d.submissions.at(-1).card_status='pending_player_confirmation';p=leagueGroupProgress(d,'owner');assert.equal(p.members[3].status,'correction');assert.equal(p.toReview,1);
+ d.submissions.at(-1).status='superseded';p=leagueGroupProgress(d,'owner');assert.equal(p.members[3].status,'counted');assert.equal(p.needsAction,5);
+});
+test('friend responses move from invitation to first card to validation without false completion',()=>{
+ const {leagueGroupProgress}=load('src/lib/leagueGroupProgress');const d=groupLeague();d.board=[];d.submissions=[];d.organizer_progress.awaiting_join=[{user_id:'friend',player_name:'Friend'}];
+ let p=leagueGroupProgress(d,'owner');assert.equal(p.needsAction,1);assert.equal(p.awaiting.length,1);
+ d.board.push({user_id:'friend',player_name:'Friend',rounds_counted:0});p=leagueGroupProgress(d,'owner');assert.equal(p.awaiting.length,0);assert.equal(p.missing,1);
+ d.submissions.push({user_id:'friend',round_id:'first',status:'pending',card_status:'pending_validation',validator_id:'owner'});p=leagueGroupProgress(d,'owner');assert.equal(p.missing,0);assert.equal(p.submitted,1);assert.equal(p.needsAction,1);assert.equal(p.toReview,1);
+ d.submissions[0].status='accepted';d.submissions[0].card_status='validated';p=leagueGroupProgress(d,'owner');assert.equal(p.needsAction,0);assert.equal(p.toReview,0);assert.equal(p.members[0].status,'received');
+});
+test('league refresh coalesces returning events, pauses when hidden and ignores results after leaving',async()=>{
+ const {PersonalLeaguePanel}=load('src/components/personal/PersonalLeaguePanel');
+ const originals={state:React.useState,effect:React.useEffect,ref:React.useRef,callback:React.useCallback,window:global.window,document:global.document,setTimeout:global.setTimeout,clearTimeout:global.clearTimeout};
+ const effects=[],updates=[],listeners={},timers=new Map();let tick,resolve,requests=0,timerId=0,stateIndex=0;
+ try{
+  React.useState=value=>{const i=stateIndex++;return [value,v=>{if(i===0)updates.push(v)}]};React.useRef=value=>({current:value});React.useCallback=fn=>fn;React.useEffect=fn=>effects.push(fn);
+  global.setTimeout=fn=>{const id=++timerId;timers.set(id,fn);return id};global.clearTimeout=id=>timers.delete(id);
+  const events={addEventListener:(key,fn)=>listeners[key]=fn,removeEventListener:key=>delete listeners[key]};
+  global.window={...events,setInterval:fn=>{tick=fn;return 1},clearInterval:()=>{tick=null}};global.document={...events,visibilityState:'visible'};
+  mockedRpc=()=>{requests++;return new Promise(r=>resolve=r)};
+  const d={...groupLeague(),rules:{...groupLeague().rules,format:'stroke_net',attestation:'peer_required'},board:[],submissions:[],tee:{course_name:'QA',name:'Yellow',hole_count:9}};PersonalLeaguePanel({initial:d,userId:'owner'});
+  const cleanup=effects.at(-1)();listeners.focus();listeners.visibilitychange();assert.equal(timers.size,1);[...timers.values()][0]();assert.equal(requests,1);
+  tick();assert.equal(requests,1);resolve({data:{...d,board:[]},error:null});await new Promise(setImmediate);assert.equal(updates.length,1);
+  document.visibilityState='hidden';tick();assert.equal(requests,1);document.visibilityState='visible';tick();assert.equal(requests,2);
+  cleanup();resolve({data:d,error:null});await new Promise(setImmediate);assert.equal(updates.length,1);assert.equal(tick,null);assert.deepEqual(listeners,{});assert.equal(timers.size,0);
+ }finally{React.useState=originals.state;React.useEffect=originals.effect;React.useRef=originals.ref;React.useCallback=originals.callback;global.window=originals.window;global.document=originals.document;global.setTimeout=originals.setTimeout;global.clearTimeout=originals.clearTimeout;mockedRpc=undefined}
 });
