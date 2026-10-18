@@ -277,3 +277,12 @@ test('one received card is enough for activation even when ranking needs several
  const {leagueGroupProgress}=load('src/lib/leagueGroupProgress');const d=groupLeague();d.board=[{user_id:'owner',player_name:'Me',rounds_counted:1,position:null}];d.submissions=[{user_id:'owner',status:'accepted',card_status:'validated'}];
  const p=leagueGroupProgress(d,'owner');assert.equal(p.missing,0);assert.equal(p.submitted,1);assert.equal(p.members[0].status,'counted');
 });
+for(const language of ['fr','en'])test(`${language}: retained invitations are not offered again when returning to the old-group selector`,()=>{
+ locale=language;const {PersonalLeagueFriends}=load('src/components/personal/PersonalLeagueFriends');
+ const state=React.useState,effect=React.useEffect,ref=React.useRef;let index=0;
+ try{
+  React.useEffect=()=>{};React.useRef=v=>({current:v});React.useState=v=>{const i=index++;return [i===0?[{id:'invited',name:'Still invited',username:'invited'},{id:'joined',name:'Already joined',username:'joined'},{id:'new',name:'Not invited yet',username:'new'}]:i===1?['invited','joined','new']:i===5?false:typeof v==='function'?v():v,()=>{}]};
+  const html=renderToStaticMarkup(PersonalLeagueFriends({sourceId:'old',gameId:'next',userId:'owner',memberIds:['joined'],invitedIds:['invited'],onPrepared(){}}));
+  assert.equal((html.match(/type="checkbox"/g)||[]).length,1);assert.ok(html.includes('Not invited yet'));assert.ok(!html.includes('Still invited'));assert.ok(!html.includes('Already joined'));
+ }finally{React.useState=state;React.useEffect=effect;React.useRef=ref}
+});
