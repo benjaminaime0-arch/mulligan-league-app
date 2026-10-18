@@ -22,6 +22,7 @@ export const DEFAULT_LOCALE: Locale = "fr"
 type Dict = Record<string, string>
 
 export const en: Dict = {
+  "friendCard.jumpWitness": "Choose witness",
   "friendCard.newTitle": "My league scorecard",
   "friendCard.fixedTee": "The league tee is already selected. Enter your new card.",
   "friendCard.notOpen": "This season is not open for card entry. Check its dates in the league.",
@@ -1247,6 +1248,7 @@ export const en: Dict = {
 }
 
 export const fr: Dict = {
+  "friendCard.jumpWitness": "Choisir le témoin",
   "friendCard.newTitle": "Ma carte pour la ligue",
   "friendCard.fixedTee": "Repère de la ligue déjà sélectionné. Saisissez votre nouvelle carte.",
   "friendCard.notOpen": "Cette saison n’est pas ouverte à la saisie. Retrouvez ses dates dans la ligue.",

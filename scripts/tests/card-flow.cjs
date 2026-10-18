@@ -234,3 +234,8 @@ for(const language of ['fr','en']){
   if(language==='fr')assert.ok(!html.includes(' invited you to '));
  });
 }
+test('a complete card missing its witness offers a direct jump instead of a disabled review dead end',()=>{
+ locale='fr';const h=handoffHarness({validator:''});const originalDocument=global.document;let focused=0;
+ global.document={getElementById:id=>id==='card-witness'?{scrollIntoView(){},focus(){focused++}}:null};
+ try{const tree=h.render();let action;function visit(n){if(!n||typeof n!=='object')return;if(n.type==='button'&&React.Children.toArray(n.props.children).includes('Choisir le témoin'))action=n;React.Children.forEach(n.props?.children,visit)}visit(tree);assert.ok(action);assert.equal(action.props.disabled,false);action.props.onClick();assert.equal(focused,1);assert.equal(h.calls.length,0);assert.equal(h.modal(tree).props.confirmDisabled,true)}finally{h.close();global.document=originalDocument}
+});
