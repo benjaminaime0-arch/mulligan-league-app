@@ -5,6 +5,7 @@ import { ValidationTimer } from "./ValidationTimer"
 import { ConfirmModal } from "@/components/ConfirmModal"
 import { QuickScoreEntry } from "./QuickScoreEntry"
 import { PersonalCorrectionDecision } from "./PersonalCorrectionDecision"
+import { PersonalCardStandings } from "./PersonalCardStandings"
 import { PersonalLeagueSubmission } from "./PersonalLeagueSubmission"
 import { cardEntrySummary, withLeagueContext, intendedCardLeague, cardScoresChanged } from "@/lib/personalCardFlow"
 import { AppIcon } from "@/components/ui/AppIcon"
@@ -136,6 +137,7 @@ export function PersonalRoundEditor({
       <p className="mt-1 text-sm text-primary/70">
         {new Date(`${data.round.played_on}T12:00:00`).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" })}
       </p>
+      <PersonalCardStandings data={data} />
       {data.round.status === "pending_player_confirmation" && <PersonalCorrectionDecision data={data} online={autosave.online} busy={busy} onBusyChange={setBusy} onReload={onReload} onResolved={setCorrectionOutcome} />}
       {correctionOutcome !== null && <aside role="status" className="app-surface my-4 p-4"><p className="text-sm font-semibold">{t(correctionOutcome ? "correction.accepted" : "correction.refused")}</p><Link href="/home" className="mt-2 inline-flex min-h-[44px] items-center text-sm font-bold">{t("validation.backInbox")} →</Link></aside>}
       {validatorReview && <aside className="my-4 rounded-xl bg-sage/25 p-4"><h2 className="text-sm font-bold">{t(correcting ? "validation.correctTitle" : "validation.title")}</h2><p className="mt-1 text-xs leading-relaxed text-primary/70">{t(correcting ? "validation.correctHint" : "validation.hint")}</p></aside>}
