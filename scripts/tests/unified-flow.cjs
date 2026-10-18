@@ -14,14 +14,14 @@ function load(relative) {
   const m = new Module(filename, module);
   m.paths = module.paths;
   m.require = name => {
-    if (name === '@/lib/i18n') return {useT: () => (key, vars = {}) => {
+    if (name === '@/lib/i18n') { const t = (key, vars = {}) => {
       const value = load('src/lib/i18n/dictionaries.ts').dictionaries.fr[key];
       assert.ok(value, `Undefined translation: ${key}`);
       return value.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`));
-    }};
+    }; return {useT: () => t, useI18n: () => ({t,locale:"fr"})}; }
     if (name === '@/lib/supabase') return {supabase: {}};
     if (name === 'next/link') return ({children, ...props}) => React.createElement('a', props, children);
-    if (name.startsWith('@/')) return load(`src/${name.slice(2)}.ts`);
+    if (name.startsWith('@/')) { const file=`src/${name.slice(2)}`; return load(fs.existsSync(path.join(root,file+'.tsx'))?file+'.tsx':file+'.ts'); }
     return require(name);
   };
   m._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,filename);
@@ -64,5 +64,5 @@ test('home inbox sends each actor to the card and never assigns a correction a n
   const html=renderToStaticMarkup(React.createElement(PersonalInbox,{items}));
   assert.ok(html.includes('/rounds/card0')&&html.includes('/rounds/card1'));
   assert.equal(html.split('Validation automatique prévue').length-1,1);
-  assert.ok(html.includes('En attente de confirmation de la correction'));
+  assert.ok(html.includes('Examiner la correction proposée'));
 });

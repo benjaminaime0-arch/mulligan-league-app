@@ -1,11 +1,11 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { ValidationTimer } from "./ValidationTimer"
 import { ConfirmModal } from "@/components/ConfirmModal"
 import { QuickScoreEntry } from "./QuickScoreEntry"
 import { PersonalLeagueSubmission } from "./PersonalLeagueSubmission"
-import { cardEntrySummary, withLeagueContext, intendedCardLeague } from "@/lib/personalCardFlow"
+import { cardEntrySummary, withLeagueContext, intendedCardLeague, cardScoresChanged } from "@/lib/personalCardFlow"
 import { AppIcon } from "@/components/ui/AppIcon"
 import { ScoreSummary } from "./ScoreSummary"
 import { useI18n } from "@/lib/i18n"
@@ -44,12 +44,15 @@ export function PersonalRoundEditor({
   const [validator, setValidator] = useState("")
   const [present, setPresent] = useState(false)
   const [correctionReason, setCorrectionReason] = useState("")
+  const [correcting, setCorrecting] = useState(false)
+  const reviewFlight = useRef(false)
   const intended = intendedCardLeague(data.leagues, leagueId)
   const ownerDraft = data.is_owner && data.round.status === "draft"
   const autosave = useCardDraft(data, ownerDraft)
   const holes = ownerDraft ? autosave.state.holes : reviewHoles
+  const playerName = data.events.find(event => event.action === "submitted")?.actor_name
   const validatorReview = !data.is_owner && data.round.status === "pending_validation"
-  const editable = ownerDraft || (validatorReview && autosave.online)
+  const editable = ownerDraft || (validatorReview && correcting && autosave.online)
   const displayTime = (value: string) => new Date(value).toLocaleString(locale, { timeZone: data.round.course_timezone })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -86,13 +89,22 @@ export function PersonalRoundEditor({
     if (ownerDraft) autosave.change(n, patch)
     else setReviewHoles(next)
   }
+  useEffect(() => {
+    setCorrecting(false); setPresent(false); setCorrectionReason("")
+  }, [data.round.id, data.revision?.id, data.round.status])
+  const changed = cardScoresChanged(holes, data.revision?.scores ?? [])
+  const correctionReady = correcting && changed && cardIsComplete(holes, data.tee.hole_count) && correctionReason.trim().length >= 3 && correctionReason.trim().length <= 500
   const review = async (correct: boolean) => {
-    if (!data.revision) return
-    personalResult(await supabase.rpc("review_personal_card", {
-      p_round: data.round.id, p_revision: data.revision.id, p_present: present,
-      p_scores: correct ? holesAsJson(holes) : null, p_reason: correct ? correctionReason : null,
-    }))
-    await onReload()
+    if (!validatorReview || !data.revision || !present || !autosave.online || reviewFlight.current || (correct ? !correctionReady : correcting)) return
+    reviewFlight.current = true
+    try {
+      personalResult(await supabase.rpc("review_personal_card", {
+        p_round: data.round.id, p_revision: data.revision.id, p_present: present,
+        p_scores: correct ? holesAsJson(holes) : null, p_reason: correct ? correctionReason.trim() : null,
+      }))
+      await onReload()
+      setNotice(t(correct ? "validation.correctionSent" : "validation.approved"))
+    } finally { reviewFlight.current = false }
   }
   const resolve = async (accept: boolean) => {
     if (!data.revision) return
@@ -116,7 +128,7 @@ export function PersonalRoundEditor({
       )}
       </details>)
   return (
-    <main className={`app-page !pt-2 ${ownerDraft ? "!pb-28 md:!pb-4" : ""}`}>
+    <main className={`app-page !pt-2 ${ownerDraft ? "!pb-28 md:!pb-4" : validatorReview ? "!pb-44 md:!pb-4" : ""}`}>
       {leagueId && data.is_owner && <aside className="my-2 rounded-xl bg-sage/25 px-4 py-3 text-sm">
         <Link href={`/games/${leagueId}`} className="inline-flex min-h-[44px] items-center font-semibold">{data.leagues.find(g => g.id === leagueId)?.name ?? t("friend.backLeague")} <span className="ml-2" aria-hidden="true">↗</span></Link>
         {intended && data.revision && !ownerDraft && data.round.status !== "disputed" && <a href="#card-league-submission" className={`${personalButton} mt-2 w-full`}>{t("friend.submitLeague")}</a>}
@@ -124,10 +136,13 @@ export function PersonalRoundEditor({
       <Link href={withLeagueContext("/rounds", leagueId)} className="inline-flex min-h-[44px] items-center gap-2 text-xs font-semibold text-primary/70">
         ← {t("personal.cards")}
       </Link>
+      {!data.is_owner && playerName && <p className="mt-2 text-sm font-semibold">{t("validation.playerCard", { name: playerName })}</p>}
       <header className="mt-2 flex items-start gap-3"><span className="app-icon-tile"><AppIcon name="flag" /></span><div className="min-w-0"><h1 className="break-words text-2xl font-bold leading-tight tracking-tight">{data.tee.course_name}</h1><p className="mt-1 text-xs text-primary/70">{t("personal.picker.holeCount", { n: data.tee.hole_count })} · {data.tee.name}</p></div></header>
       <p className="mt-1 text-sm text-primary/70">
         {new Date(`${data.round.played_on}T12:00:00`).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" })}
       </p>
+      {validatorReview && <aside className="my-4 rounded-xl bg-sage/25 p-4"><h2 className="text-sm font-bold">{t(correcting ? "validation.correctTitle" : "validation.title")}</h2><p className="mt-1 text-xs leading-relaxed text-primary/70">{t(correcting ? "validation.correctHint" : "validation.hint")}</p></aside>}
+      {validatorReview && <a href="#card-validation-actions" className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 mx-auto flex min-h-[48px] max-w-[42rem] items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white shadow-lg md:hidden">{t(correcting ? "validation.reviewCorrection" : "validation.reviewDecision")}</a>}
       {ownerDraft && <section className="mt-3 rounded-xl bg-sage/20 px-3 py-2 text-xs" aria-label={t("personal.autosave.title")}>
         <p role="status" className={['conflict', 'blocked', 'storageError', 'invalid', 'session'].includes(autosave.state.status) ? "text-amber-800" : "text-primary/70"}>{t(`personal.autosave.${autosave.state.status}`)}</p>
         {autosave.state.status === "offline" && <p className="mt-1 text-xs text-primary/70">{t("personal.offline.confirmOnline")}</p>}
@@ -142,7 +157,7 @@ export function PersonalRoundEditor({
       </section>}
       <section className="app-surface my-4 p-4" aria-label={t("personal.lifecycle.title")}>
         <h2 className={`app-pill ${data.round.status === "disputed" ? "bg-red-50 text-red-800" : data.round.status.startsWith("pending") ? "bg-amber-50 text-amber-900" : "bg-sage/35"}`}><AppIcon name={data.round.status === "validated" ? "check" : "clock"} className="h-3.5 w-3.5" />{t(`personal.status.${data.round.status}`)}</h2>
-        {!ownerDraft && <p className="mt-3 text-xs text-primary/70">{t("personal.lifecycle.deadline")}: {displayTime(data.round.entry_deadline_at)} ({data.round.course_timezone})</p>}
+        {!ownerDraft && data.is_owner && <p className="mt-3 text-xs text-primary/70">{t("personal.lifecycle.deadline")}: {displayTime(data.round.entry_deadline_at)} ({data.round.course_timezone})</p>}
         {data.round.status === "pending_validation" && data.round.auto_validation_at && (
           <div><p className="mt-2 text-sm">{t("personal.lifecycle.timer")}: {displayTime(data.round.auto_validation_at)} ({data.round.course_timezone})</p><ValidationTimer due={data.round.auto_validation_at} serverNow={data.server_now} /><button className="mt-2 text-sm underline" disabled={busy} onClick={() => void run(onReload)}>{t("personal.refresh")}</button></div>
         )}
@@ -171,17 +186,17 @@ export function PersonalRoundEditor({
             {t("personal.level.title")}: {data.level.value ?? "—"} ·{" "}
             {t(`personal.level.${data.level.status}`)}
           </p>}
-          <p className="mt-2 text-xs text-sage">
+          {!validatorReview && <p className="mt-2 text-xs text-sage">
             {t("personal.lifecycle.lockNotice")}
-          </p>
+          </p>}
         </section>
       )}
-      {error && (
+      {error && !validatorReview && (
         <p role="alert" className="my-3 text-sm text-red-700">
           {error}
         </p>
       )}
-      {notice && (
+      {notice && data.is_owner && (
         <p role="status" className="my-3 text-sm text-emerald-800">
           {notice}
         </p>
@@ -229,15 +244,24 @@ export function PersonalRoundEditor({
           {t("cardFlow.review")}
         </button>
       </div>}
+      {notice && !data.is_owner && <aside role="status" className="app-surface my-4 p-4"><p className="text-sm font-semibold">{notice}</p><Link href="/home" className="mt-2 inline-flex min-h-[44px] items-center text-sm font-bold">{t("validation.backInbox")} →</Link></aside>}
       {ownerDraft && rules}
       {validatorReview && (
-        <section id="card-validation-actions" className="app-surface mt-4 space-y-3 p-4">
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={present} onChange={(e) => setPresent(e.target.checked)} />{t("personal.present")}</label>
-          <button className={personalButton} disabled={busy || !present || !autosave.online} onClick={() => void run(() => review(false))}>{t("personal.approve")}</button>
-          <label className="block text-sm">{t("personal.lifecycle.correctionReason")}
-            <textarea className={personalInput} maxLength={500} value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} />
-          </label>
-          <button className={personalButton} disabled={busy || !present || !complete || !autosave.online || correctionReason.trim().length < 3} onClick={() => void run(() => review(true))}>{t("personal.lifecycle.propose")}</button>
+        <section id="card-validation-actions" className="app-surface mt-4 scroll-mt-20 space-y-3 p-4">
+          <h2 className="font-bold">{t(correcting ? "validation.correctTitle" : "validation.title")}</h2>
+          {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+          {correcting && <label className="block text-sm">{t("personal.lifecycle.correctionReason")}
+            <textarea className={personalInput} maxLength={500} value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} disabled={busy} />
+          </label>}
+          <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-primary/5 p-3 text-sm"><input type="checkbox" checked={present} disabled={busy || !autosave.online} onChange={(e) => setPresent(e.target.checked)} className="h-5 w-5 shrink-0 accent-primary" />{t("personal.present")}</label>
+          {correcting ? <>
+            <button className={`${personalButton} w-full`} disabled={busy || !present || !autosave.online || !correctionReady} onClick={() => void run(() => review(true))}>{t("personal.lifecycle.propose")}</button>
+            <button className="min-h-[44px] text-sm font-semibold underline" disabled={busy} onClick={() => { setCorrecting(false); setReviewHoles(makeHoles()); setCorrectionReason(""); setPresent(false) }}>{t("validation.cancelCorrection")}</button>
+          </> : <>
+            <button className={`${personalButton} w-full`} disabled={busy || !present || !autosave.online} onClick={() => void run(() => review(false))}>{t("validation.approve")}</button>
+            <button className="min-h-[44px] text-sm font-semibold underline" disabled={busy || !autosave.online} onClick={() => { setCorrecting(true); window.requestAnimationFrame(() => document.getElementById("holes-1")?.scrollIntoView({ block: "start" })) }}>{t("validation.correct")}</button>
+          </>}
+          {!autosave.online && <p role="status" className="text-xs text-amber-800">{t("personal.offline.confirmOnline")}</p>}
         </section>
       )}
       {data.round.status === "pending_player_confirmation" && (

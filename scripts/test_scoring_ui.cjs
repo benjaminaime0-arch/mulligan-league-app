@@ -104,8 +104,8 @@ assert.ok(confirmButton && /\sdisabled(?:=|\s|$)/.test(confirmButton[1]), 'unver
 assert.ok(unverifiedHtml.includes('verified rating, slope'), 'missing reference data must be explained')
 assert.ok(!personalHtml.includes('>Confirm card</button>'), 'validated card must have no confirm/edit workflow')
 const reviewHtml = renderPersonalCard({ ...cardFixture, is_owner: false, round: { ...cardFixture.round, status: 'pending_validation', auto_validation_at: '2026-10-16T10:00:00Z' } })
-assert.ok(reviewHtml.includes('Par /<br/>Index') && !reviewHtml.includes('Par / SI'), 'validator score grid uses Index');
-assert.ok(reviewHtml.includes('Propose corrected scores') && reviewHtml.includes('Attest card'), 'validator must get review/correction actions')
+assert.ok(reviewHtml.includes('>Index</th>') && !reviewHtml.includes('Par / SI') && !reviewHtml.includes('type="number"'), 'validator starts with a read-only score table using Index');
+assert.ok(reviewHtml.includes('Correct a score') && reviewHtml.includes('Validate these scores') && !reviewHtml.includes('<textarea'), 'validator gets deliberate correction and approval actions')
 assert.ok(!reviewHtml.includes('Submit this revision'), 'validator cannot submit owner card')
 const disputeHtml = renderPersonalCard({ ...cardFixture, round: { ...cardFixture.round, status: 'disputed' } })
 assert.ok(disputeHtml.toLowerCase().includes('permanently excluded') && !disputeHtml.includes('Submit this revision'), 'disputed cards cannot be reused')

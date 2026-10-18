@@ -36,3 +36,11 @@ export function withLeagueContext(path: string, leagueId?: string | null): strin
 export function intendedCardLeague(leagues: CardLeague[], leagueId?: string | null): string | null {
   return groupCardLeagues(leagues).eligible.find(g => g.id === leagueContext(leagueId))?.id ?? null
 }
+
+export function cardScoresChanged(scores: PersonalHole[], original: PersonalHole[]): boolean {
+  const previous = new Map(original.map(h => [h.hole_number, h]))
+  return scores.length !== original.length || scores.some(h => {
+    const before = previous.get(h.hole_number)
+    return !before || h.completion !== before.completion || h.strokes !== before.strokes
+  })
+}

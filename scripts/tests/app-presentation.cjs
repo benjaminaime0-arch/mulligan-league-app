@@ -93,3 +93,11 @@ test('top-three preview preserves server rank and score rather than array positi
   const html=render({...base,standing:{...base.standing,leaders:[{userId:'tied',name:'Tied player',position:2,total:144}]}});
   assert.ok(html.includes('Tied player')); assert.ok(/>2<\/span>/.test(html)); assert.ok(/>144<\/span>/.test(html));
 });
+
+test('known scorecard notifications use French copy while unknown messages retain their source text',()=>{
+ const base={id:'qa',type:'personal_card',title:'Card awaiting your validation',body:'Review the card or propose a correction within 72 hours.',data:{round_id:'card'},read_at:null,created_at:'2026-10-18T10:00:00Z'};
+ const html=renderToStaticMarkup(React.createElement(NotificationItem,{notification:base,onTap(){}}));
+ assert.ok(html.includes('Une carte à valider'));assert.ok(html.includes('sous 72 heures'));assert.ok(!html.includes('Card awaiting your validation'));
+ const fallback=renderToStaticMarkup(React.createElement(NotificationItem,{notification:{...base,title:'New future event',body:'Original message'},onTap(){}}));
+ assert.ok(fallback.includes('New future event'));assert.ok(fallback.includes('Original message'));
+});
