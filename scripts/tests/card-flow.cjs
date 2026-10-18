@@ -1,8 +1,8 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),ts=require('typescript'),React=require('react');
 const {renderToStaticMarkup}=require('react-dom/server');
-const root=path.resolve(__dirname,'../..');let locale='fr';let mockedDraft;const cache=new Map();
+const root=path.resolve(__dirname,'../..');let locale='fr';let mockedDraft;let mockedRpc;const cache=new Map();
 function load(relative){let file=path.join(root,relative);if(!path.extname(file))file+=fs.existsSync(file+'.tsx')?'.tsx':'.ts';if(cache.has(file))return cache.get(file);const m=new Module(file,module);m.paths=module.paths;m.require=name=>{
- if(name==='@/lib/supabase')return{supabase:{}};
+ if(name==='@/lib/supabase')return{supabase:{rpc:(...args)=>mockedRpc?.(...args)}};
  if(name==='@/lib/useCardDraft')return{useCardDraft:()=>mockedDraft};
  if(name==='next/link')return({children,...p})=>React.createElement('a',p,children);
  if(name==='@/lib/i18n'){const t=(key,vars={})=>{const value=load('src/lib/i18n/dictionaries').dictionaries[locale][key];assert.ok(value,key);return value.replace(/\{(\w+)\}/g,(_,k)=>String(vars[k]??`{${k}}`))};return{useT:()=>t,useI18n:()=>({t,locale})};}
@@ -40,8 +40,8 @@ test('keyboard review obeys the same rating, session, offline and conflict gates
  locale='en';const {PersonalRoundEditor}=load('src/components/personal/PersonalRoundEditor');const {ConfirmModal}=load('src/components/ConfirmModal');
  const scores=Array.from({length:9},(_,i)=>({hole_number:i+1,completion:'completed',strokes:5}));
  const base={is_owner:true,round:{id:'gate-card',tee_id:'tee',status:'draft',played_on:'2026-10-15',entry_deadline_at:'2026-10-17T00:00:00Z',course_timezone:'Europe/Paris',handicap_index:18,handicap_source:'declared_official'},tee:{ready:true,hole_count:9,name:'Yellow',course_name:'Rueil'},reference_holes:scores.map(h=>({hole_number:h.hole_number,par:4,stroke_index:h.hole_number})),holes:scores,events:[],revisions:[],validators:[],leagues:[]};
- const originalState=React.useState,originalEffect=React.useEffect;
- try {React.useEffect=()=>{};
+ const originalState=React.useState,originalEffect=React.useEffect,originalRef=React.useRef;
+ try {React.useEffect=()=>{};React.useRef=value=>({current:value});
   for(const scenario of [{status:'saved',online:true,ready:true,allowed:true},{status:'saved',online:true,ready:false},...['offline','conflict','blocked','session','invalid','storageError'].map(status=>({status,online:true,ready:true})),{status:'saved',online:false,ready:true}]){
    let opened=false,flushed=0,index=0;
    React.useState=initial=>{const current=index++;return[typeof initial==='function'?initial():initial,value=>{if(current===1&&value===true)opened=true}]};
@@ -51,7 +51,7 @@ test('keyboard review obeys the same rating, session, offline and conflict gates
    assert.ok(entry&&modal);entry.props.onDone();assert.equal(opened,!!scenario.allowed,JSON.stringify(scenario));assert.equal(modal.props.confirmDisabled,!scenario.allowed);
    if(!scenario.allowed){modal.props.onConfirm();assert.equal(flushed,0,'blocked keyboard or modal must not save/confirm');}
   }
- }finally{React.useState=originalState;React.useEffect=originalEffect;mockedDraft=undefined}
+ }finally{React.useState=originalState;React.useEffect=originalEffect;React.useRef=originalRef;mockedDraft=undefined}
 });
 
 test('league handoff survives new and existing card paths, rejecting malformed destinations',()=>{
@@ -83,4 +83,37 @@ test('an eligible invited league is preselected, while submission still requires
   const html=renderToStaticMarkup(React.createElement(PersonalLeagueSubmission,{...props,leagueId:id,data:{...data,leagues:[league]}}));
   assert.ok(!html.includes('type="checkbox"'));assert.ok(!html.includes('checked=""'));
  }
+});
+
+function receivedCard(count=18){
+ const scores=Array.from({length:count},(_,i)=>({hole_number:i+1,completion:'completed',strokes:5}));
+ return {is_owner:false,server_now:'2026-10-18T10:00:00Z',round:{id:'qa-review',status:'pending_validation',played_on:'2026-10-18',course_timezone:'Europe/Paris',entry_deadline_at:'2026-10-20T00:00:00Z',auto_validation_at:'2026-10-21T10:00:00Z',handicap_index:18,handicap_source:'default_54'},tee:{ready:true,course_name:'QA',name:'Yellow',hole_count:count},revision:{id:'revision-1',revision_number:1,scores,gross_total:count*5},reference_holes:scores.map(h=>({hole_number:h.hole_number,par:4,stroke_index:h.hole_number})),holes:scores,events:[],revisions:[],validators:[],leagues:[]};
+}
+for(const language of ['fr','en'])for(const count of [9,18])test(`${language} ${count}: received cards start read-only with an action shortcut and explicit presence gate`,()=>{
+ locale=language;const data=receivedCard(count);mockedDraft={online:true,ready:true,state:{status:'saved',holes:data.holes}};
+ try {const {PersonalRoundEditor}=load('src/components/personal/PersonalRoundEditor');const html=renderToStaticMarkup(React.createElement(PersonalRoundEditor,{data,onReload:async()=>{}}));
+  assert.ok(!html.includes('type="number"'));assert.ok(html.includes('href="#card-validation-actions"'));assert.ok(html.includes('type="checkbox"'));assert.ok(!html.includes('checked=""'));assert.ok(html.includes('disabled=""'));assert.ok(!html.includes('<textarea'));assert.equal((html.match(/<tr class="border-t/g)||[]).length,count);
+ }finally{mockedDraft=undefined}
+});
+test('correction detection compares actual hole scores and pickup states, not array order',()=>{
+ const {cardScoresChanged}=load('src/lib/personalCardFlow');const original=receivedCard(9).holes;
+ assert.equal(cardScoresChanged([...original].reverse(),original),false);
+ assert.equal(cardScoresChanged(original.map((h,i)=>i? h:{...h,strokes:6}),original),true);
+ assert.equal(cardScoresChanged(original.map((h,i)=>i? h:{...h,completion:'picked_up',strokes:null}),original),true);
+});
+test('review and correction actions preserve attendance, offline and changed-score gates',async()=>{
+ const {PersonalRoundEditor}=load('src/components/personal/PersonalRoundEditor');
+ const originalState=React.useState,originalEffect=React.useEffect,originalRef=React.useRef;
+ const calls=[];const data=receivedCard(9);let state=[],index=0,online=true;const flight={current:false};
+ function visit(node,predicate){if(!node||typeof node!=='object')return null;if(predicate(node))return node;for(const child of React.Children.toArray(node.props?.children)){const found=visit(child,predicate);if(found)return found}return null}
+ const button=(tree,label)=>visit(tree,n=>n.type==='button'&&n.props.children===label);
+ const render=()=>{index=0;mockedDraft={online,ready:true,state:{status:'saved',holes:data.holes}};return PersonalRoundEditor({data,onReload:async()=>{}})};
+ try{
+  locale='fr';React.useEffect=()=>{};React.useRef=()=>flight;React.useState=initial=>{const i=index++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return[state[i],value=>{state[i]=typeof value==='function'?value(state[i]):value}]};mockedRpc=async(...args)=>{calls.push(args);return{data:{success:true},error:null}};
+  let tree=render();let approve=button(tree,'Valider ces scores');assert.ok(approve.props.disabled);approve.props.onClick();await Promise.resolve();assert.equal(calls.length,0);
+  state[3]=true;online=false;tree=render();assert.ok(button(tree,'Valider ces scores').props.disabled);button(tree,'Valider ces scores').props.onClick();await Promise.resolve();assert.equal(calls.length,0);
+  online=true;state[5]=true;state[4]='QA correction';tree=render();assert.equal(button(tree,'Valider ces scores'),null);assert.ok(button(tree,'Proposer les scores corrigés').props.disabled,'unchanged scores cannot be proposed');
+  state[0]=data.holes.map((h,i)=>i? h:{...h,strokes:6});tree=render();assert.equal(button(tree,'Proposer les scores corrigés').props.disabled,false);button(tree,'Proposer les scores corrigés').props.onClick();await Promise.resolve();assert.equal(calls.length,1);assert.equal(calls[0][0],'review_personal_card');assert.equal(calls[0][1].p_present,true);assert.equal(calls[0][1].p_scores[0].strokes,6);assert.equal(calls[0][1].p_reason,'QA correction');
+  await Promise.resolve();await Promise.resolve();flight.current=false;state=[];tree=render();state[3]=true;tree=render();approve=button(tree,'Valider ces scores');approve.props.onClick();approve.props.onClick();await Promise.resolve();assert.equal(calls.length,2,'repeated tap cannot create duplicate reviews');assert.equal(calls[1][1].p_scores,null,'approval validates the unchanged revision');
+ }finally{React.useState=originalState;React.useEffect=originalEffect;React.useRef=originalRef;mockedDraft=undefined;mockedRpc=undefined}
 });
