@@ -1,4 +1,6 @@
 "use client"
+import { PersonalLeagueValidation } from "./PersonalLeagueValidation"
+import { leagueValidationQueue } from "@/lib/leagueValidationQueue"
 import Link from "next/link"
 import { useState } from "react"
 import { leagueReminders, reminderMessage } from "@/lib/leagueReminders"
@@ -14,6 +16,7 @@ export function PersonalLeagueProgress({ data, userId, onInvite }: { data: Perso
   const [origin, setOrigin] = useState("")
   if (!data.organizer_progress) return null
   const progress = leagueGroupProgress(data, userId)
+  const hasPending = leagueValidationQueue(data, userId).length > 0
   const members = [...progress.members].sort((a, b) => Number(!!b.reviewRound) - Number(!!a.reviewRound) || Number(["counted", "received"].includes(a.status)) - Number(["counted", "received"].includes(b.status)))
   const reminders = leagueReminders(data, userId, todayInLeague(data.rules.timezone))
   const reminder = reminders.find(person => `${person.id}:${person.kind}` === selected)
@@ -26,7 +29,8 @@ export function PersonalLeagueProgress({ data, userId, onInvite }: { data: Perso
     <h2 className="font-bold">{t("group.title")}</h2>
     <p className="mt-1 text-xs leading-relaxed text-primary/70">{t("group.summary", { joined: progress.members.length, submitted: progress.submitted })}</p>
     <p role="status" className="mt-2 text-xs font-semibold">{t(progress.needsAction ? "group.followUp" : "group.upToDate", { n: progress.needsAction })}{progress.toReview > 0 && <span className="mt-1 block text-primary/70">{t("group.toReview", { n: progress.toReview })}</span>}</p>
-    <details className="mt-2" open={progress.needsAction > 0 || progress.members.length <= 6}>
+    {hasPending && <div className="mt-3"><PersonalLeagueValidation data={data} userId={userId} /></div>}
+    <details className="mt-2" open={!hasPending && (progress.needsAction > 0 || progress.members.length <= 6)}>
       <summary className="min-h-[44px] cursor-pointer py-3 text-xs font-semibold">{t("group.roster")}</summary>
       <ul className="divide-y divide-primary/10">{members.map(member => <li key={member.user_id} className="flex min-h-[64px] items-center justify-between gap-3 py-3">
         <div className="min-w-0"><p className="break-words text-sm font-semibold">{member.player_name}{member.user_id === userId && <span className="font-normal text-primary/60"> · {t("group.you")}</span>}</p><p className="mt-1 text-xs leading-relaxed text-primary/70">{t(member.reviewRound ? "group.status.review" : `group.status.${member.status}`)}</p></div>

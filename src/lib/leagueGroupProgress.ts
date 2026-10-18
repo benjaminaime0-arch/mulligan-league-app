@@ -16,6 +16,6 @@ export function leagueGroupProgress(data: PersonalLeague, viewer: string) {
   const ids = new Set(members.map(m => m.user_id))
   const awaiting = Array.from(new Map((data.organizer_progress?.awaiting_join ?? []).filter(p => !ids.has(p.user_id)).map(p => [p.user_id, p])).values())
   const needsAction = members.filter(m => !["counted", "received"].includes(m.status)).length + awaiting.length
-  const toReview = members.filter(m => m.reviewRound).length
+  const toReview = data.submissions.filter(card => card.status === "pending" && card.card_status === "pending_validation" && card.validator_id === viewer).length
   return { members, awaiting, needsAction, toReview, submitted: members.filter(m => m.submitted).length, missing: members.filter(m => !m.submitted).length }
 }

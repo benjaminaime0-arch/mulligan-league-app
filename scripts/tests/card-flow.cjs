@@ -417,3 +417,38 @@ test('league refresh coalesces returning events, pauses when hidden and ignores 
   cleanup();resolve({data:d,error:null});await new Promise(setImmediate);assert.equal(updates.length,1);assert.equal(tick,null);assert.deepEqual(listeners,{});assert.equal(timers.size,0);
  }finally{React.useState=originals.state;React.useEffect=originals.effect;React.useRef=originals.ref;React.useCallback=originals.callback;global.window=originals.window;global.document=originals.document;global.setTimeout=originals.setTimeout;global.clearTimeout=originals.clearTimeout;mockedRpc=undefined}
 });
+function validationLeague(){
+ const d=groupLeague();d.game.name='Friends Cup';
+ d.submissions=d.submissions.map((card,i)=>({...card,player_name:d.board.find(m=>m.user_id===card.user_id).player_name,id:`submission-${i}`,round_id:`10000000-0000-4000-8000-${String(i+1).padStart(12,'0')}`,played_on:'2026-10-18',revision_number:1}));
+ d.submissions[0].validator_id='ranked';return d;
+}
+test('pending cards name the witness; corrections switch responsibility to the player',()=>{
+ const {leagueValidationQueue}=load('src/lib/leagueValidationQueue');const {leagueValidationReminders}=load('src/lib/leagueReminders');const d=validationLeague();
+ let queue=leagueValidationQueue(d,'owner');assert.equal(queue.length,2);assert.equal(queue[0].actorId,'ranked');assert.equal(queue[0].actorName,'Already counted');assert.equal(queue[1].actorId,'correcting');assert.equal(queue[1].actorName,'Correction');
+ let reminders=leagueValidationReminders(d,'owner');assert.deepEqual(reminders.map(r=>[r.id,r.kind]),[['ranked','validation'],['correcting','correction']]);
+ const url=new URL(reminders[0].path,'https://app.mulliganclub.co');assert.equal(url.searchParams.get('tab'),'login');assert.equal(url.searchParams.get('redirect'),`/rounds/${d.submissions[0].round_id}`);
+ const {signupRedirectPath}=load('src/lib/signupFlow');assert.equal(signupRedirectPath(url.searchParams.get('redirect')),`/rounds/${d.submissions[0].round_id}`);
+ d.submissions[0].card_status='pending_player_confirmation';queue=leagueValidationQueue(d,'owner');assert.equal(queue[0].actorId,'waiting');assert.equal(queue[0].kind,'correction');assert.ok(!leagueValidationReminders(d,'owner').some(r=>r.id==='ranked'));
+});
+test('review reminders survive league closing but exclude self, unknown witnesses, terminal and superseded cards',()=>{
+ const {leagueValidationReminders}=load('src/lib/leagueReminders');const {leagueValidationQueue}=load('src/lib/leagueValidationQueue');const d=validationLeague();
+ d.closure_status='closed_provisional';d.game.end_date='2020-01-01';assert.equal(leagueValidationReminders(d,'owner').length,2);
+ d.submissions[0].validator_id='owner';assert.equal(leagueValidationReminders(d,'owner').length,1);assert.equal(leagueValidationQueue(d,'owner')[0].mine,true);
+ d.submissions[0].validator_id='outside';assert.equal(leagueValidationReminders(d,'owner').length,1);assert.equal(leagueValidationQueue(d,'owner')[0].actorName,undefined);
+ d.submissions[0].round_id='//evil.example';assert.equal(leagueValidationQueue(d,'owner').length,1);
+ d.submissions[1].status='superseded';assert.equal(leagueValidationQueue(d,'owner').length,0);
+ assert.deepEqual(leagueValidationReminders({...validationLeague(),organizer_progress:null},'owner'),[]);
+});
+for(const language of ['fr','en'])test(`${language}: pending-card UI names the real actor, protects review access and prepares a card-specific message`,()=>{
+ locale=language;const {PersonalLeagueValidation}=load('src/components/personal/PersonalLeagueValidation');const {leagueValidationReminders,reminderMessage}=load('src/lib/leagueReminders');const dict=load('src/lib/i18n/dictionaries').dictionaries[language];const d=validationLeague();
+ const html=renderToStaticMarkup(React.createElement(PersonalLeagueValidation,{data:d,userId:'owner'}));
+ assert.ok(html.includes(dict['validationQueue.title']));assert.ok(html.includes(dict['reminder.title'].replace('{name}','Already counted')));assert.ok(html.includes(dict['reminder.title'].replace('{name}','Correction')));assert.ok(!html.includes('href="/rounds/'));
+ d.submissions[0].validator_id='owner';const own=renderToStaticMarkup(React.createElement(PersonalLeagueValidation,{data:d,userId:'owner'}));assert.ok(own.includes(`href="/rounds/${d.submissions[0].round_id}"`));assert.ok(own.includes(dict['validationQueue.action.validation']));
+ const t=(key,vars)=>dict[key].replace(/\{(\w+)\}/g,(_,k)=>vars[k]);
+ for(const reminder of leagueValidationReminders(validationLeague(),'owner')){const msg=reminderMessage(reminder,d.game.name,'https://app.mulliganclub.co',t);assert.ok(msg.includes(reminder.name));assert.ok(msg.includes('2026-10-18'));assert.ok(msg.includes(d.game.name));assert.ok(msg.endsWith(new URL(reminder.path,'https://app.mulliganclub.co').href));if(reminder.kind==='validation')assert.ok(msg.includes(reminder.player));}
+});
+test('an open validation reminder closes when responsibility, revision or card state changes',()=>{
+ const {PersonalLeagueValidation}=load('src/components/personal/PersonalLeagueValidation');const {LeagueReminderDialog}=load('src/components/personal/LeagueReminderDialog');const {leagueValidationQueue}=load('src/lib/leagueValidationQueue');const state=React.useState;const d=validationLeague();const key=leagueValidationQueue(d,'owner')[0].key;
+ function dialog(data){let index=0;try{React.useState=v=>[index++===0?key:'https://app.mulliganclub.co',()=>{}];const tree=PersonalLeagueValidation({data,userId:'owner'});let found=false;function visit(n){if(!n||typeof n!=='object')return;if(n.type===LeagueReminderDialog)found=true;React.Children.forEach(n.props?.children,visit)}visit(tree);return found}finally{React.useState=state}}
+ assert.equal(dialog(d),true);d.submissions[0].card_status='pending_player_confirmation';assert.equal(dialog(d),false);d.submissions[0].card_status='pending_validation';d.submissions[0].revision_number=2;assert.equal(dialog(d),false);d.submissions[0].revision_number=1;d.submissions[0].status='accepted';assert.equal(dialog(d),false);
+});

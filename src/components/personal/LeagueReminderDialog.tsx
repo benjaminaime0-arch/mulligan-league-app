@@ -2,9 +2,9 @@
 import { useRef, useState } from "react"
 import { ConfirmModal } from "@/components/ConfirmModal"
 import { useI18n } from "@/lib/i18n"
-import { copyLeagueReminder, reminderWhatsAppUrl } from "@/lib/leagueReminders"
+import { copyLeagueReminder, reminderWhatsAppUrl, type LeagueReminder } from "@/lib/leagueReminders"
 
-export function LeagueReminderDialog({ name, message, kind, onClose }: { name: string; message: string; kind?: "join" | "card"; onClose: () => void }) {
+export function LeagueReminderDialog({ name, message, kind, onClose }: { name: string; message: string; kind?: LeagueReminder["kind"]; onClose: () => void }) {
   const { t } = useI18n()
   const [feedback, setFeedback] = useState<"copied" | "failed" | null>(null)
   const [busy, setBusy] = useState(false)
