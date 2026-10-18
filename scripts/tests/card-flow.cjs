@@ -241,7 +241,7 @@ test('a complete card missing its witness offers a direct jump instead of a disa
 });
 
 function groupLeague() {
- return {closure_status:'open',game:{id:'group'},board:[
+ return {closure_status:'open',game:{id:'bc1d81e4-ff1e-4ea8-b91f-95e198fe8d9a',start_date:'2020-01-01',end_date:'2099-01-01',invite_code:'ABC123'},rules:{tee_id:'281b6df9-2dd6-41dc-b937-ad49a35538f7',timezone:'Europe/Paris'},board:[
   {user_id:'owner',player_name:'Organizer',rounds_counted:0},
   {user_id:'waiting',player_name:'Waiting witness',rounds_counted:0},
   {user_id:'correcting',player_name:'Correction',rounds_counted:0},
@@ -268,8 +268,8 @@ for(const language of ['fr','en'])test(`${language}: compact organizer roster na
  locale=language;const {PersonalLeagueProgress}=load('src/components/personal/PersonalLeagueProgress');const d=groupLeague(),dict=load('src/lib/i18n/dictionaries').dictionaries[language];
  const html=renderToStaticMarkup(React.createElement(PersonalLeagueProgress,{data:d,userId:'owner',onInvite(){}}));
  for(const state of ['missing','pending','correction','counted','replace'])assert.ok(html.includes(dict[`group.status.${state}`]),state);
- assert.ok(html.includes('href="/rounds/pending-card"'));assert.ok(!html.includes('href="/rounds/correction-card"'));assert.equal((html.match(/Invited friend/g)||[]).length,1);
- assert.ok(html.includes(dict['group.linkHint']));assert.ok(html.includes(dict['group.you']));assert.ok(!html.includes('remind'));
+ assert.ok(html.includes('href="/rounds/pending-card"'));assert.ok(!html.includes('href="/rounds/correction-card"'));assert.equal((html.replace(/aria-label="[^"]*"/g,'').match(/Invited friend/g)||[]).length,1);
+ assert.ok(html.includes(dict['group.linkHint']));assert.ok(html.includes(dict['group.you']));
  const other=renderToStaticMarkup(React.createElement(PersonalLeagueProgress,{data:d,userId:'other',onInvite(){}}));assert.ok(!other.includes('href="/rounds/pending-card"'));
  const hidden=renderToStaticMarkup(React.createElement(PersonalLeagueProgress,{data:{...d,organizer_progress:null},userId:'owner',onInvite(){}}));assert.equal(hidden,'');
 });
@@ -285,4 +285,48 @@ for(const language of ['fr','en'])test(`${language}: retained invitations are no
   const html=renderToStaticMarkup(PersonalLeagueFriends({sourceId:'old',gameId:'next',userId:'owner',memberIds:['joined'],invitedIds:['invited'],onPrepared(){}}));
   assert.equal((html.match(/type="checkbox"/g)||[]).length,1);assert.ok(html.includes('Not invited yet'));assert.ok(!html.includes('Still invited'));assert.ok(!html.includes('Already joined'));
  }finally{React.useState=state;React.useEffect=effect;React.useRef=ref}
+});
+
+test('reminders target only invited non-members and friends with no first submission',()=>{
+ const {leagueReminders}=load('src/lib/leagueReminders');const d=groupLeague();d.board.push({user_id:'first',player_name:'First card friend',rounds_counted:0});
+ const reminders=leagueReminders(d,'owner','2026-10-18');assert.deepEqual(reminders.map(r=>[r.id,r.kind]),[['invited','join'],['first','card']]);
+ assert.equal(reminders[0].path,'/join/ABC123');const auth=new URL(reminders[1].path,'https://app.mulliganclub.co');assert.equal(auth.searchParams.get('tab'),'login');
+ const entry=new URL(auth.searchParams.get('redirect'),auth.origin);assert.equal(entry.pathname,'/rounds');assert.equal(entry.searchParams.get('league'),d.game.id);assert.equal(entry.searchParams.get('tee'),d.rules.tee_id);
+ const {signupRedirectPath}=load('src/lib/signupFlow');assert.equal(signupRedirectPath(auth.searchParams.get('redirect')),entry.pathname+entry.search);
+ for(const state of ['finalized','closed_provisional'])assert.deepEqual(leagueReminders({...d,closure_status:state},'owner','2026-10-18'),[]);
+ assert.deepEqual(leagueReminders({...d,organizer_progress:null},'owner','2026-10-18'),[]);assert.deepEqual(leagueReminders(d,'owner','2100-01-01'),[]);
+ const future={...d,game:{...d.game,start_date:'2026-11-01'}};assert.deepEqual(leagueReminders(future,'owner','2026-10-18').map(r=>r.kind),['join']);
+ const changed={...d,submissions:[...d.submissions,{user_id:'first',status:'pending',card_status:'pending_validation'}],board:[...d.board,{user_id:'invited',player_name:'Just joined',rounds_counted:0}]};
+ const updated=leagueReminders(changed,'owner','2026-10-18');assert.ok(!updated.some(r=>r.id==='first'));assert.equal(updated.find(r=>r.id==='invited').kind,'card');
+});
+test('malformed invitation or tee destinations never create reminder links',()=>{
+ const {leagueReminders}=load('src/lib/leagueReminders');const d=groupLeague();d.board.push({user_id:'first',player_name:'First',rounds_counted:0});
+ assert.deepEqual(leagueReminders({...d,game:{...d.game,id:'//evil.example',invite_code:'../../evil'}},'owner','2026-10-18'),[]);
+ assert.ok(!leagueReminders({...d,rules:{...d.rules,tee_id:'../other'}},'owner','2026-10-18').some(r=>r.kind==='card'));
+});
+for(const language of ['fr','en'])test(`${language}: reminder copy is personal, stage-specific and safely encoded for WhatsApp`,()=>{
+ locale=language;const {leagueReminders,reminderMessage,reminderWhatsAppUrl}=load('src/lib/leagueReminders');const d=groupLeague();d.board.push({user_id:'first',player_name:'Émile & friends',rounds_counted:0});const dict=load('src/lib/i18n/dictionaries').dictionaries[language];
+ const t=(key,vars)=>dict[key].replace(/\{(\w+)\}/g,(_,k)=>vars[k]);
+ for(const reminder of leagueReminders(d,'owner','2026-10-18')){
+  const message=reminderMessage(reminder,'Coupe A&B #1','https://app.mulliganclub.co',t);assert.ok(message.includes(reminder.name));assert.ok(message.includes('Coupe A&B #1'));assert.ok(message.endsWith(new URL(reminder.path,'https://app.mulliganclub.co').href));
+  const whatsApp=new URL(reminderWhatsAppUrl(message));assert.equal(whatsApp.origin,'https://wa.me');assert.equal(whatsApp.searchParams.get('text'),message);assert.equal([...whatsApp.searchParams.keys()].length,1);
+ }
+});
+test('copy feedback waits for success and a denied or unavailable clipboard never reports sending',async()=>{
+ const {copyLeagueReminder}=load('src/lib/leagueReminders');let copied;assert.equal(await copyLeagueReminder('Hi friend',{writeText:async text=>{copied=text}}),'copied');assert.equal(copied,'Hi friend');
+ assert.equal(await copyLeagueReminder('Hi friend'),'failed');assert.equal(await copyLeagueReminder('Hi friend',{writeText:async()=>{throw Error('Denied')}}),'failed');
+});
+for(const language of ['fr','en'])test(`${language}: organizer reminders exclude self and pending/counting cards, and show a reviewable message`,()=>{
+ locale=language;const {PersonalLeagueProgress}=load('src/components/personal/PersonalLeagueProgress');const {LeagueReminderDialog}=load('src/components/personal/LeagueReminderDialog');const d=groupLeague();d.board.push({user_id:'first',player_name:'First card friend',rounds_counted:0});
+ const html=renderToStaticMarkup(React.createElement(PersonalLeagueProgress,{data:d,userId:'owner',onInvite(){}}));const dict=load('src/lib/i18n/dictionaries').dictionaries[language];
+ const title=name=>dict['reminder.title'].replace('{name}',name);assert.ok(html.includes(title('First card friend')));assert.ok(html.includes(title('Invited friend')));
+ for(const name of ['Organizer','Waiting witness','Correction','Already counted','Replacement'])assert.ok(!html.includes(title(name)),name);
+ const dialog=renderToStaticMarkup(React.createElement(LeagueReminderDialog,{name:'First card friend',message:'Preview & link',onClose(){}}));assert.ok(dialog.includes('role="dialog"'));assert.ok(dialog.includes(dict['reminder.hint']));assert.ok(dialog.includes(dict['reminder.copy']));assert.ok(dialog.includes('Preview &amp; link'));assert.ok(!dialog.includes(dict['reminder.copied']));
+});
+test('an open reminder disappears when refresh shows the friend joined or submitted',()=>{
+ locale='fr';const {PersonalLeagueProgress}=load('src/components/personal/PersonalLeagueProgress');const {LeagueReminderDialog}=load('src/components/personal/LeagueReminderDialog');const state=React.useState;
+ function hasDialog(data,selected){let index=0;try{React.useState=initial=>[index++===0?selected:'https://app.mulliganclub.co',()=>{}];const tree=PersonalLeagueProgress({data,userId:'owner',onInvite(){}});let found=false;function visit(n){if(!n||typeof n!=='object')return;if(n.type===LeagueReminderDialog)found=true;React.Children.forEach(n.props?.children,visit)}visit(tree);return found;}finally{React.useState=state}}
+ const d=groupLeague();assert.equal(hasDialog(d,'invited:join'),true);
+ const joined={...d,board:[...d.board,{user_id:'invited',player_name:'Invited friend',rounds_counted:0}]};assert.equal(hasDialog(joined,'invited:join'),false);assert.equal(hasDialog(joined,'invited:card'),true);
+ const submitted={...joined,submissions:[...joined.submissions,{user_id:'invited',status:'pending',card_status:'pending_validation'}]};assert.equal(hasDialog(submitted,'invited:card'),false);
 });
