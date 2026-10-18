@@ -1,10 +1,11 @@
+import { leagueCorrectionResults } from "./leagueCorrectionResults"
 import { leagueValidationQueue } from "./leagueValidationQueue"
 import type { PersonalLeague } from "./personalRounds"
 import { leagueGroupProgress } from "./leagueGroupProgress"
 import { leagueCardWindow } from "./cardLeagueReview"
 import { leagueContext } from "./personalCardFlow"
 
-export type LeagueReminder = { id: string; name: string; kind: "join" | "card" | "validation" | "correction"; path: string; player?: string; playedOn?: string }
+export type LeagueReminder = { id: string; name: string; kind: "join" | "card" | "validation" | "correction" | "replace"; path: string; player?: string; playedOn?: string }
 
 /** A reminder is a message to prepare, never proof of sending or completion. */
 export function leagueReminders(data: PersonalLeague, viewer: string, today: string): LeagueReminder[] {
@@ -20,8 +21,9 @@ export function leagueReminders(data: PersonalLeague, viewer: string, today: str
   if (leagueContext(data.game.id) && leagueContext(data.rules.tee_id) && leagueCardWindow(data, today).open) {
     // Public context first; membership and card state are checked after sign-in.
     const path = `/join/${encodeURIComponent(data.game.invite_code)}?reminder=card`
-    for (const member of progress.members) if (member.user_id !== viewer && member.status === "missing") {
-      result.push({ id: member.user_id, name: member.player_name, kind: "card", path })
+    const replacements = new Set(leagueCorrectionResults(data).filter(result => result.refused && result.remaining > 0 && !result.pending).map(result => result.card.user_id))
+    for (const member of progress.members) if (member.user_id !== viewer && (member.status === "missing" || replacements.has(member.user_id))) {
+      result.push({ id: member.user_id, name: member.player_name, kind: member.status === "replace" ? "replace" : "card", path })
     }
   }
   return result
