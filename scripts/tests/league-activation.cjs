@@ -108,3 +108,37 @@ test('cancelling native sharing does not claim that an invitation was prepared',
   assert.equal(controls.prepared(), 0);
   assert.equal(controls.events.length, 0);
 });
+
+const {leagueHasEnded,nextLeagueDefaults,leagueWinners,sourceLeagueId,todayInLeague,inviteReturningFriends}=load('nextLeague.ts');
+function completedLeague(overrides={}) { return { closure_status:'finalized', game:{name:'Friends Cup',end_date:'2026-10-17',scoring_cards_count:3}, rules:{tee_id:'tee',duration_months:2,format:'stroke_net',attestation:'peer_required'}, board:[{user_id:'a',position:1,rounds_counted:3},{user_id:'b',position:2,rounds_counted:3}],...overrides }; }
+test('ended seasons preserve editable course and rules, and reset to a current start date',()=>{
+  const source=completedLeague();const d=nextLeagueDefaults(source,'2026-10-18');
+  assert.equal(d.name,'Friends Cup');assert.equal(d.tee,'tee');assert.equal(d.start,'2026-10-18');assert.equal(d.months,2);assert.equal(d.format,'stroke_net');assert.equal(d.cards,3);assert.equal(d.witness,true);
+  assert.equal(source.game.end_date,'2026-10-17');
+  assert.equal(nextLeagueDefaults(source,'2026-11-02').start,'2026-11-02');
+});
+test('historical duration falls back to one month and live leagues cannot be reused',()=>{
+  const source=completedLeague();source.rules.duration_months=null;source.rules.attestation='self_declared';
+  assert.equal(nextLeagueDefaults(source,'2026-10-18').months,1);assert.equal(nextLeagueDefaults(source,'2026-10-18').witness,false);
+  for(const closure_status of ['open','upcoming','unknown']){assert.equal(leagueHasEnded({...source,closure_status}),false);assert.equal(nextLeagueDefaults({...source,closure_status},'2026-10-18'),null);}
+  assert.equal(leagueHasEnded({...source,closure_status:'closed_provisional'}),true);
+});
+test('final winners respect ties and qualification; provisional standings never crown anyone',()=>{
+  const source=completedLeague();assert.equal(leagueWinners(source).length,1);
+  source.board[1].position=1;assert.equal(leagueWinners(source).length,2);
+  source.board[0].rounds_counted=2;assert.equal(leagueWinners(source).length,1);
+  source.board[1].rounds_counted=0;assert.equal(leagueWinners(source).length,0);
+  assert.equal(leagueWinners(completedLeague({closure_status:'closed_provisional'})).length,0);
+});
+test('repeat source accepts only UUIDs and course-local dates handle midnight boundaries',()=>{
+  assert.equal(sourceLeagueId('10bfef1f-7ada-496c-95e9-efa579b063c9'),'10bfef1f-7ada-496c-95e9-efa579b063c9');
+  for(const invalid of [null,undefined,'','https://evil.example','../game','<script>'])assert.equal(sourceLeagueId(invalid),null);
+  assert.equal(todayInLeague('Europe/Paris',new Date('2026-10-17T22:30:00Z')),'2026-10-18');
+});
+test('invitations keep partial success, accept server duplicates and permit failed-only retries',async()=>{
+  const calls=[];const friends=['a','b','c','d'].map(id=>({id,username:id}));
+  const result=await inviteReturningFriends(friends,async username=>{calls.push(username);if(username==='b')throw new Error('network');return username==='c'?{duplicate:true}:username==='d'?{}:{sent:true};});
+  assert.equal(Array.from(result.successes).join(','),'a,c');assert.equal(Array.from(result.failures).join(','),'b,d');assert.equal(calls.join(','),'a,b,c,d');
+  const retry=await inviteReturningFriends(friends.filter(f=>result.failures.includes(f.id)),async()=>({duplicate:true}));
+  assert.equal(retry.successes.length,2);assert.equal(retry.failures.length,0);
+});

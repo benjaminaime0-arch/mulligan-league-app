@@ -236,3 +236,17 @@ for (const language of ['fr','en']) {
     }
   });
 }
+
+const { PersonalSeasonEnd } = load('src/components/personal/PersonalSeasonEnd.tsx');
+for(const language of ['fr','en']){
+  test(`${language}: ended league replaces add-card/invitation dead ends with next-league and final outcome`,()=>{
+    locale=language;const data=standingsFixture();data.game.name='Friends';data.game.start_date='2026-09-18';data.game.end_date='2026-10-17';data.tee={course_name:'QA course',hole_count:9,name:'Yellow'};data.closure_status='finalized';
+    let html=renderToStaticMarkup(React.createElement(PersonalLeaguePanel,{initial:data,userId:'owner'}));
+    assert.ok(html.includes('/games/create?from=league'));assert.ok(html.includes(dictionary[language]['season.next']));
+    assert.ok(html.includes(dictionary[language]['season.final']));assert.ok(!html.includes(dictionary[language]['personal.addOrSubmit']));
+    assert.ok(!html.includes('id="league-invitation"'));assert.ok(!html.includes(dictionary[language]['standings.replacement']));
+    assert.ok(html.includes(dictionary[language]['season.winner'].replace('{name}','QA')));
+    data.closure_status='closed_provisional';html=renderToStaticMarkup(React.createElement(PersonalSeasonEnd,{data}));
+    assert.ok(html.includes(dictionary[language]['season.provisional']));assert.ok(!html.includes(dictionary[language]['season.winner'].replace('{name}','QA')));assert.ok(html.includes('#league-cards'));
+  });
+}
